@@ -815,7 +815,8 @@ if CUSTOM_NAME:
                         r.raw.decode_content = True
                         shutil.copyfileobj(r.raw, f)
 
-            WEBUI_NAME = data["name"]
+            # WEBUI_NAME = data["name"]
+            WEBUI_NAME = "Travel Tip System"
     except Exception as e:
         log.exception(e)
         pass

@@ -49,13 +49,13 @@
 	import UpdateInfoToast from '$lib/components/layout/UpdateInfoToast.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 
-	const i18n = getContext('i18n');
+	const i18n = getContext('i18n') as any;
 
 	let loaded = false;
-	let DB = null;
-	let localDBChats = [];
+	let DB: any = null;
+	let localDBChats: any[] = [];
 
-	let version;
+	let version: any;
 
 	onMount(async () => {
 		if ($user === undefined || $user === null) {
@@ -67,7 +67,7 @@
 
 				if (DB) {
 					const chats = await DB.getAllFromIndex('chats', 'timestamp');
-					localDBChats = chats.map((item, idx) => chats[chats.length - 1 - idx]);
+					localDBChats = chats.map((_item: any, idx: number) => chats[chats.length - 1 - idx]);
 
 					if (localDBChats.length === 0) {
 						await deleteDB('Chats');
@@ -108,13 +108,13 @@
 			models.set(
 				await getModels(
 					localStorage.token,
-					$config?.features?.enable_direct_connections && ($settings?.directConnections ?? null)
+					$config?.features?.enable_direct_connections ? ($settings?.directConnections ?? null) : null
 				)
 			);
 
 			banners.set(await getBanners(localStorage.token));
 			tools.set(await getTools(localStorage.token));
-			toolServers.set(await getToolServersData($i18n, $settings?.toolServers ?? []));
+			toolServers.set(await (getToolServersData($i18n, $settings?.toolServers ?? []) as any));
 
 			document.addEventListener('keydown', async function (event) {
 				const isCtrlPressed = event.ctrlKey || event.metaKey; // metaKey is for Cmd key on Mac
@@ -146,7 +146,7 @@
 				if (isCtrlPressed && isShiftPressed && event.key === ';') {
 					event.preventDefault();
 					console.log('copyLastCodeBlock');
-					const button = [...document.getElementsByClassName('copy-code-button')]?.at(-1);
+					const button = [...document.getElementsByClassName('copy-code-button')]?.at(-1) as HTMLElement;
 					button?.click();
 				}
 
@@ -154,7 +154,7 @@
 				if (isCtrlPressed && isShiftPressed && event.key.toLowerCase() === 'c') {
 					event.preventDefault();
 					console.log('copyLastResponse');
-					const button = [...document.getElementsByClassName('copy-response-button')]?.at(-1);
+					const button = [...document.getElementsByClassName('copy-response-button')]?.at(-1) as HTMLElement;
 					console.log(button);
 					button?.click();
 				}
@@ -215,7 +215,7 @@
 			});
 
 			if ($user?.role === 'admin' && ($settings?.showChangelog ?? true)) {
-				showChangelog.set($settings?.version !== $config.version);
+				showChangelog.set(($settings as any)?.version !== $config?.version);
 			}
 
 			if ($user?.role === 'admin' || ($user?.permissions?.chat?.temporary ?? true)) {
@@ -235,7 +235,7 @@
 					const dismissedUpdateToast = new Date(Number(localStorage.dismissedUpdateToast));
 					const now = new Date();
 
-					if (now - dismissedUpdateToast > 24 * 60 * 60 * 1000) {
+					if (now.getTime() - dismissedUpdateToast.getTime() > 24 * 60 * 60 * 1000) {
 						checkForVersionUpdates();
 					}
 				} else {
