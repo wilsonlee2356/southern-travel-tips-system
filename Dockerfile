@@ -30,10 +30,12 @@ WORKDIR /app
 RUN apk add --no-cache git
 
 COPY package.json package-lock.json ./
-RUN npm ci --force
+RUN npm ci --force --legacy-peer-deps
 
 COPY . .
 ENV APP_BUILD_HASH=${BUILD_HASH}
+# Fix for rollup platform-specific dependencies
+RUN rm -rf node_modules package-lock.json && npm install --legacy-peer-deps
 RUN npm run build
 
 ######## WebUI backend ########
