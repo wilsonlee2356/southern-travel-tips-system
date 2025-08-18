@@ -146,18 +146,10 @@
 		const tempId = uuidv4();
 		folders = {
 			...folders,
-			tempId: {
-				id: tempId,
-				name: name,
-				created_at: Date.now(),
-				updated_at: Date.now()
-			}
+			tempId: { id: tempId, name: name, created_at: Date.now(), updated_at: Date.now() }
 		};
 
-		const res = await createNewFolder(localStorage.token, {
-			name,
-			data
-		}).catch((error) => {
+		const res = await createNewFolder(localStorage.token, { name, data }).catch((error) => {
 			toast.error(`${error}`);
 			return null;
 		});
@@ -565,7 +557,7 @@
 					</Tooltip>
 				</div>
 
-				<div class="">
+				<!-- <div class="">
 					<Tooltip content={$i18n.t('Search')} placement="right">
 						<button
 							class=" cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
@@ -582,9 +574,9 @@
 							</div>
 						</button>
 					</Tooltip>
-				</div>
+				</div> -->
 
-				{#if ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))}
+				<!-- {#if ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))}
 					<div class="">
 						<Tooltip content={$i18n.t('Notes')} placement="right">
 							<a
@@ -605,7 +597,7 @@
 							</a>
 						</Tooltip>
 					</div>
-				{/if}
+				{/if} -->
 
 				<div class="">
 					<Tooltip content={$i18n.t('Post')} placement="right">
@@ -622,12 +614,15 @@
 							draggable="false"
 						>
 							<div class=" self-center flex items-center justify-center size-9">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									viewBox="0 0 24 24"
-									class="size-4.5"
-								>
-									<path d="M3 3h18v18h-18z M8 8h8v8h-8z M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M16 7a1 1 0 1 0 0-2a1 1 0 1 0 0 2" fill="none" stroke="black" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4.5">
+									<path
+										d="M3 3h18v18h-18z M8 8h8v8h-8z M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M16 7a1 1 0 1 0 0-2a1 1 0 1 0 0 2"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.5"
+										stroke-linejoin="round"
+										stroke-linecap="round"
+									/>
 								</svg>
 							</div>
 						</a>
@@ -780,7 +775,7 @@
 					</a>
 				</div>
 
-				<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
+				<!-- <div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
 					<button
 						class="grow flex items-center space-x-3 rounded-lg px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition outline-none"
 						on:click={() => {
@@ -796,9 +791,9 @@
 							<div class=" self-center text-sm font-primary">{$i18n.t('Search')}</div>
 						</div>
 					</button>
-				</div>
+				</div> -->
 
-				{#if ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))}
+				<!-- {#if ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))}
 					<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
 						<a
 							class="grow flex items-center space-x-3 rounded-lg px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
@@ -815,7 +810,7 @@
 							</div>
 						</a>
 					</div>
-				{/if}
+				{/if} -->
 
 				<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
 					<a
@@ -824,13 +819,16 @@
 						on:click={itemClickHandler}
 						draggable="false"
 					>
-																									<div class="self-center">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 24 24"
-								class="size-4.5"
-							>
-																	<path d="M3 3h18v18h-18z M8 8h8v8h-8z M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M16 7a1 1 0 1 0 0-2a1 1 0 1 0 0 2" fill="none" stroke="black" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+						<div class="self-center">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4.5">
+								<path
+									d="M3 3h18v18h-18z M8 8h8v8h-8z M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M16 7a1 1 0 1 0 0-2a1 1 0 1 0 0 2"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linejoin="round"
+									stroke-linecap="round"
+								/>
 							</svg>
 						</div>
 

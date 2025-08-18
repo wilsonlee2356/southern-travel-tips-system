@@ -119,7 +119,7 @@
 							</div>
 						</button>
 					</Menu>
-				{:else if $mobile}
+				<!-- {:else if $mobile}
 					<Tooltip content={$i18n.t('Controls')}>
 						<button
 							class=" flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"
@@ -132,10 +132,10 @@
 								<AdjustmentsHorizontal className=" size-5" strokeWidth="0.5" />
 							</div>
 						</button>
-					</Tooltip>
+					</Tooltip> -->
 				{/if}
 
-				{#if !$mobile}
+				<!-- {#if !$mobile}
 					<Tooltip content={$i18n.t('Controls')}>
 						<button
 							class=" flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"
@@ -149,7 +149,7 @@
 							</div>
 						</button>
 					</Tooltip>
-				{/if}
+				{/if} -->
 
 				<Tooltip content={$i18n.t('New Chat')}>
 					<button
