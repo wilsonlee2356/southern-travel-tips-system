@@ -112,11 +112,7 @@
 		files: files
 			.filter((file) => file.type !== 'image')
 			.map((file) => {
-				return {
-					...file,
-					user: undefined,
-					access_control: undefined
-				};
+				return { ...file, user: undefined, access_control: undefined };
 			}),
 		selectedToolIds,
 		selectedFilterIds,
@@ -153,13 +149,7 @@
 			}
 
 			if (imageUrl) {
-				files = [
-					...files,
-					{
-						type: 'image',
-						url: imageUrl
-					}
-				];
+				files = [...files, { type: 'image', url: imageUrl }];
 			}
 
 			text = text.replaceAll('{{CLIPBOARD}}', clipboardText);
@@ -456,10 +446,7 @@
 
 	const scrollToBottom = () => {
 		const element = document.getElementById('messages-container');
-		element.scrollTo({
-			top: element.scrollHeight,
-			behavior: 'smooth'
-		});
+		element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
 	};
 
 	const screenCaptureHandler = async () => {
@@ -540,9 +527,7 @@
 					(file.type.startsWith('audio/') || file.type.startsWith('video/')) &&
 					$settings?.audio?.stt?.language
 				) {
-					metadata = {
-						language: $settings?.audio?.stt?.language
-					};
+					metadata = { language: $settings?.audio?.stt?.language };
 				}
 
 				// During the file upload, file content is automatically extracted.
@@ -693,13 +678,7 @@
 
 					imageUrl = await compressImageHandler(imageUrl, $settings, $config);
 
-					files = [
-						...files,
-						{
-							type: 'image',
-							url: `${imageUrl}`
-						}
-					];
+					files = [...files, { type: 'image', url: `${imageUrl}` }];
 				};
 				reader.readAsDataURL(
 					file['type'] === 'image/heic'
@@ -902,13 +881,7 @@
 								if (files.find((f) => f.id === data.id)) {
 									return;
 								}
-								files = [
-									...files,
-									{
-										...data,
-										status: 'processed'
-									}
-								];
+								files = [...files, { ...data, status: 'processed' }];
 							} else {
 								dispatch('upload', e);
 							}
@@ -1286,10 +1259,7 @@
 																	reader.onload = function (e) {
 																		files = [
 																			...files,
-																			{
-																				type: 'image',
-																				url: `${e.target.result}`
-																			}
+																			{ type: 'image', url: `${e.target.result}` }
 																		];
 																	};
 
@@ -1311,9 +1281,7 @@
 																			const file = new File(
 																				[blob],
 																				`Pasted_Text_${Date.now()}.txt`,
-																				{
-																					type: 'text/plain'
-																				}
+																				{ type: 'text/plain' }
 																			);
 
 																			await uploadFileHandler(file, true);
@@ -1537,13 +1505,7 @@
 															const reader = new FileReader();
 
 															reader.onload = function (e) {
-																files = [
-																	...files,
-																	{
-																		type: 'image',
-																		url: `${e.target.result}`
-																	}
-																];
+																files = [...files, { type: 'image', url: `${e.target.result}` }];
 															};
 
 															reader.readAsDataURL(blob);
@@ -1786,7 +1748,7 @@
 									<div class="self-end flex space-x-1 mr-1 shrink-0">
 										<!-- {#if (!history?.currentId || history.messages[history.currentId]?.done == true) && ($_user?.role === 'admin' || ($_user?.permissions?.chat?.stt ?? true))}
 											<!-- {$i18n.t('Record voice')} -->
-											<!-- <Tooltip content={$i18n.t('Dictate')}>
+										<!-- <Tooltip content={$i18n.t('Dictate')}>
 												<button
 													id="voice-input-button"
 													class=" text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200 transition rounded-full p-1.5 mr-0.5 self-center"
@@ -1832,7 +1794,7 @@
 													</svg>
 												</button>
 											</Tooltip> -->
-										<!-- {/if} --> 
+										<!-- {/if} -->
 
 										{#if (taskIds && taskIds.length > 0) || (history.currentId && history.messages[history.currentId]?.done != true) || generating}
 											<div class=" flex items-center">
@@ -1858,10 +1820,10 @@
 													</button>
 												</Tooltip>
 											</div>
-										<!-- {:else if prompt === '' && files.length === 0 && ($_user?.role === 'admin' || ($_user?.permissions?.chat?.call ?? true))}
+											<!-- {:else if prompt === '' && files.length === 0 && ($_user?.role === 'admin' || ($_user?.permissions?.chat?.call ?? true))}
 											<div class=" flex items-center">
 												<!-- {$i18n.t('Call')} -->
-												<!-- <Tooltip content={$i18n.t('Voice mode')}>
+											<!-- <Tooltip content={$i18n.t('Voice mode')}>
 													<button
 														class=" bg-black text-white hover:bg-gray-900 dark:bg-white dark:text-black dark:hover:bg-gray-100 transition rounded-full p-1.5 self-center"
 														type="button"
@@ -1921,7 +1883,7 @@
 													</button>
 												</Tooltip> -->
 											<!-- </div> -->
-										<!-- {:else if false}  -->
+											<!-- {:else if false}  -->
 										{:else}
 											<div class=" flex items-center">
 												<Tooltip content={$i18n.t('Send message')}>

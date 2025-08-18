@@ -89,7 +89,7 @@
 				<div class=" self-center truncate">{$i18n.t('Settings')}</div>
 			</DropdownMenu.Item>
 
-			<DropdownMenu.Item
+			<!-- <DropdownMenu.Item
 				class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer"
 				on:click={async () => {
 					show = false;
@@ -107,7 +107,7 @@
 					<ArchiveBox className="size-5" strokeWidth="1.5" />
 				</div>
 				<div class=" self-center truncate">{$i18n.t('Archived Chats')}</div>
-			</DropdownMenu.Item>
+			</DropdownMenu.Item> -->
 
 			{#if role === 'admin'}
 				<DropdownMenu.Item
@@ -146,41 +146,39 @@
 				</DropdownMenu.Item>
 			{/if}
 
-			{#if help}
+			{#if help && $user?.role === 'admin'}
 				<hr class=" border-gray-50 dark:border-gray-800 my-1 p-0" />
 
 				<!-- {$i18n.t('Help')} -->
 
-				{#if $user?.role === 'admin'}
-					<DropdownMenu.Item
-						as="a"
-						class="flex gap-2 items-center py-1.5 px-3 text-sm select-none w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition"
-						id="chat-share-button"
-						on:click={() => {
-							show = false;
-						}}
-						href="https://docs.openwebui.com"
-					>
-						<QuestionMarkCircle className="size-5" />
-						<div class="flex items-center">{$i18n.t('Documentation')}</div>
-					</DropdownMenu.Item>
-
-					<!-- Releases -->
-					<DropdownMenu.Item
-						as="a"
-						class="flex gap-2 items-center py-1.5 px-3 text-sm select-none w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition"
-						id="chat-share-button"
-						on:click={() => {
-							show = false;
-						}}
-						href="https://github.com/open-webui/"
-					>
-						<Map className="size-5" />
-						<div class="flex items-center">{$i18n.t('Releases')}</div>
-					</DropdownMenu.Item>
-				{/if}
-
 				<DropdownMenu.Item
+					as="a"
+					class="flex gap-2 items-center py-1.5 px-3 text-sm select-none w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition"
+					id="chat-share-button"
+					on:click={() => {
+						show = false;
+					}}
+					href="https://docs.openwebui.com"
+				>
+					<QuestionMarkCircle className="size-5" />
+					<div class="flex items-center">{$i18n.t('Documentation')}</div>
+				</DropdownMenu.Item>
+
+				<!-- Releases -->
+				<DropdownMenu.Item
+					as="a"
+					class="flex gap-2 items-center py-1.5 px-3 text-sm select-none w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition"
+					id="chat-share-button"
+					on:click={() => {
+						show = false;
+					}}
+					href="https://github.com/open-webui/"
+				>
+					<Map className="size-5" />
+					<div class="flex items-center">{$i18n.t('Releases')}</div>
+				</DropdownMenu.Item>
+
+				<!-- <DropdownMenu.Item
 					class="flex gap-2 items-center py-1.5 px-3 text-sm select-none w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition cursor-pointer"
 					id="chat-share-button"
 					on:click={async () => {
@@ -195,7 +193,7 @@
 				>
 					<Keyboard className="size-5" />
 					<div class="flex items-center">{$i18n.t('Keyboard shortcuts')}</div>
-				</DropdownMenu.Item>
+				</DropdownMenu.Item> -->
 			{/if}
 
 			<hr class=" border-gray-50 dark:border-gray-800 my-1 p-0" />
