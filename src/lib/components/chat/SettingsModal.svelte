@@ -613,7 +613,7 @@
 								</div>
 								<div class=" self-center">{$i18n.t('General')}</div>
 							</button>
-						{:else if tabId === 'interface'}
+							<!-- {:else if tabId === 'interface'}
 							<button
 								role="tab"
 								aria-controls="tab-interface"
@@ -648,7 +648,7 @@
 									</svg>
 								</div>
 								<div class=" self-center">{$i18n.t('Interface')}</div>
-							</button>
+							</button> -->
 						{:else if tabId === 'connections'}
 							{#if $user?.role === 'admin' || ($user?.role === 'user' && $config?.features?.enable_direct_connections)}
 								<button
@@ -723,7 +723,7 @@
 									<div class=" self-center">{$i18n.t('Tools')}</div>
 								</button>
 							{/if}
-						{:else if tabId === 'personalization'}
+							<!-- {:else if tabId === 'personalization'}
 							<button
 								role="tab"
 								aria-controls="tab-personalization"
@@ -746,8 +746,8 @@
 									<User />
 								</div>
 								<div class=" self-center">{$i18n.t('Personalization')}</div>
-							</button>
-						{:else if tabId === 'audio'}
+							</button> -->
+							<!-- {:else if tabId === 'audio'}
 							<button
 								role="tab"
 								aria-controls="tab-audio"
@@ -783,8 +783,8 @@
 									</svg>
 								</div>
 								<div class=" self-center">{$i18n.t('Audio')}</div>
-							</button>
-						{:else if tabId === 'chats'}
+							</button> -->
+							<!-- {:else if tabId === 'chats'}
 							<button
 								role="tab"
 								aria-controls="tab-chats"
@@ -819,7 +819,7 @@
 									</svg>
 								</div>
 								<div class=" self-center">{$i18n.t('Chats')}</div>
-							</button>
+							</button> -->
 						{:else if tabId === 'account'}
 							<button
 								role="tab"
@@ -856,7 +856,7 @@
 								</div>
 								<div class=" self-center">{$i18n.t('Account')}</div>
 							</button>
-						{:else if tabId === 'about'}
+							<!-- {:else if tabId === 'about'}
 							<button
 								role="tab"
 								aria-controls="tab-about"
@@ -891,7 +891,7 @@
 									</svg>
 								</div>
 								<div class=" self-center">{$i18n.t('About')}</div>
-							</button>
+							</button> -->
 						{/if}
 					{/each}
 				{:else}
@@ -939,13 +939,13 @@
 							toast.success($i18n.t('Settings saved successfully!'));
 						}}
 					/>
-				{:else if selectedTab === 'interface'}
+					<!-- {:else if selectedTab === 'interface'}
 					<Interface
 						{saveSettings}
 						on:save={() => {
 							toast.success($i18n.t('Settings saved successfully!'));
 						}}
-					/>
+					/> -->
 				{:else if selectedTab === 'connections'}
 					<Connections
 						saveSettings={async (updated) => {
@@ -960,22 +960,22 @@
 							toast.success($i18n.t('Settings saved successfully!'));
 						}}
 					/>
-				{:else if selectedTab === 'personalization'}
+					<!-- {:else if selectedTab === 'personalization'}
 					<Personalization
 						{saveSettings}
 						on:save={() => {
 							toast.success($i18n.t('Settings saved successfully!'));
 						}}
-					/>
-				{:else if selectedTab === 'audio'}
+					/> -->
+					<!-- {:else if selectedTab === 'audio'}
 					<Audio
 						{saveSettings}
 						on:save={() => {
 							toast.success($i18n.t('Settings saved successfully!'));
 						}}
-					/>
-				{:else if selectedTab === 'chats'}
-					<Chats {saveSettings} />
+					/> -->
+					<!-- {:else if selectedTab === 'chats'}
+					<Chats {saveSettings} /> -->
 				{:else if selectedTab === 'account'}
 					<Account
 						{saveSettings}
@@ -983,8 +983,8 @@
 							toast.success($i18n.t('Settings saved successfully!'));
 						}}
 					/>
-				{:else if selectedTab === 'about'}
-					<About />
+					<!-- {:else if selectedTab === 'about'}
+					<About /> -->
 				{/if}
 			</div>
 		</div>

@@ -93,7 +93,7 @@
 			<div class="w-1/2 p-6 border-r border-gray-200 dark:border-gray-700">
 				<div class="max-w-lg mx-auto">
 					<h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">
-						Instagram Post
+						Blog post
 					</h1>
 					
 					<!-- Image Upload -->
