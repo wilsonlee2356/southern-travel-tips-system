@@ -629,6 +629,36 @@
 					</Tooltip>
 				</div>
 
+				<div class="">
+					<Tooltip content={$i18n.t('Flight Search')} placement="right">
+						<a
+							class=" cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
+							href="/flight-search"
+							on:click={async (e) => {
+								e.stopImmediatePropagation();
+								e.preventDefault();
+
+								goto('/flight-search');
+								itemClickHandler();
+							}}
+							draggable="false"
+						>
+							<div class=" self-center flex items-center justify-center size-9">
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4.5">
+									<path
+										d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.5"
+										stroke-linejoin="round"
+										stroke-linecap="round"
+									/>
+								</svg>
+							</div>
+						</a>
+					</Tooltip>
+				</div>
+
 				{#if false}
 					<div class="">
 						<Tooltip content={$i18n.t('Workspace')} placement="right">
@@ -815,6 +845,32 @@
 				<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
 					<a
 						class="grow flex items-center space-x-3 rounded-lg px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+						href="/flight-search"
+						on:click={itemClickHandler}
+						draggable="false"
+					>
+						<div class="self-center">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4.5">
+								<path
+									d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linejoin="round"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</div>
+
+						<div class="flex self-center translate-y-[0.5px]">
+							<div class=" self-center text-sm font-primary">{$i18n.t('Flight Search')}</div>
+						</div>
+					</a>
+				</div>
+
+				<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
+					<a
+						class="grow flex items-center space-x-3 rounded-lg px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
 						href="/post"
 						on:click={itemClickHandler}
 						draggable="false"
@@ -837,6 +893,8 @@
 						</div>
 					</a>
 				</div>
+
+				
 
 				{#if false}
 					<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">

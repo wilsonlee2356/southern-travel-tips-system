@@ -1,6 +1,8 @@
 <script>
 	import { mobile, showArchivedChats, showSidebar, user } from '$lib/stores';
 	import { getContext } from 'svelte';
+	import { onMount } from 'svelte';
+	import { getFlightDataFromStorage, createFlightPostContent } from '$lib/utils/flightPostHandler.js';
 
 	const i18n = getContext('i18n');
 
@@ -9,11 +11,53 @@
 	import Sidebar from '$lib/components/icons/Sidebar.svelte';
 
 	// Tab state
-	let activeTab = 'instagram';
+	let activeTab = 'website-blog';
 	
 	// Form content state
 	let postContent = '';
 	let postHashtags = '';
+	
+	// Website blog form fields
+	let header = '';
+	let firstComment = '';
+	let airlineName = '';
+	let returnPrice = '';
+	let extraComment = '';
+	let departureDate = '';
+	let flightTime = '';
+	let ticketValidity = '';
+	let luggageInfo = '';
+	let summary = '';
+
+	// Handle incoming flight data from flight search
+	onMount(() => {
+		const flightData = getFlightDataFromStorage();
+		if (flightData) {
+			// Populate form fields with flight data
+			airlineName = flightData.airline;
+			returnPrice = flightData.returnPrice.toString();
+			departureDate = flightData.departureDate;
+			flightTime = flightData.flightTime;
+			luggageInfo = flightData.luggageInfo;
+			
+			// Set default values for other fields
+			header = `Flight Deal: ${flightData.airline}`;
+			firstComment = `Great flight deal found! ${flightData.airline} from ${flightData.startingPlace} to ${flightData.destination}`;
+			extraComment = `Departure: ${new Date(flightData.departureDate).toLocaleDateString()}\nFlight Time: ${flightData.flightTime}\nPrice: $${flightData.returnPrice}`;
+			ticketValidity = flightData.ticketValidDate;
+			
+			// Create a comprehensive summary
+			if (flightData.multipleFlights) {
+				summary = `Found ${flightData.flightCount} great flight deals!\n\nTotal Price: $${flightData.returnPrice}\nRoutes: ${flightData.allRoutes}\n\nPerfect for multi-city travel or group bookings.`;
+			} else {
+				summary = `Excellent flight deal with ${flightData.airline}!\n\nRoute: ${flightData.startingPlace} → ${flightData.destination}\nPrice: $${flightData.returnPrice}\nClass: ${flightData.seatClass}\n\nBook now before prices increase!`;
+			}
+			
+			// Auto-generate post content for social media
+			postContent = createFlightPostContent(flightData);
+			postHashtags = `#FlightDeals #Travel #${flightData.airline.replace(/\s+/g, '')} #TravelTips #CheapFlights`;
+		}
+	});
 </script>
 
 <div
@@ -110,6 +154,19 @@
 					<div class="mb-8">
 						<div class="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
 							<button
+								class="flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors {activeTab === 'website-blog' 
+									? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' 
+									: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+								on:click={() => activeTab = 'website-blog'}
+							>
+								<div class="flex items-center justify-center gap-2">
+									<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+										<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+									</svg>
+									Website Blog
+								</div>
+							</button>
+							<button
 								class="flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors {activeTab === 'instagram' 
 									? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' 
 									: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
@@ -139,71 +196,275 @@
 					</div>
 					
 					<h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">
-						{activeTab === 'instagram' ? 'Instagram' : 'Facebook'} Post
+						{activeTab === 'website-blog' ? 'Website Blog' : activeTab === 'instagram' ? 'Instagram' : 'Facebook'} Post
 					</h1>
 
-					<!-- Image Upload -->
-					<div class="mb-6">
-						<label for="image-upload" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-							Images
-						</label>
-						<div
-							id="image-upload"
-							class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer"
-						>
-							<svg
-								class="mx-auto h-12 w-12 text-gray-400"
-								stroke="currentColor"
-								fill="none"
-								viewBox="0 0 48 48"
-							>
-								<path
-									d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								/>
-							</svg>
-							<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-								Click to upload images or drag and drop
-							</p>
-							<p class="text-xs text-gray-500 dark:text-gray-500">PNG, JPG, GIF up to 10MB</p>
+					{#if activeTab === 'website-blog'}
+						<!-- Website Blog Form Fields -->
+						
+						<!-- Header -->
+						<div class="mb-6">
+							<label for="header" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Header
+							</label>
+							<input
+								id="header"
+								type="text"
+								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
+								placeholder="Enter blog header..."
+								bind:value={header}
+							/>
 						</div>
-					</div>
 
-					<!-- Content Text -->
-					<div class="mb-6">
-						<label for="post-content" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-							Content
-						</label>
-						<textarea
-							id="post-content"
-							class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100 resize-none"
-							rows="6"
-							placeholder="Write your post content here..."
-							bind:value={postContent}
-						></textarea>
-					</div>
+						<!-- First Comment -->
+						<div class="mb-6">
+							<label for="first-comment" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								First Comment
+							</label>
+							<textarea
+								id="first-comment"
+								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100 resize-none"
+								rows="3"
+								placeholder="Enter first comment..."
+								bind:value={firstComment}
+							></textarea>
+						</div>
 
-					<!-- Hashtags -->
-					<div class="mb-6">
-						<label for="post-hashtags" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-							Hashtags
-						</label>
-						<input
-							id="post-hashtags"
-							type="text"
-							class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
-							placeholder="#travel #adventure #photography"
-							bind:value={postHashtags}
-						/>
-					</div>
+						<!-- Airline Name -->
+						<div class="mb-6">
+							<label for="airline-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Airline Name
+							</label>
+							<input
+								id="airline-name"
+								type="text"
+								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
+								placeholder="Enter airline name..."
+								bind:value={airlineName}
+							/>
+						</div>
+
+						<!-- Return Price -->
+						<div class="mb-6">
+							<label for="return-price" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Return Price
+							</label>
+							<input
+								id="return-price"
+								type="text"
+								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
+								placeholder="Enter return price..."
+								bind:value={returnPrice}
+							/>
+						</div>
+
+						<!-- Extra Comment -->
+						<div class="mb-6">
+							<label for="extra-comment" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Extra Comment
+							</label>
+							<textarea
+								id="extra-comment"
+								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100 resize-none"
+								rows="3"
+								placeholder="Enter extra comment..."
+								bind:value={extraComment}
+							></textarea>
+						</div>
+
+						<!-- Ticket Screenshot -->
+						<div class="mb-6">
+							<label for="ticket-screenshot" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Ticket Screenshot
+							</label>
+							<div
+								id="ticket-screenshot"
+								class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer"
+							>
+								<svg
+									class="mx-auto h-12 w-12 text-gray-400"
+									stroke="currentColor"
+									fill="none"
+									viewBox="0 0 48 48"
+								>
+									<path
+										d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
+								</svg>
+								<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+									Click to upload ticket screenshot or drag and drop
+								</p>
+								<p class="text-xs text-gray-500 dark:text-gray-500">PNG, JPG, GIF up to 10MB</p>
+							</div>
+						</div>
+
+						<!-- Departure Date -->
+						<div class="mb-6">
+							<label for="departure-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Departure Date
+							</label>
+							<input
+								id="departure-date"
+								type="text"
+								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
+								placeholder="Enter departure date..."
+								bind:value={departureDate}
+							/>
+						</div>
+
+						<!-- Flight Time -->
+
+						<div class="mb-6">
+							<label for="flight-time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Flight Time
+							</label>
+							<input
+								id="flight-time"
+								type="text"
+								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
+								placeholder="Enter flight time..."
+								bind:value={flightTime}
+							/>
+						</div>
+						<!-- Ticket Validity -->
+						<div class="mb-6">
+							<label for="ticket-validity" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Ticket Validity
+							</label>
+							<input
+								id="ticket-validity"
+								type="text"
+								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
+								placeholder="Enter ticket validity..."
+								bind:value={ticketValidity}
+							/>
+						</div>
+
+						<!-- Luggage Info -->
+						<div class="mb-6">
+							<label for="luggage-info" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Luggage Info
+							</label>
+							<input
+								id="luggage-info"
+								type="text"
+								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
+								placeholder="Enter luggage information..."
+								bind:value={luggageInfo}
+							/>
+						</div>
+
+						<!-- Summary -->
+						<div class="mb-6">
+							<label for="summary" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Summary
+							</label>
+							<textarea
+								id="summary"
+								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100 resize-none"
+								rows="4"
+								placeholder="Enter summary..."
+								bind:value={summary}
+							></textarea>
+						</div>
+						<!-- Website Blog Image -->
+						<!-- Ticket Screenshot -->
+						<div class="mb-6">
+							<label for="ticket-screenshot" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Country Image
+							</label>
+							<div
+								id="ticket-screenshot"
+								class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer"
+							>
+								<svg
+									class="mx-auto h-12 w-12 text-gray-400"
+									stroke="currentColor"
+									fill="none"
+									viewBox="0 0 48 48"
+								>
+									<path
+										d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
+								</svg>
+								<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+									Click to upload ticket screenshot or drag and drop
+								</p>
+								<p class="text-xs text-gray-500 dark:text-gray-500">PNG, JPG, GIF up to 10MB</p>
+							</div>
+						</div>
+					{:else}
+						<!-- Social Media Form Fields (Instagram/Facebook) -->
+						
+						<!-- Image Upload -->
+						<div class="mb-6">
+							<label for="image-upload" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Images
+							</label>
+							<div
+								id="image-upload"
+								class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer"
+							>
+								<svg
+									class="mx-auto h-12 w-12 text-gray-400"
+									stroke="currentColor"
+									fill="none"
+									viewBox="0 0 48 48"
+								>
+									<path
+										d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
+								</svg>
+								<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+									Click to upload images or drag and drop
+								</p>
+								<p class="text-xs text-gray-500 dark:text-gray-500">PNG, JPG, GIF up to 10MB</p>
+							</div>
+						</div>
+
+						<!-- Content Text -->
+						<div class="mb-6">
+							<label for="post-content" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Content
+							</label>
+							<textarea
+								id="post-content"
+								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100 resize-none"
+								rows="6"
+								placeholder="Write your post content here..."
+								bind:value={postContent}
+							></textarea>
+						</div>
+
+						<!-- Hashtags -->
+						<div class="mb-6">
+							<label for="post-hashtags" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Hashtags
+							</label>
+							<input
+								id="post-hashtags"
+								type="text"
+								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
+								placeholder="#travel #adventure #photography"
+								bind:value={postHashtags}
+							/>
+						</div>
+					{/if}
 
 					<!-- Post Button -->
 					<button
-						class="w-full {activeTab === 'instagram' ? 'bg-black hover:bg-gray-800' : 'bg-blue-600 hover:bg-blue-700'} text-white font-medium py-3 px-4 rounded-lg transition"
+						class="w-full {activeTab === 'website-blog' ? 'bg-green-600 hover:bg-green-700' : activeTab === 'instagram' ? 'bg-black hover:bg-gray-800' : 'bg-blue-600 hover:bg-blue-700'} text-white font-medium py-3 px-4 rounded-lg transition"
 					>
-						Post to {activeTab === 'instagram' ? 'Instagram' : 'Facebook'}
+						{activeTab === 'website-blog' ? 'Publish Blog' : activeTab === 'instagram' ? 'Post to Instagram' : 'Post to Facebook'}
 					</button>
 				</div>
 			</div>
@@ -213,7 +474,50 @@
 				<div class="max-w-sm mx-auto">
 					<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Preview</h2>
 					
-					{#if activeTab === 'instagram'}
+					{#if activeTab === 'website-blog'}
+						<!-- Website Blog Preview - Blank -->
+						<div class="bg-white rounded-lg shadow-lg p-8 text-left">
+							<div class="text-black dark:text-black">
+								<p class="text-lg font-bold mb-2" style="color: #2799d5;">{header}</p>
+								<p class="text-sm mb-2">
+									<span style="color: red;">請即Like</span> <span style="color: #2799d5; text-decoration: underline;">又飛啦！<span class="font-bold">Facebook Page</span></span>
+								</p>
+								{#if firstComment}
+									<p class="text-sm mb-2">{firstComment}</p>
+								{/if}
+								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">航空公司：<span style="color: black;">{airlineName}</span></p>
+								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">來回連稅價錢：<span style="color: black;">HK${returnPrice}起</span></p>
+								<p class="text-sm mb-2 font-bold text-black">{extraComment}</p>
+								<div class="bg-gray-300 h-40 flex items-center justify-center">
+									<p class="text-gray-500">Image</p>
+								</div>
+								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">參考出發日期（視乎供應）：</p>
+								{#if departureDate}
+									<p class="text-sm mt-2">{departureDate}</p>
+								{/if}<br>
+								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">參考航班時間（航班時間或會有變，以預訂時為準）：</p>
+								{#if flightTime}
+									<p class="text-sm mt-2">{flightTime}</p>
+								{/if}<br>
+								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">機票有效期：</p>
+								{#if ticketValidity}
+									<p class="text-sm mt-2">{ticketValidity}</p>
+								{/if}<br>
+								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">行李:</p>
+								{#if luggageInfo}
+									<p class="text-sm mt-2">{luggageInfo}</p>
+								{/if}<br>
+								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">結論：<span class="text-sm mt-2 text-black">{summary}</span></p> 
+								
+								<p class="text-sm mt-2">【預訂網址】<span style="color: #2799d5; text-decoration: underline;">https://hk.trip.com/</span></p>
+								<p class="text-sm mt-2">（覺得抵可Whatsapp同LINE Share俾朋友）</p>
+								<div class="bg-gray-300 h-40 flex items-center justify-center">
+									<p class="text-gray-500">Image</p>
+								</div>
+								<p class="text-sm mt-2">#以上價錢只供參考，或有浮動。如有出入，則以預訂網址為準。以上圖片只供參考。優惠受條款及細則約束，建議預訂前先行細閱</p>
+							</div>
+						</div>
+					{:else if activeTab === 'instagram'}
 						<!-- Instagram Post Preview -->
 						<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
 							<!-- Post Header -->
