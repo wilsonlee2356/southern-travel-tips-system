@@ -108,7 +108,7 @@ function generateLuggageInfo(seatClass) {
 }
 
 /**
- * Generates AI analysis for flight data
+ * Generates AI analysis for flight data using two-stage pipeline
  * @param {Object} flightData - Formatted flight data object
  * @returns {Promise<Object>} AI analysis with header, content, and summary
  */
@@ -117,18 +117,19 @@ export async function generateAIFlightAnalysis(flightData) {
 		const client = new OllamaAIClient();
 		const flightHelper = new FlightAIHelper(client);
 		
-		const aiResponse = await flightHelper.analyzeFlightDeal(flightData);
-		console.log("aiResponse: "+aiResponse);
-		// Parse the JSON response from AI
-		const analysis = JSON.parse(aiResponse);
+		console.log('Starting two-stage AI analysis for flight data:', flightData);
+		
+		// Use the two-stage analysis pipeline
+		const analysis = await flightHelper.twoStageFlightAnalysis(flightData);
+		console.log('Final analysis result:', analysis);
 		
 		return {
 			header: analysis.header || `Flight Deal: ${flightData.airline}`,
-			content: analysis.content || `Great flight deal found! ${flightData.airline} from ${flightData.startingPlace} to ${flightData.destination}`,
+			content: analysis.short_comment || `Great flight deal found! ${flightData.airline} from ${flightData.startingPlace} to ${flightData.destination}`,
 			summary: analysis.summary || `Excellent flight deal with ${flightData.airline}! Price: $${flightData.returnPrice} for ${flightData.startingPlace} → ${flightData.destination}`
 		};
 	} catch (error) {
-		console.error('Error generating AI analysis:', error);
+		console.error('Error generating two-stage AI analysis:', error);
 		
 		// Fallback to default values if AI fails
 		return {
@@ -143,8 +144,9 @@ export async function generateAIFlightAnalysis(flightData) {
  * Navigates to the Post page with flight data and AI analysis
  * @param {Array} selectedFlights - Array of selected flight objects
  * @param {Function} goto - SvelteKit navigation function
+ * @param {Function} onStageUpdate - Optional callback for stage updates
  */
-export async function navigateToPostWithFlightData(selectedFlights, goto) {
+export async function navigateToPostWithFlightData(selectedFlights, goto, onStageUpdate = null) {
 	const postData = formatFlightDataForPost(selectedFlights);
 	
 	if (!postData) {
@@ -152,8 +154,8 @@ export async function navigateToPostWithFlightData(selectedFlights, goto) {
 		return;
 	}
 
-	// Generate AI analysis
-	const aiAnalysis = await generateAIFlightAnalysis(postData);
+	// Generate AI analysis with stage tracking
+	const aiAnalysis = await generateAIFlightAnalysisWithStages(postData, onStageUpdate);
 	
 	// Combine flight data with AI analysis
 	const completePostData = {
@@ -166,6 +168,42 @@ export async function navigateToPostWithFlightData(selectedFlights, goto) {
 	
 	// Navigate to the Post page
 	goto('/post');
+}
+
+/**
+ * Generates AI analysis with stage tracking
+ * @param {Object} flightData - Formatted flight data object
+ * @param {Function} onStageUpdate - Optional callback for stage updates
+ * @returns {Promise<Object>} AI analysis with header, content, and summary
+ */
+export async function generateAIFlightAnalysisWithStages(flightData, onStageUpdate = null) {
+	try {
+		const client = new OllamaAIClient();
+		const flightHelper = new FlightAIHelper(client);
+		
+		console.log('Starting two-stage AI analysis for flight data:', flightData);
+		
+		if (onStageUpdate) onStageUpdate('stage1');
+		
+		// Use the two-stage analysis pipeline
+		const analysis = await flightHelper.twoStageFlightAnalysis(flightData, onStageUpdate);
+		console.log('Final analysis result:', analysis);
+		
+		return {
+			header: analysis.header || `Flight Deal: ${flightData.airline}`,
+			content: analysis.short_comment || `Great flight deal found! ${flightData.airline} from ${flightData.startingPlace} to ${flightData.destination}`,
+			summary: analysis.summary || `Excellent flight deal with ${flightData.airline}! Price: $${flightData.returnPrice} for ${flightData.startingPlace} → ${flightData.destination}`
+		};
+	} catch (error) {
+		console.error('Error generating two-stage AI analysis:', error);
+		
+		// Fallback to default values if AI fails
+		return {
+			header: `Flight Deal: ${flightData.airline}`,
+			content: `Great flight deal found! ${flightData.airline} from ${flightData.startingPlace} to ${flightData.destination}`,
+			summary: `Excellent flight deal with ${flightData.airline}! Price: $${flightData.returnPrice} for ${flightData.startingPlace} → ${flightData.destination}`
+		};
+	}
 }
 
 /**

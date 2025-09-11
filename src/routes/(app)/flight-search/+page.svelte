@@ -26,6 +26,7 @@
 	let hasSearched = false;
 	let selectedFlights = new Set();
 	let isPosting = false;
+	let aiStage = ''; // Track which AI stage is running
 
 	// Initialize with all flights on page load
 	$: if (typeof window !== 'undefined') {
@@ -39,20 +40,20 @@
 		{
 			id: 1,
 			airline: '國泰航空',
-			startingPlace: '洛杉磯',
-			destination: '紐約',
-			cost: 2990,
+			startingPlace: '香港',
+			destination: '首爾',
+			cost: 2690,
 			seatClass: '經濟艙',
 			departureDate: '2024-02-15',
 			ticketValidDate: '2024-02-20'
 		},
 		{
 			id: 2,
-			airline: '卡達航空',
-			startingPlace: '舊金山',
-			destination: '邁阿密',
-			cost: 4900,
-			seatClass: '商務艙',
+			airline: '長榮航空',
+			startingPlace: '香港',
+			destination: '高雄',
+			cost: 1200,
+			seatClass: '經濟艙',
 			departureDate: '2024-02-16',
 			ticketValidDate: '2024-02-22'
 		},
@@ -79,8 +80,8 @@
 		{
 			id: 5,
 			airline: '英國航空公司',
-			startingPlace: '倫敦',
-			destination: '香港',
+			startingPlace: '香港',
+			destination: '倫敦',
 			cost: 18000,
 			seatClass: '商務艙',
 			departureDate: '2024-02-19',
@@ -157,17 +158,24 @@
 		}
 		
 		isPosting = true;
+		aiStage = 'initializing';
 		
 		try {
 			const selectedFlightData = searchResults.filter(flight => selectedFlights.has(flight.id));
 			
+			// Update stage indicator
+			aiStage = 'stage1';
+			
 			// Use the flight post handler to navigate to Post page with data and AI analysis
-			await navigateToPostWithFlightData(selectedFlightData, goto);
+			await navigateToPostWithFlightData(selectedFlightData, goto, (stage) => {
+				aiStage = stage;
+			});
 		} catch (error) {
 			console.error('Error posting flight data:', error);
 			alert('Error generating AI analysis. Please try again.');
 		} finally {
 			isPosting = false;
+			aiStage = '';
 		}
 	};
 </script>
@@ -509,7 +517,13 @@
 										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 									</svg>
-									Generating AI Analysis...
+									{#if aiStage === 'initializing'}
+										Initializing AI Analysis...
+									{:else if aiStage === 'stage1'}
+										Stage 1: Large Model Analysis...
+									{:else}
+										Stage 2: Content Refinement...
+									{/if}
 								{:else}
 									<svg class="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18v18h-18z M8 8h8v8h-8z M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M16 7a1 1 0 1 0 0-2a1 1 0 1 0 0 2"></path>
