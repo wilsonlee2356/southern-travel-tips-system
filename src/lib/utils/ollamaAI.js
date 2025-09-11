@@ -9,6 +9,7 @@ const OLLAMA_CONFIG = {
 	openWebUIUrl: 'http://localhost:8080', // OpenWebUI URL (adjust as needed)
 	model: 'humblemat/hon9kon9ize_CantoneseLLMChat-v1.0-7B-F16.gguf:latest', // Default model name (change to your pulled model)
 	timeout: 30000, // 30 seconds timeout
+	knowledgeUUID: '9028d569-f4e6-47d2-bc11-14f130548a23', // Knowledge base UUID for context
 };
 
 /**
@@ -74,6 +75,7 @@ export class OllamaAIClient {
 			model: options.model || this.config.model,
 			prompt: prompt,
 			stream: false,
+			knowledge: options.knowledge || this.config.knowledgeUUID,
 			options: {
 				temperature: options.temperature || 0.7,
 				top_p: options.top_p || 0.9,
@@ -115,6 +117,7 @@ export class OllamaAIClient {
 			model: options.model || this.config.model,
 			prompt: prompt,
 			stream: true,
+			knowledge: options.knowledge || this.config.knowledgeUUID,
 			options: {
 				temperature: options.temperature || 0.7,
 				top_p: options.top_p || 0.9,
@@ -138,9 +141,12 @@ export class OllamaAIClient {
 			const reader = response.body.getReader();
 			const decoder = new TextDecoder();
 
-			while (true) {
-				const { done, value } = await reader.read();
+			let done = false;
+			while (!done) {
+				const result = await reader.read();
+				done = result.done;
 				if (done) break;
+				const value = result.value;
 
 				const chunk = decoder.decode(value);
 				const lines = chunk.split('\n');
@@ -152,7 +158,7 @@ export class OllamaAIClient {
 							if (data.response) {
 								onChunk(data.response);
 							}
-						} catch (e) {
+						} catch {
 							// Skip invalid JSON lines
 						}
 					}
@@ -179,6 +185,29 @@ export class OllamaAIClient {
 
 		return await this.generateResponse(prompt, options);
 	}
+
+	/**
+	 * Set knowledge UUID for context
+	 * @param {string} knowledgeUUID - Knowledge base UUID
+	 */
+	setKnowledge(knowledgeUUID) {
+		this.config.knowledgeUUID = knowledgeUUID;
+	}
+
+	/**
+	 * Get current knowledge UUID
+	 * @returns {string} Current knowledge UUID
+	 */
+	getKnowledge() {
+		return this.config.knowledgeUUID;
+	}
+
+	/**
+	 * Clear knowledge context
+	 */
+	clearKnowledge() {
+		this.config.knowledgeUUID = null;
+	}
 }
 
 /**
@@ -195,24 +224,22 @@ export class FlightAIHelper {
 	 * @returns {Promise<string>} AI analysis
 	 */
 	async analyzeFlightDeal(flightData) {
-		const prompt = `Analyze this flight deal and provide insights:
-
-Airline: ${flightData.airline}
-Route: ${flightData.startingPlace} → ${flightData.destination}
-Price: $${flightData.returnPrice}
-Class: ${flightData.seatClass}
-Departure: ${flightData.departureDate}
-Flight Time: ${flightData.flightTime}
-Luggage: ${flightData.luggageInfo}
-
-Please provide:
-1. Price analysis (good deal, average, expensive)
-2. Route insights
-3. Airline reputation
-4. Travel tips for this route
-5. Best booking timing advice
-
-Format your response in a clear, structured way.`;
+		const prompt = `根據已選機票資料和航空促銷文件指引的格式,請根據促銷文本指引分別生成標題,評論和結論.你的結果只能以Json格式輸出,不能有其他文字和回應,Json格式內只能有"header","content"和"summary","header"對應為標題,"content"對應為評論和"summary"對應為總結,Json內不能有任何換行,以下是Json例子
+						{
+							"header": "【美國】創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
+							"content": "好多平飛！去美國嘅人真係少咗？",
+							"summary": "國泰直航一減再減，不斷創疫後新低價，直迫轉機價！直航慳時間就算貴幾厝，都值得俾啦！優惠仲可以 open jaw，可以唔走回頭路玩晒加州兩大城市，連復活節都有平，正呀～"
+						}
+						已選機票資料:
+						[
+						航空公司：${flightData.airline}
+						出發地點：${flightData.startingPlace}
+						目的地：${flightData.destination}
+						來回價錢：$${flightData.returnPrice}
+						艙等：${flightData.seatClass}
+						出發日期：${flightData.departureDate}
+						出發時間：${flightData.flightTime}
+						行李資訊：${flightData.luggageInfo}]`;
 
 		return await this.client.generateResponse(prompt, {
 			temperature: 0.3, // Lower temperature for more factual responses
@@ -258,7 +285,7 @@ Make it sound authentic and exciting for travelers.`;
 	 * @returns {Promise<string>} Travel tips
 	 */
 	async generateTravelTips(destination) {
-		const prompt = `Provide comprehensive travel tips for ${destination}:
+		const prompt = `Provide comprehensive travel tips for ${destination} based on your knowledge base:
 
 Include:
 1. Best time to visit
@@ -270,7 +297,7 @@ Include:
 7. Safety considerations
 8. Packing suggestions
 
-Format as a helpful travel guide with practical advice.`;
+Use your knowledge base to provide accurate and up-to-date information. Format as a helpful travel guide with practical advice.`;
 
 		return await this.client.generateResponse(prompt, {
 			temperature: 0.4,
@@ -292,7 +319,7 @@ Format as a helpful travel guide with practical advice.`;
 - Route: ${flight.startingPlace} → ${flight.destination}`
 		).join('\n\n');
 
-		const prompt = `Compare these flight options and recommend the best one:
+		const prompt = `Compare these flight options and recommend the best one based on your knowledge base:
 
 ${flightsText}
 
@@ -303,7 +330,7 @@ Consider:
 4. Class benefits
 5. Overall recommendation
 
-Provide a clear recommendation with reasoning.`;
+Use your knowledge base to provide accurate airline information and route insights. Provide a clear recommendation with reasoning.`;
 
 		return await this.client.generateResponse(prompt, {
 			temperature: 0.3,
@@ -343,6 +370,19 @@ export const AIUtils = {
 	async checkOllamaStatus() {
 		const client = new OllamaAIClient();
 		return await client.testConnection();
+	},
+
+	/**
+	 * Create client with specific knowledge UUID
+	 * @param {string} knowledgeUUID - Knowledge base UUID
+	 * @param {Object} config - Additional configuration
+	 * @returns {OllamaAIClient} Configured client with knowledge
+	 */
+	createClientWithKnowledge(knowledgeUUID, config = {}) {
+		return new OllamaAIClient({
+			...config,
+			knowledgeUUID: knowledgeUUID
+		});
 	}
 };
 

@@ -1,7 +1,9 @@
 /**
  * Flight Post Handler
- * Handles posting selected flights to the Post review page
+ * Handles posting selected flights to the Post review page with AI analysis
  */
+
+import { OllamaAIClient, FlightAIHelper } from './ollamaAI.js';
 
 /**
  * Formats flight data for posting to the blog
@@ -106,11 +108,43 @@ function generateLuggageInfo(seatClass) {
 }
 
 /**
- * Navigates to the Post page with flight data
+ * Generates AI analysis for flight data
+ * @param {Object} flightData - Formatted flight data object
+ * @returns {Promise<Object>} AI analysis with header, content, and summary
+ */
+export async function generateAIFlightAnalysis(flightData) {
+	try {
+		const client = new OllamaAIClient();
+		const flightHelper = new FlightAIHelper(client);
+		
+		const aiResponse = await flightHelper.analyzeFlightDeal(flightData);
+		console.log("aiResponse: "+aiResponse);
+		// Parse the JSON response from AI
+		const analysis = JSON.parse(aiResponse);
+		
+		return {
+			header: analysis.header || `Flight Deal: ${flightData.airline}`,
+			content: analysis.content || `Great flight deal found! ${flightData.airline} from ${flightData.startingPlace} to ${flightData.destination}`,
+			summary: analysis.summary || `Excellent flight deal with ${flightData.airline}! Price: $${flightData.returnPrice} for ${flightData.startingPlace} → ${flightData.destination}`
+		};
+	} catch (error) {
+		console.error('Error generating AI analysis:', error);
+		
+		// Fallback to default values if AI fails
+		return {
+			header: `Flight Deal: ${flightData.airline}`,
+			content: `Great flight deal found! ${flightData.airline} from ${flightData.startingPlace} to ${flightData.destination}`,
+			summary: `Excellent flight deal with ${flightData.airline}! Price: $${flightData.returnPrice} for ${flightData.startingPlace} → ${flightData.destination}`
+		};
+	}
+}
+
+/**
+ * Navigates to the Post page with flight data and AI analysis
  * @param {Array} selectedFlights - Array of selected flight objects
  * @param {Function} goto - SvelteKit navigation function
  */
-export function navigateToPostWithFlightData(selectedFlights, goto) {
+export async function navigateToPostWithFlightData(selectedFlights, goto) {
 	const postData = formatFlightDataForPost(selectedFlights);
 	
 	if (!postData) {
@@ -118,8 +152,17 @@ export function navigateToPostWithFlightData(selectedFlights, goto) {
 		return;
 	}
 
-	// Store the flight data in sessionStorage for the Post page to retrieve
-	sessionStorage.setItem('flightPostData', JSON.stringify(postData));
+	// Generate AI analysis
+	const aiAnalysis = await generateAIFlightAnalysis(postData);
+	
+	// Combine flight data with AI analysis
+	const completePostData = {
+		...postData,
+		aiAnalysis: aiAnalysis
+	};
+
+	// Store the complete data in sessionStorage for the Post page to retrieve
+	sessionStorage.setItem('flightPostData', JSON.stringify(completePostData));
 	
 	// Navigate to the Post page
 	goto('/post');

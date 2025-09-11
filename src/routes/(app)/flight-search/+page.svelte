@@ -25,6 +25,7 @@
 	let isSearching = false;
 	let hasSearched = false;
 	let selectedFlights = new Set();
+	let isPosting = false;
 
 	// Initialize with all flights on page load
 	$: if (typeof window !== 'undefined') {
@@ -149,16 +150,25 @@
 	};
 
 	// Handle post action
-	const handlePost = () => {
+	const handlePost = async () => {
 		if (selectedFlights.size === 0) {
 			alert('Please select at least one flight to post');
 			return;
 		}
 		
-		const selectedFlightData = searchResults.filter(flight => selectedFlights.has(flight.id));
+		isPosting = true;
 		
-		// Use the flight post handler to navigate to Post page with data
-		navigateToPostWithFlightData(selectedFlightData, goto);
+		try {
+			const selectedFlightData = searchResults.filter(flight => selectedFlights.has(flight.id));
+			
+			// Use the flight post handler to navigate to Post page with data and AI analysis
+			await navigateToPostWithFlightData(selectedFlightData, goto);
+		} catch (error) {
+			console.error('Error posting flight data:', error);
+			alert('Error generating AI analysis. Please try again.');
+		} finally {
+			isPosting = false;
+		}
 	};
 </script>
 
@@ -491,13 +501,21 @@
 						<div class="mt-6 flex justify-end">
 							<button
 								class="bg-black hover:bg-gray-800 text-white font-medium py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-								disabled={selectedFlights.size === 0}
+								disabled={selectedFlights.size === 0 || isPosting}
 								on:click={handlePost}
 							>
-								<svg class="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18v18h-18z M8 8h8v8h-8z M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M16 7a1 1 0 1 0 0-2a1 1 0 1 0 0 2"></path>
-								</svg>
-								{$i18n.t('Post')} ({selectedFlights.size})
+								{#if isPosting}
+									<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									</svg>
+									Generating AI Analysis...
+								{:else}
+									<svg class="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18v18h-18z M8 8h8v8h-8z M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M16 7a1 1 0 1 0 0-2a1 1 0 1 0 0 2"></path>
+									</svg>
+									{$i18n.t('Post')} ({selectedFlights.size})
+								{/if}
 							</button>
 						</div>
 				{:else}
