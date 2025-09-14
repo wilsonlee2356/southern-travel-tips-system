@@ -189,8 +189,13 @@ export async function generateAIFlightAnalysisWithStages(flightData, onStageUpda
 		const analysis = await flightHelper.twoStageFlightAnalysis(flightData, onStageUpdate);
 		console.log('Final analysis result:', analysis);
 		
+		// Combine destination and header if both exist, otherwise use fallback
+		const combinedHeader = analysis.destination && analysis.header 
+			? `【${analysis.destination}】${analysis.header}` 
+			: (analysis.header || `Flight Deal: ${flightData.airline}`);
+		
 		return {
-			header: analysis.header || `Flight Deal: ${flightData.airline}`,
+			header: combinedHeader,
 			content: analysis.short_comment || `Great flight deal found! ${flightData.airline} from ${flightData.startingPlace} to ${flightData.destination}`,
 			summary: analysis.summary || `Excellent flight deal with ${flightData.airline}! Price: $${flightData.returnPrice} for ${flightData.startingPlace} → ${flightData.destination}`
 		};

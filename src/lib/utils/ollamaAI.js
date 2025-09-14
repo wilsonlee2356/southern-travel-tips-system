@@ -345,9 +345,10 @@ export class FlightAIHelper {
 	 * @returns {Promise<string>} AI analysis
 	 */
 	async analyzeFlightDeal(flightData) {
-		const prompt = `根據已選機票資料和航空促銷文件指引的格式,並根據促銷文本指引分別生成標題,評論和總結,重要!評論只能在三十字以內,而總結能夠長約一百字.這些都必須是繁體中文.你的輸出必須只能有Json,絕對不能有任何文字,符號或回應在前後.Json格式內只能有"header","short_comment"和"summary".Json內不能有任何換行,以下是Json例子
+		const prompt = `根據已選機票資料和航空促銷文件指引的格式,並根據促銷文本指引分別生成目的地,標題,評論和總結,重要!評論只能在三十字以內,而總結能夠長約一百字.這些都必須是繁體中文.你的輸出必須只能有Json,絕對不能有任何文字,符號或回應在前後.Json格式內只能有"destination","header","short_comment"和"summary".Json內不能有任何換行,以下是Json例子
 						{
-							"header": "【美國】創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
+							"destination": "美國",
+							"header": "創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
 							"short_comment": "好多平飛！去美國嘅人真係少咗？",
 							"summary": "國泰直航一減再減，不斷創疫後新低價，直迫轉機價！直航慳時間就算貴幾厝，都值得俾啦！優惠仲可以 open jaw，可以唔走回頭路玩晒加州兩大城市，連復活節都有平，正呀～"
 						}
@@ -465,36 +466,27 @@ Use your knowledge base to provide accurate airline information and route insigh
 	 * @returns {Promise<string>} Initial AI analysis JSON
 	 */
 	async generateInitialFlightAnalysis(flightData) {
-		const prompt = `Analyze this flight deal comprehensively and create promotional content:
-
-Flight Details:
-- Airline: ${flightData.airline}
-- Route: ${flightData.startingPlace} → ${flightData.destination}
-- Price: $${flightData.returnPrice}
-- Class: ${flightData.seatClass}
-- Departure: ${flightData.departureDate}
-- Flight Time: ${flightData.flightTime}
-- Luggage: ${flightData.luggageInfo}
-
-Please analyze this flight deal and create promotional content. Consider:
-1. Market price comparison
-2. Route popularity and demand
-3. Airline reputation and service quality
-4. Seasonal factors and timing
-5. Value proposition for travelers
-
-Generate a comprehensive analysis and create engaging promotional content. Return the result as a JSON object with the following structure:
-{
-  "header": "Compelling promotional headline",
-  "content": "Engaging promotional content/comment",
-  "summary": "Concise summary of the deal's value proposition"
-}
-
-Make the content engaging, informative, and persuasive for potential travelers.`;
+		const prompt = `根據已選機票資料和指引的格式,並根據指引分別生成目的地,標題,評論和總結,任何日期必須以中文形式年月日.重要!評論只能在三十字以內,而總結能夠長約一百字.這些都必須是繁體中文廣東話語氣.你的輸出必須只能有Json,絕對不能有任何文字,符號或回應在前後.Json格式內只能有"destination","header","short_comment"和"summary".Json內不能有任何換行,以下是Json例子
+						{
+							"destination": "美國",
+							"header": "創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
+							"short_comment": "好多平飛！去美國嘅人真係少咗？",
+							"summary": "國泰直航一減再減，不斷創疫後新低價，直迫轉機價！直航慳時間就算貴幾厝，都值得俾啦！優惠仲可以 open jaw，可以唔走回頭路玩晒加州兩大城市，連復活節都有平，正呀～"
+						}
+						已選機票資料:
+						[
+						航空公司：${flightData.airline}
+						出發地點：${flightData.startingPlace}
+						目的地：${flightData.destination}
+						來回價錢：$${flightData.returnPrice}
+						艙等：${flightData.seatClass}
+						出發日期：${flightData.departureDate}
+						出發時間：${flightData.flightTime}
+						行李資訊：${flightData.luggageInfo}]`;
 
 		return await this.client.generateResponseWithLargeModel(prompt, {
 			temperature: 0.4, // Balanced creativity and accuracy
-			max_tokens: 1200
+			max_tokens: 2400
 		});
 	}
 
@@ -505,40 +497,31 @@ Make the content engaging, informative, and persuasive for potential travelers.`
 	 * @returns {Promise<string>} Refined content JSON
 	 */
 	async refineFlightContent(initialContent, flightData) {
-		const prompt = `以下是機票資料:
-[
-航空公司：${flightData.airline}
-出發地點：${flightData.startingPlace}
-目的地：${flightData.destination}
-來回價錢：$${flightData.returnPrice}
-艙等：${flightData.seatClass}
-出發日期：${flightData.departureDate}
-出發時間：${flightData.flightTime}
-行李資訊：${flightData.luggageInfo}]
-
+		const prompt = `
 以下是初步分析結果:
 {
+  "destination": "${initialContent.destination}",
   "header": "${initialContent.header}",
   "short_comment": "${initialContent.short_comment}",
   "summary": "${initialContent.summary}"
 }
 
-請根據機票資料和促銷文件指引的格式，優化並改進以上內容至廣東話口語。
-請保持JSON格式，但可以修改header、short_comment和summary的文字內容，使其更符合香港/廣東話的口語。
+請根據廣東話翻譯指引的格式，由書面語翻譯以上內容至廣東話語氣同標點符號。
+請保持JSON格式，但係修改header、short_comment和summary的文字內容，令到佢更符合香港/廣東話的語氣。
 "header"對應為標題,"short_comment"對應為評論和"summary"對應為總結。
-修改的header、short_comment和summary的文字內容絕對不能有任何換行、空格、制表符或其他控制字符。所有文字必須在同一行內。
-請根據機票資料生成優化後的JSON內容。
-重要：你的回應必須只包含JSON格式，不能有任何其他文字、說明、解釋或回應。直接輸出JSON，不要有任何前綴或後綴文字。不要使用對答模式，不要解釋你的回應。
+修改的header、short_comment和summary的文字內容絕對唔可以有任何換行、空格、制表符或其他控制字符。所有文字必須在同一行裏面。
+重要：你的回應必須只包含JSON格式，唔可以有JSON之外的任何其他文字、說明、解釋或回應。直接輸出JSON，不要有任何前綴或後綴文字。不要使用對答模式，不要解釋你的回應。
 以下是JSON格式例子:
 {
-  "header": "【美國】創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
+  "destination": "美國",
+  "header": "創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
   "short_comment": "好多平飛！去美國嘅人真係少咗？",
   "summary": "國泰直航一減再減，不斷創疫後新低價，直迫轉機價！直航慳時間就算貴幾厝，都值得俾啦！優惠仲可以 open jaw，可以唔走回頭路玩晒加州兩大城市，連復活節都有平，正呀～"
 }`;
 
 		return await this.client.generateResponse(prompt, {
-			temperature: 0.6, // Slightly higher for creative refinement
-			max_tokens: 800
+			temperature: 0.8, // Slightly higher for creative refinement
+			max_tokens: 1600
 		});
 	}
 
