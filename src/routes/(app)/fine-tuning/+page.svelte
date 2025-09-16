@@ -20,6 +20,8 @@
 	let currentLoss = 0;
 	let validationLoss = 0;
 	let learningRate = 0;
+	let trainingLogs = [];
+	let currentSessionId = null;
 
 	// Model configuration
 	let modelConfig = {
@@ -43,12 +45,7 @@
 
 	// Available models
 	let availableModels = [
-		'qwen2.5:7b',
-		'qwen2.5:14b',
-		'llama3.1:8b',
-		'llama3.1:70b',
-		'mistral:7b',
-		'phi3:medium'
+		'qwen2.5:32b',
 	];
 
 	// Chart data
@@ -122,7 +119,11 @@
 			});
 
 			// Start training
-			await fineTuningClient.startFineTuning(modelConfig, selectedDataset);
+			console.log('Starting training...');
+			const sessionId = await fineTuningClient.startFineTuning(modelConfig, selectedDataset);
+			console.log('Received session ID:', sessionId);
+			currentSessionId = sessionId;
+			trainingLogs = [`[${new Date().toLocaleTimeString()}] Training started with session ID: ${sessionId}`];
 		} catch (error) {
 			console.error('Training failed:', error);
 			trainingStatus = 'Training failed: ' + error.message;
@@ -163,6 +164,29 @@
 		}
 	};
 
+	const refreshLogs = async () => {
+		if (currentSessionId && currentSessionId !== 'undefined') {
+			try {
+				const response = await fetch(`http://localhost:8001/api/fine-tuning/status/${currentSessionId}`);
+				if (response.ok) {
+					const status = await response.json();
+					const newLog = `[${new Date().toLocaleTimeString()}] ${status.message} (Loss: ${status.train_loss?.toFixed(4) || 'N/A'})`;
+					trainingLogs = [...trainingLogs, newLog].slice(-50); // Keep last 50 logs
+				} else {
+					const errorLog = `[${new Date().toLocaleTimeString()}] Failed to fetch status: ${response.status}`;
+					trainingLogs = [...trainingLogs, errorLog].slice(-50);
+				}
+			} catch (error) {
+				const errorLog = `[${new Date().toLocaleTimeString()}] Error fetching logs: ${error.message}`;
+				trainingLogs = [...trainingLogs, errorLog].slice(-50);
+				console.error('Failed to fetch logs:', error);
+			}
+		} else {
+			const noSessionLog = `[${new Date().toLocaleTimeString()}] No active training session`;
+			trainingLogs = [...trainingLogs, noSessionLog].slice(-50);
+		}
+	};
+
 	const downloadTrainingLog = () => {
 		const logData = {
 			config: modelConfig,
@@ -170,7 +194,8 @@
 			charts: {
 				loss: lossChartData,
 				learningRate: learningRateChartData
-			}
+			},
+			logs: trainingLogs
 		};
 		
 		const blob = new Blob([JSON.stringify(logData, null, 2)], { type: 'application/json' });
@@ -186,6 +211,16 @@
 		// Initialize with some sample data
 		lossChartData = [];
 		learningRateChartData = [];
+		
+		// Set up automatic log refresh during training
+		const logInterval = setInterval(() => {
+			if (isTraining && currentSessionId) {
+				refreshLogs();
+			}
+		}, 3000); // Refresh every 3 seconds
+		
+		// Cleanup interval on component destroy
+		return () => clearInterval(logInterval);
 	});
 </script>
 
@@ -213,10 +248,10 @@
 	</div>
 
 	<!-- Main Content -->
-	<div class="flex-1 overflow-hidden">
-		<div class="h-full grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
+	<div class="flex-1 overflow-y-auto">
+		<div class="min-h-full grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
 			<!-- Left Panel: Configuration -->
-			<div class="lg:col-span-1 space-y-6">
+			<div class="lg:col-span-1 space-y-6 overflow-y-auto">
 				<!-- Model Configuration -->
 				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
 					<h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Model Configuration</h2>
@@ -428,7 +463,30 @@
 			</div>
 
 			<!-- Right Panel: Monitoring -->
-			<div class="lg:col-span-2 space-y-6">
+			<div class="lg:col-span-2 space-y-6 overflow-y-auto">
+				<!-- Training Logs -->
+				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+					<div class="flex justify-between items-center mb-4">
+						<h2 class="text-lg font-semibold text-gray-900 dark:text-white">Training Logs</h2>
+						<button
+							class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
+							on:click={refreshLogs}
+						>
+							Refresh
+						</button>
+					</div>
+					
+					<div class="bg-black text-green-400 font-mono text-xs p-4 rounded-lg h-64 overflow-y-auto">
+						{#if trainingLogs.length > 0}
+							{#each trainingLogs as log}
+								<div class="mb-1">{log}</div>
+							{/each}
+						{:else}
+							<div class="text-gray-500">No logs available. Start training to see logs here.</div>
+						{/if}
+					</div>
+				</div>
+
 				<!-- Training Progress -->
 				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
 					<h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Training Progress</h2>

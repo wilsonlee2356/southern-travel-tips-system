@@ -4,7 +4,8 @@
 
 // Configuration
 const FINETUNING_CONFIG = {
-	baseUrl: 'http://localhost:11434',
+	baseUrl: 'http://localhost:11434', // Ollama Docker container
+	apiUrl: 'http://localhost:8001', // Fine-tuning API URL (WSL)
 	timeout: 30000,
 	defaultConfig: {
 		learningRate: 0.0001,
@@ -44,18 +45,28 @@ export class FineTuningClient {
 	}
 
 	/**
-	 * Check if Ollama is running and accessible
+	 * Check if Ollama and fine-tuning API are running and accessible
 	 * @returns {Promise<boolean>} Connection status
 	 */
 	async checkConnection() {
 		try {
-			const response = await fetch(`${this.config.baseUrl}/api/tags`, {
+			// Check Ollama
+			const ollamaResponse = await fetch(`${this.config.baseUrl}/api/tags`, {
 				method: 'GET',
 				headers: {
 					'Content-Type': 'application/json',
 				},
 			});
-			return response.ok;
+			
+			// Check fine-tuning API
+			const apiResponse = await fetch(`${this.config.apiUrl}/health`, {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+			});
+			
+			return ollamaResponse.ok && apiResponse.ok;
 		} catch (error) {
 			console.error('Connection check failed:', error);
 			return false;
@@ -68,7 +79,8 @@ export class FineTuningClient {
 	 */
 	async getAvailableModels() {
 		try {
-			const response = await fetch(`${this.config.baseUrl}/api/tags`);
+			// Get models from fine-tuning API (includes fine-tuned models)
+			const response = await fetch(`${this.config.apiUrl}/api/models`);
 			if (response.ok) {
 				const data = await response.json();
 				return data.models || [];
@@ -76,6 +88,18 @@ export class FineTuningClient {
 		} catch (error) {
 			console.error('Failed to get models:', error);
 		}
+		
+		// Fallback to Ollama API
+		try {
+			const response = await fetch(`${this.config.baseUrl}/api/tags`);
+			if (response.ok) {
+				const data = await response.json();
+				return data.models || [];
+			}
+		} catch (error) {
+			console.error('Failed to get models from Ollama:', error);
+		}
+		
 		return [];
 	}
 
@@ -145,6 +169,7 @@ export class FineTuningClient {
 		this.isTraining = true;
 		this.trainingProgress = 0;
 		this.trainingStatus = 'Initializing training...';
+		this.currentSessionId = null;
 
 		try {
 			// Update status
@@ -152,14 +177,15 @@ export class FineTuningClient {
 				this.callbacks.onStatusChange(this.trainingStatus);
 			}
 
-			// In a real implementation, this would:
-			// 1. Upload dataset to training server
-			// 2. Start training job
-			// 3. Monitor progress
-			// 4. Handle completion/errors
+			// Start real training via API
+			const sessionId = await this.startTrainingSession(config, dataset);
+			this.currentSessionId = sessionId;
 
-			// For now, simulate the training process
-			await this.simulateTraining(config, dataset);
+			// Start monitoring training progress (non-blocking)
+			this.monitorTraining(sessionId);
+
+			// Return session ID for frontend use
+			return sessionId;
 
 		} catch (error) {
 			this.isTraining = false;
@@ -173,66 +199,175 @@ export class FineTuningClient {
 	}
 
 	/**
-	 * Simulate training process (for demonstration)
+	 * Start training session via API
 	 * @param {Object} config - Training configuration
-	 * @param {File} _dataset - Dataset file (unused in simulation)
+	 * @param {File} dataset - Dataset file
+	 * @returns {Promise<string>} Session ID
+	 */
+	async startTrainingSession(config, dataset) {
+		const formData = new FormData();
+		
+		// Add dataset file
+		formData.append('file', dataset);
+		
+		// Build query parameters
+		const queryParams = new URLSearchParams({
+			base_model: config.baseModel,
+			adapter_name: config.adapterName,
+			learning_rate: config.learningRate.toString(),
+			num_epochs: config.numEpochs.toString(),
+			batch_size: config.batchSize.toString(),
+			gradient_accumulation_steps: config.gradientAccumulationSteps.toString(),
+			lora_rank: config.loraRank.toString(),
+			lora_alpha: config.loraAlpha.toString(),
+			lora_dropout: config.loraDropout.toString(),
+			target_modules: JSON.stringify(config.targetModules)
+		});
+
+		const response = await fetch(`${this.config.apiUrl}/api/fine-tuning/start?${queryParams}`, {
+			method: 'POST',
+			body: formData
+		});
+
+		if (!response.ok) {
+			let errorMessage = 'Failed to start training';
+			try {
+				const error = await response.json();
+				errorMessage = error.detail || error.message || JSON.stringify(error);
+			} catch (e) {
+				const errorText = await response.text();
+				errorMessage = errorText || `HTTP ${response.status}: ${response.statusText}`;
+			}
+			console.error('Training API Error:', {
+				status: response.status,
+				statusText: response.statusText,
+				error: errorMessage
+			});
+			throw new Error(`Training failed (${response.status}): ${errorMessage}`);
+		}
+
+		const result = await response.json();
+		return result.session_id;
+	}
+
+	/**
+	 * Monitor training progress
+	 * @param {string} sessionId - Training session ID
 	 * @returns {Promise<void>}
 	 */
-	async simulateTraining(config, _dataset) {
-		const totalSteps = config.numEpochs * 100; // Simulate 100 steps per epoch
+	async monitorTraining(sessionId) {
+		const pollInterval = 2000; // Poll every 2 seconds
 		
-		for (let epoch = 1; epoch <= config.numEpochs; epoch++) {
-			this.trainingStatus = `Training epoch ${epoch}/${config.numEpochs}...`;
-			
-			if (this.callbacks.onStatusChange) {
-				this.callbacks.onStatusChange(this.trainingStatus);
-			}
+		while (this.isTraining && this.currentSessionId === sessionId) {
+			try {
+				const response = await fetch(`${this.config.apiUrl}/api/fine-tuning/status/${sessionId}`);
+				
+				if (!response.ok) {
+					throw new Error('Failed to get training status');
+				}
 
-			// Simulate epoch training
-			for (let step = 0; step < 100; step++) {
-				await new Promise(resolve => setTimeout(resolve, 50));
+				const status = await response.json();
 				
-				const progress = ((epoch - 1) * 100 + step) / totalSteps;
-				this.trainingProgress = progress * 100;
-				
-				// Simulate loss values
-				const currentLoss = Math.max(0.1, 2.0 - (progress * 1.8) + Math.random() * 0.2);
-				const validationLoss = Math.max(0.1, 2.2 - (progress * 1.9) + Math.random() * 0.3);
+				// Update progress
+				this.trainingProgress = status.progress;
+				this.trainingStatus = status.message;
 				
 				if (this.callbacks.onProgress) {
 					this.callbacks.onProgress({
-						epoch,
-						step,
-						progress: this.trainingProgress,
-						trainLoss: currentLoss,
-						valLoss: validationLoss,
-						learningRate: config.learningRate * Math.exp(-progress * 0.5)
+						epoch: status.current_epoch,
+						progress: status.progress,
+						trainLoss: status.train_loss,
+						valLoss: status.validation_loss,
+						learningRate: status.learning_rate
 					});
 				}
+
+				if (this.callbacks.onStatusChange) {
+					this.callbacks.onStatusChange(status.message);
+				}
+
+				// Check if training is complete
+				if (status.status === 'completed') {
+					this.isTraining = false;
+					this.trainingProgress = 100;
+					
+					if (this.callbacks.onComplete) {
+						this.callbacks.onComplete({
+							status: 'completed',
+							message: status.message,
+							sessionId: sessionId
+						});
+					}
+					break;
+				}
+
+				// Check if training failed
+				if (status.status === 'failed') {
+					this.isTraining = false;
+					
+					if (this.callbacks.onError) {
+						this.callbacks.onError(new Error(status.error || status.message));
+					}
+					break;
+				}
+
+				// Check if training was stopped
+				if (status.status === 'stopped') {
+					this.isTraining = false;
+					
+					if (this.callbacks.onComplete) {
+						this.callbacks.onComplete({
+							status: 'stopped',
+							message: status.message,
+							sessionId: sessionId
+						});
+					}
+					break;
+				}
+
+				// Wait before next poll
+				await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+			} catch (error) {
+				console.error('Error monitoring training:', error);
+				this.isTraining = false;
+				
+				if (this.callbacks.onError) {
+					this.callbacks.onError(error);
+				}
+				break;
 			}
-		}
-
-		this.isTraining = false;
-		this.trainingStatus = 'Training completed successfully!';
-		this.trainingProgress = 100;
-
-		if (this.callbacks.onComplete) {
-			this.callbacks.onComplete({
-				status: 'completed',
-				message: 'Training completed successfully!'
-			});
 		}
 	}
 
 	/**
 	 * Stop training process
 	 */
-	stopTraining() {
-		this.isTraining = false;
-		this.trainingStatus = 'Training stopped by user';
-		
-		if (this.callbacks.onStatusChange) {
-			this.callbacks.onStatusChange(this.trainingStatus);
+	async stopTraining() {
+		if (this.currentSessionId) {
+			try {
+				const response = await fetch(`${this.config.apiUrl}/api/fine-tuning/stop/${this.currentSessionId}`, {
+					method: 'POST'
+				});
+
+				if (response.ok) {
+					this.isTraining = false;
+					this.trainingStatus = 'Training stopped by user';
+					
+					if (this.callbacks.onStatusChange) {
+						this.callbacks.onStatusChange(this.trainingStatus);
+					}
+				}
+			} catch (error) {
+				console.error('Error stopping training:', error);
+			}
+		} else {
+			this.isTraining = false;
+			this.trainingStatus = 'Training stopped by user';
+			
+			if (this.callbacks.onStatusChange) {
+				this.callbacks.onStatusChange(this.trainingStatus);
+			}
 		}
 	}
 
@@ -255,14 +390,20 @@ export class FineTuningClient {
 	 */
 	async exportModel(adapterName) {
 		try {
-			// In a real implementation, this would export the model
-			// For now, simulate export process
-			await new Promise(resolve => setTimeout(resolve, 1000));
+			// Check if model exists in Ollama
+			const models = await this.getAvailableModels();
+			const modelExists = models.some(model => model.name === adapterName);
 			
+			if (!modelExists) {
+				throw new Error(`Model ${adapterName} not found. Please ensure training completed successfully.`);
+			}
+			
+			// Model is already available in Ollama after successful training
 			return {
 				success: true,
-				message: `Model ${adapterName} exported successfully`,
-				path: `./models/${adapterName}`
+				message: `Model ${adapterName} is ready for use in Ollama`,
+				modelName: adapterName,
+				usage: `ollama run ${adapterName}`
 			};
 		} catch (error) {
 			console.error('Model export failed:', error);
