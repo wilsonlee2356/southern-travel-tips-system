@@ -927,6 +927,32 @@
 				<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
 					<a
 						class="grow flex items-center space-x-3 rounded-lg px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+						href="/content-generator"
+						on:click={itemClickHandler}
+						draggable="false"
+					>
+						<div class="self-center">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4.5">
+								<path
+									d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5l1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linejoin="round"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</div>
+
+						<div class="flex self-center translate-y-[0.5px]">
+							<div class=" self-center text-sm font-primary">{$i18n.t('Content Generator')}</div>
+						</div>
+					</a>
+				</div>
+
+				<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
+					<a
+						class="grow flex items-center space-x-3 rounded-lg px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
 						href="/post"
 						on:click={itemClickHandler}
 						draggable="false"
