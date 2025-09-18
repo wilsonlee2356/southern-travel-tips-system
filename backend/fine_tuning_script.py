@@ -54,6 +54,17 @@ class LoRAFineTuner:
         processed_dataset_path = os.path.join(self.temp_dir, "processed_dataset.jsonl")
         
         try:
+            # Check if file exists
+            if not os.path.exists(dataset_path):
+                raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
+            
+            # Check file size
+            file_size = os.path.getsize(dataset_path)
+            if file_size == 0:
+                raise ValueError(f"Dataset file is empty: {dataset_path}")
+            
+            logger.info(f"Dataset file size: {file_size} bytes")
+            
             with open(dataset_path, 'r', encoding='utf-8') as f:
                 if dataset_path.endswith('.json'):
                     data = json.load(f)
@@ -61,17 +72,30 @@ class LoRAFineTuner:
                         raise ValueError("JSON file must contain an array of training examples")
                 elif dataset_path.endswith('.jsonl'):
                     data = []
-                    for line in f:
+                    for line_num, line in enumerate(f, 1):
                         if line.strip():
-                            data.append(json.loads(line))
+                            try:
+                                data.append(json.loads(line))
+                            except json.JSONDecodeError as e:
+                                logger.warning(f"Skipping invalid JSON on line {line_num}: {e}")
+                                continue
                 else:
                     raise ValueError("Unsupported file format. Use .json or .jsonl")
             
+            logger.info(f"Loaded {len(data)} raw examples from dataset")
+            
             # Convert to training format
             training_data = []
-            for item in data:
+            skipped_count = 0
+            for i, item in enumerate(data):
+                if not isinstance(item, dict):
+                    logger.warning(f"Skipping non-dict item at index {i}: {item}")
+                    skipped_count += 1
+                    continue
+                    
                 if 'prompt' not in item or 'response' not in item:
-                    logger.warning(f"Skipping item missing prompt/response: {item}")
+                    logger.warning(f"Skipping item missing prompt/response at index {i}: {item}")
+                    skipped_count += 1
                     continue
                     
                 training_example = {
@@ -80,6 +104,9 @@ class LoRAFineTuner:
                     "output": item['response']
                 }
                 training_data.append(training_example)
+            
+            if skipped_count > 0:
+                logger.warning(f"Skipped {skipped_count} invalid examples")
             
             # Save processed dataset
             with open(processed_dataset_path, 'w', encoding='utf-8') as f:
@@ -138,7 +165,7 @@ class LoRAFineTuner:
         logger.warning(f"No mapping found for {ollama_model_name}, using as-is")
         return ollama_model_name
 
-    def create_training_script(self, dataset_path: str) -> str:
+    def create_training_script(self, processed_dataset: str) -> str:
         """Create the actual training script"""
         hf_model_name = self.get_hf_model_name(self.config['base_model'])
         logger.info(f"Using Hugging Face model: {hf_model_name}")
@@ -218,11 +245,19 @@ def tokenize_function(examples, tokenizer, max_length=512):
     return model_inputs
 
 def main():
+    print("=== LoRA Fine-tuning Script Started ===")
+    print(f"Timestamp: {__import__('datetime').datetime.now()}")
+    
     # Configuration
     base_model = "{self.config['base_model']}"
     adapter_name = "{self.config['adapter_name']}"
-    dataset_path = "{dataset_path}"
+    dataset_path = r"{processed_dataset}"
     output_dir = "{self.temp_dir}/output"
+    
+    print(f"Base model: {{base_model}}")
+    print(f"Adapter name: {{adapter_name}}")
+    print(f"Dataset path: {{dataset_path}}")
+    print(f"Output directory: {{output_dir}}")
     
     # Training parameters
     learning_rate = {self.config['learning_rate']}
@@ -238,17 +273,21 @@ def main():
     
     # Load tokenizer and model
     hf_model_name = "{hf_model_name}"
+    print(f"Loading Hugging Face model: {{hf_model_name}}")
     logger.info(f"Loading model: {{hf_model_name}}")
     tokenizer = AutoTokenizer.from_pretrained(hf_model_name)
+    print("Tokenizer loaded successfully")
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     
+    print("Loading model (this may take a while for large models)...")
     model = AutoModelForCausalLM.from_pretrained(
         hf_model_name,
         torch_dtype=torch.float16,
         device_map="auto",
         trust_remote_code=True
     )
+    print("Model loaded successfully")
     
     # Configure LoRA
     peft_config = LoraConfig(
@@ -264,9 +303,12 @@ def main():
     model.print_trainable_parameters()
     
     # Load and prepare dataset
+    print("Loading and preparing dataset...")
     logger.info("Loading dataset...")
     dataset = load_dataset(dataset_path)
+    print(f"Dataset loaded: {{len(dataset)}} examples")
     formatted_dataset = dataset.map(format_instruction)
+    print("Dataset formatted successfully")
     
     # Tokenize dataset
     tokenized_dataset = formatted_dataset.map(
@@ -311,8 +353,10 @@ def main():
     )
     
     # Start training
+    print("=== Starting LoRA Training ===")
     logger.info("Starting training...")
     trainer.train()
+    print("=== Training Completed ===")
     
     # Save the model
     logger.info("Saving model...")
@@ -351,9 +395,24 @@ if __name__ == "__main__":
     main()
 '''
         
+        # Replace placeholders in script content
+        formatted_script = script_content.replace("{processed_dataset}", processed_dataset.replace('\\', '/'))
+        formatted_script = formatted_script.replace("{self.config['base_model']}", self.config['base_model'])
+        formatted_script = formatted_script.replace("{self.config['adapter_name']}", self.config['adapter_name'])
+        formatted_script = formatted_script.replace("{self.temp_dir}/output", os.path.join(self.temp_dir, "output").replace('\\', '/'))
+        formatted_script = formatted_script.replace("{self.config['learning_rate']}", str(self.config['learning_rate']))
+        formatted_script = formatted_script.replace("{self.config['num_epochs']}", str(self.config['num_epochs']))
+        formatted_script = formatted_script.replace("{self.config['batch_size']}", str(self.config['batch_size']))
+        formatted_script = formatted_script.replace("{self.config.get('gradient_accumulation_steps', 4)}", str(self.config.get('gradient_accumulation_steps', 4)))
+        formatted_script = formatted_script.replace("{self.config.get('lora_rank', 16)}", str(self.config.get('lora_rank', 16)))
+        formatted_script = formatted_script.replace("{self.config.get('lora_alpha', 32)}", str(self.config.get('lora_alpha', 32)))
+        formatted_script = formatted_script.replace("{self.config.get('lora_dropout', 0.1)}", str(self.config.get('lora_dropout', 0.1)))
+        formatted_script = formatted_script.replace("{self.config.get('target_modules', ['q_proj', 'v_proj', 'k_proj', 'o_proj'])}", str(self.config.get('target_modules', ['q_proj', 'v_proj', 'k_proj', 'o_proj'])))
+        formatted_script = formatted_script.replace("{hf_model_name}", hf_model_name)
+        
         script_path = os.path.join(self.temp_dir, "train_model.py")
         with open(script_path, 'w') as f:
-            f.write(script_content)
+            f.write(formatted_script)
         
         return script_path
     
@@ -377,6 +436,18 @@ bitsandbytes>=0.39.0
     def install_dependencies(self) -> bool:
         """Install required dependencies"""
         try:
+            # First, upgrade pip to avoid version conflicts
+            logger.info("Upgrading pip...")
+            pip_upgrade = subprocess.run([
+                sys.executable, "-m", "pip", "install", "--upgrade", "pip"
+            ], capture_output=True, text=True, timeout=60)
+            
+            if pip_upgrade.returncode != 0:
+                logger.warning(f"Pip upgrade failed (continuing anyway): {pip_upgrade.stderr}")
+            else:
+                logger.info("Pip upgraded successfully")
+            
+            # Now install dependencies
             logger.info("Installing training dependencies...")
             result = subprocess.run([
                 sys.executable, "-m", "pip", "install", "-r", 
@@ -385,7 +456,16 @@ bitsandbytes>=0.39.0
             
             if result.returncode != 0:
                 logger.error(f"Failed to install dependencies: {result.stderr}")
-                return False
+                # Try with --user flag as fallback
+                logger.info("Retrying with --user flag...")
+                result = subprocess.run([
+                    sys.executable, "-m", "pip", "install", "--user", "-r", 
+                    os.path.join(self.temp_dir, "requirements.txt")
+                ], capture_output=True, text=True, timeout=300)
+                
+                if result.returncode != 0:
+                    logger.error(f"Failed to install dependencies with --user: {result.stderr}")
+                    return False
             
             logger.info("Dependencies installed successfully")
             return True
@@ -413,17 +493,65 @@ bitsandbytes>=0.39.0
             if not self.install_dependencies():
                 return False
             
-            # Run training
+            # Run training with real-time output
             logger.info("Starting training process...")
-            result = subprocess.run([
-                sys.executable, script_path
-            ], capture_output=True, text=True, timeout=3600)  # 1 hour timeout
+            logger.info(f"Training script: {script_path}")
+            logger.info("Training output will be shown in real-time:")
+            logger.info("=" * 50)
             
-            if result.returncode != 0:
-                logger.error(f"Training failed: {result.stderr}")
+            # Use subprocess.Popen for real-time output
+            process = subprocess.Popen([
+                sys.executable, script_path
+            ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+               text=True, bufsize=1, universal_newlines=True)
+            
+            # Capture output in real-time
+            output_lines = []
+            timeout_count = 0
+            max_timeout = 30  # 30 seconds without output before timeout
+            
+            while True:
+                try:
+                    output = process.stdout.readline()
+                    if output == '' and process.poll() is not None:
+                        break
+                    if output:
+                        line = output.strip()
+                        if line:
+                            logger.info(f"  {line}")
+                            output_lines.append(line)
+                            timeout_count = 0  # Reset timeout counter
+                    else:
+                        timeout_count += 1
+                        if timeout_count >= max_timeout:
+                            logger.warning("No output received for 30 seconds, training might be stuck...")
+                            logger.info("Training process is still running, continuing to wait...")
+                            timeout_count = 0  # Reset counter but keep waiting
+                except Exception as e:
+                    logger.error(f"Error reading training output: {e}")
+                    break
+            
+            # Wait for process to complete
+            return_code = process.wait()
+            
+            logger.info("=" * 50)
+            
+            if return_code != 0:
+                logger.error(f"Training failed with return code: {return_code}")
                 return False
             
             logger.info("Training completed successfully")
+            
+            # Save training output to log file
+            log_file = os.path.join(self.temp_dir, "training_output.log")
+            with open(log_file, 'w') as f:
+                f.write("=== TRAINING OUTPUT ===\n")
+                f.write(f"Return code: {return_code}\n\n")
+                f.write("=== OUTPUT ===\n")
+                for line in output_lines:
+                    f.write(f"{line}\n")
+            
+            logger.info(f"Training output saved to: {log_file}")
             return True
             
         except subprocess.TimeoutExpired:

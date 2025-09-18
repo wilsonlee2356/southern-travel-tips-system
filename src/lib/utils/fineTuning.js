@@ -5,7 +5,7 @@
 // Configuration
 const FINETUNING_CONFIG = {
 	baseUrl: 'http://localhost:11434', // Ollama Docker container
-	apiUrl: 'http://localhost:8001', // Fine-tuning API URL (WSL)
+	apiUrl: 'http://localhost:8001', // Fine-tuning API URL (Windows)
 	timeout: 30000,
 	defaultConfig: {
 		learningRate: 0.0001,

@@ -103,20 +103,17 @@ async def validate_config(config: TrainingConfig):
         "errors": errors
     }
 
-@app.post("/api/fine-tuning/validate-dataset")
-async def validate_dataset(file: UploadFile = File(...)):
-    """Validate uploaded dataset"""
+def validate_dataset_content(content: bytes, filename: str):
+    """Validate dataset content"""
     try:
-        # Read file content
-        content = await file.read()
         text_content = content.decode('utf-8')
         
         # Parse based on file extension
-        if file.filename.endswith('.json'):
+        if filename.endswith('.json'):
             data = json.loads(text_content)
             if not isinstance(data, list):
                 return {"valid": False, "error": "JSON file must contain an array"}
-        elif file.filename.endswith('.jsonl'):
+        elif filename.endswith('.jsonl'):
             data = []
             for line in text_content.split('\n'):
                 if line.strip():
@@ -140,9 +137,20 @@ async def validate_dataset(file: UploadFile = File(...)):
             "valid": True,
             "total_examples": len(data),
             "valid_examples": valid_count,
-            "filename": file.filename,
+            "filename": filename,
             "size": len(content)
         }
+        
+    except Exception as e:
+        return {"valid": False, "error": str(e)}
+
+@app.post("/api/fine-tuning/validate-dataset")
+async def validate_dataset(file: UploadFile = File(...)):
+    """Validate uploaded dataset"""
+    try:
+        # Read file content
+        content = await file.read()
+        return validate_dataset_content(content, file.filename)
         
     except Exception as e:
         logger.error(f"Dataset validation error: {e}")
@@ -193,8 +201,11 @@ async def start_training(
         # Generate session ID
         session_id = f"training_{int(time.time())}"
         
-        # Validate dataset
-        validation_result = await validate_dataset(file)
+        # Read file content once and store it
+        file_content = await file.read()
+        
+        # Validate dataset using the content
+        validation_result = validate_dataset_content(file_content, file.filename)
         if not validation_result["valid"]:
             raise HTTPException(status_code=400, detail=validation_result["error"])
         
@@ -219,8 +230,7 @@ async def start_training(
         # Save dataset to temporary file
         temp_dataset_path = f"/tmp/dataset_{session_id}.jsonl"
         with open(temp_dataset_path, 'wb') as f:
-            content = await file.read()
-            f.write(content)
+            f.write(file_content)
         
         # Start training in background
         background_tasks.add_task(run_training_async, session_id, config.dict(), temp_dataset_path)
@@ -274,6 +284,38 @@ async def delete_training_session(session_id: str):
     
     del training_sessions[session_id]
     return {"success": True, "message": "Session deleted"}
+
+@app.get("/api/fine-tuning/logs/{session_id}")
+async def get_training_logs(session_id: str):
+    """Get training logs for a session"""
+    if session_id not in training_sessions:
+        raise HTTPException(status_code=404, detail="Training session not found")
+    
+    session = training_sessions[session_id]
+    
+    # Try to find training log file
+    log_file = f"/tmp/dataset_{session_id}/training_output.log"
+    if os.path.exists(log_file):
+        try:
+            with open(log_file, 'r') as f:
+                log_content = f.read()
+            return {
+                "success": True,
+                "logs": log_content,
+                "log_file": log_file
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Could not read log file: {str(e)}",
+                "log_file": log_file
+            }
+    else:
+        return {
+            "success": False,
+            "error": "Training log file not found",
+            "log_file": log_file
+        }
 
 async def run_training_async(session_id: str, config: Dict[str, Any], dataset_path: str):
     """Run training asynchronously"""
