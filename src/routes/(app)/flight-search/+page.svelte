@@ -9,6 +9,8 @@
 	import Sidebar from '$lib/components/icons/Sidebar.svelte';
 	import { navigateToPostWithFlightData } from '$lib/utils/flightPostHandler.js';
 	import { goto } from '$app/navigation';
+	import { amadeusApi } from '$lib/services/amadeusApi.js';
+	import FlightResultsTable from '$lib/components/FlightResultsTable.svelte';
 
 	// Form state
 	let searchForm = {
@@ -27,6 +29,8 @@
 	let selectedFlights = new Set();
 	let isPosting = false;
 	let aiStage = ''; // Track which AI stage is running
+	let searchError = ''; // Track search errors
+	let useAmadeusApi = true; // Toggle between mock and real API
 
 	// Initialize with all flights on page load
 	$: if (typeof window !== 'undefined') {
@@ -34,6 +38,66 @@
 			searchResults = [...sampleFlights];
 		}
 	}
+
+	// Location code mapping for common cities
+	const locationCodeMap = {
+		// Major cities and their IATA codes
+		'香港': 'HKG',
+		'hong kong': 'HKG',
+		'首爾': 'ICN',
+		'seoul': 'ICN',
+		'高雄': 'KHH',
+		'kaohsiung': 'KHH',
+		'大阪': 'KIX',
+		'osaka': 'KIX',
+		'杜拜': 'DXB',
+		'dubai': 'DXB',
+		'倫敦': 'LHR',
+		'london': 'LHR',
+		'紐約': 'JFK',
+		'new york': 'JFK',
+		'洛杉磯': 'LAX',
+		'los angeles': 'LAX',
+		'東京': 'NRT',
+		'tokyo': 'NRT',
+		'台北': 'TPE',
+		'taipei': 'TPE',
+		'新加坡': 'SIN',
+		'singapore': 'SIN',
+		'曼谷': 'BKK',
+		'bangkok': 'BKK',
+		'雪梨': 'SYD',
+		'sydney': 'SYD',
+		'巴黎': 'CDG',
+		'paris': 'CDG',
+		'法蘭克福': 'FRA',
+		'frankfurt': 'FRA',
+		'阿姆斯特丹': 'AMS',
+		'amsterdam': 'AMS',
+		'溫哥華': 'YVR',
+		'vancouver': 'YVR',
+		'多倫多': 'YYZ',
+		'toronto': 'YYZ'
+	};
+
+	// Function to get location code from city name
+	const getLocationCode = (cityName) => {
+		if (!cityName) return '';
+		
+		// First try exact match
+		const exactMatch = locationCodeMap[cityName.toLowerCase()];
+		if (exactMatch) return exactMatch;
+		
+		// Try partial match
+		for (const [key, code] of Object.entries(locationCodeMap)) {
+			if (key.includes(cityName.toLowerCase()) || cityName.toLowerCase().includes(key)) {
+				return code;
+			}
+		}
+		
+		// If no match found, assume it's already a code or return as is
+		return cityName.toUpperCase();
+	};
 
 	// Sample flight data for demonstration
 	const sampleFlights = [
@@ -93,26 +157,84 @@
 	const handleSearch = async () => {
 		isSearching = true;
 		hasSearched = true;
+		searchError = '';
+		
+		// Clear selected flights when starting new search
+		selectedFlights.clear();
 
-		// Simulate API call delay
-		await new Promise(resolve => setTimeout(resolve, 1000));
+		try {
+			if (useAmadeusApi) {
+				// Use Amadeus API for real flight search
+				const originCode = getLocationCode(searchForm.startingPlace);
+				const destinationCode = getLocationCode(searchForm.destination);
 
-		// Filter sample data based on search criteria
-		let filteredResults = sampleFlights.filter(flight => {
-			const matchesStartingPlace = !searchForm.startingPlace || 
-				flight.startingPlace.toLowerCase().includes(searchForm.startingPlace.toLowerCase());
-			const matchesDestination = !searchForm.destination || 
-				flight.destination.toLowerCase().includes(searchForm.destination.toLowerCase());
-			const matchesSeatClass = !searchForm.seatClass || 
-				flight.seatClass.toLowerCase() === searchForm.seatClass.toLowerCase();
-			const matchesCost = !searchForm.cost || 
-				flight.cost <= parseInt(searchForm.cost);
+				if (!originCode || !destinationCode) {
+					throw new Error('Please enter valid origin and destination cities');
+				}
 
-			return matchesStartingPlace && matchesDestination && matchesSeatClass && matchesCost;
-		});
+				if (!searchForm.departureDate) {
+					throw new Error('Please select a departure date');
+				}
 
-		searchResults = filteredResults;
-		isSearching = false;
+				// Map seat class to Amadeus format
+				const travelClassMap = {
+					'economy': 'ECONOMY',
+					'business': 'BUSINESS'
+				};
+
+				const searchParams = {
+					originLocationCode: originCode,
+					destinationLocationCode: destinationCode,
+					departureDate: searchForm.departureDate,
+					adults: 1,
+					travelClass: travelClassMap[searchForm.seatClass] || 'ECONOMY',
+					max: 20
+				};
+
+				// Add return date if provided
+				if (searchForm.returnDate) {
+					searchParams.returnDate = searchForm.returnDate;
+				}
+
+				// Call Amadeus API
+				const amadeusResponse = await amadeusApi.searchFlightOffers(searchParams);
+				
+				// Transform the response to match our UI structure
+				let transformedResults = amadeusApi.transformFlightData(amadeusResponse);
+
+				// Apply cost filter if specified
+				if (searchForm.cost) {
+					const maxCost = parseFloat(searchForm.cost);
+					transformedResults = transformedResults.filter(flight => flight.cost <= maxCost);
+				}
+
+				searchResults = transformedResults;
+			} else {
+				// Use mock data (fallback)
+				await new Promise(resolve => setTimeout(resolve, 1000));
+
+				let filteredResults = sampleFlights.filter(flight => {
+					const matchesStartingPlace = !searchForm.startingPlace || 
+						flight.startingPlace.toLowerCase().includes(searchForm.startingPlace.toLowerCase());
+					const matchesDestination = !searchForm.destination || 
+						flight.destination.toLowerCase().includes(searchForm.destination.toLowerCase());
+					const matchesSeatClass = !searchForm.seatClass || 
+						flight.seatClass.toLowerCase() === searchForm.seatClass.toLowerCase();
+					const matchesCost = !searchForm.cost || 
+						flight.cost <= parseInt(searchForm.cost);
+
+					return matchesStartingPlace && matchesDestination && matchesSeatClass && matchesCost;
+				});
+
+				searchResults = filteredResults;
+			}
+		} catch (error) {
+			console.error('Search error:', error);
+			searchError = error.message || 'An error occurred while searching for flights';
+			searchResults = [];
+		} finally {
+			isSearching = false;
+		}
 	};
 
 	// Reset search
@@ -128,6 +250,7 @@
 		searchResults = [...sampleFlights];
 		hasSearched = false;
 		selectedFlights.clear();
+		searchError = '';
 	};
 
 	// Handle checkbox selection
@@ -279,9 +402,44 @@
 
 			<!-- Search Form -->
 			<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
-				<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-					{$i18n.t('Search Flights')}
-				</h2>
+				<div class="flex items-center justify-between mb-6">
+					<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+						{$i18n.t('Search Flights')}
+					</h2>
+					<div class="flex items-center gap-2">
+						<label for="api-mode-toggle" class="text-sm text-gray-600 dark:text-gray-400">API Mode:</label>
+						<label for="api-mode-toggle" class="inline-flex items-center cursor-pointer">
+							<input
+								id="api-mode-toggle"
+								type="checkbox"
+								class="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
+								bind:checked={useAmadeusApi}
+							/>
+							<span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+								{useAmadeusApi ? 'Amadeus API' : 'Mock Data'}
+							</span>
+						</label>
+					</div>
+				</div>
+
+				<!-- Error Display -->
+				{#if searchError}
+					<div class="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+						<div class="flex">
+							<svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+								<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+							</svg>
+							<div class="ml-3">
+								<h3 class="text-sm font-medium text-red-800 dark:text-red-200">
+									Search Error
+								</h3>
+								<div class="mt-2 text-sm text-red-700 dark:text-red-300">
+									{searchError}
+								</div>
+							</div>
+						</div>
+					</div>
+				{/if}
 				
 				<form on:submit|preventDefault={handleSearch} class="space-y-6">
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -294,7 +452,7 @@
 								id="starting-place"
 								type="text"
 								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-								placeholder="e.g., Los Angeles"
+								placeholder="e.g., Hong Kong, HKG, Los Angeles, LAX"
 								bind:value={searchForm.startingPlace}
 								required
 							/>
@@ -309,7 +467,7 @@
 								id="destination"
 								type="text"
 								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-								placeholder="e.g., New York"
+								placeholder="e.g., Seoul, ICN, New York, JFK"
 								bind:value={searchForm.destination}
 								required
 							/>
@@ -406,134 +564,19 @@
 			</div>
 
 			<!-- Search Results -->
-			<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-				<div class="flex items-center justify-between mb-6">
-					<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
-						{$i18n.t('Available Flights')}
-					</h2>
-					<span class="text-sm text-gray-600 dark:text-gray-400">
-						{searchResults.length} {$i18n.t('flights found')}
-					</span>
-				</div>
-
-					{#if searchResults.length > 0}
-						<!-- Results Table -->
-						<div class="overflow-x-auto">
-							<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-								<thead class="bg-gray-50 dark:bg-gray-700">
-									<tr>
-										<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-											<input
-												type="checkbox"
-												class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-												checked={selectedFlights.size === searchResults.length && searchResults.length > 0}
-												on:change={toggleSelectAll}
-											/>
-										</th>
-										<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-											{$i18n.t('Airline')}
-										</th>
-										<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-											{$i18n.t('From')}
-										</th>
-										<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-											{$i18n.t('To')}
-										</th>
-										<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-											{$i18n.t('Cost')}
-										</th>
-										<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-											{$i18n.t('Class')}
-										</th>
-										<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-											{$i18n.t('Departure')}
-										</th>
-										<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-											{$i18n.t('Valid Until')}
-										</th>
-									</tr>
-								</thead>
-								<tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-									{#each searchResults as flight (flight.id)}
-										<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-											<td class="px-6 py-4 whitespace-nowrap">
-												<input
-													type="checkbox"
-													class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-													checked={selectedFlights.has(flight.id)}
-													on:change={() => toggleFlightSelection(flight.id)}
-												/>
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap">
-												<div class="text-sm font-medium text-gray-900 dark:text-gray-100">
-													{flight.airline}
-												</div>
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap">
-												<div class="text-sm text-gray-900 dark:text-gray-100">
-													{flight.startingPlace}
-												</div>
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap">
-												<div class="text-sm text-gray-900 dark:text-gray-100">
-													{flight.destination}
-												</div>
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap">
-												<div class="text-sm font-semibold text-green-600 dark:text-green-400">
-													${flight.cost}
-												</div>
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap">
-												<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {flight.seatClass.toLowerCase() === 'business' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}">
-													{flight.seatClass}
-												</span>
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap">
-												<div class="text-sm text-gray-900 dark:text-gray-100">
-													{new Date(flight.departureDate).toLocaleDateString()}
-												</div>
-											</td>
-											<td class="px-6 py-4 whitespace-nowrap">
-												<div class="text-sm text-gray-900 dark:text-gray-100">
-													{new Date(flight.ticketValidDate).toLocaleDateString()}
-												</div>
-											</td>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
-						</div>
-
-						<!-- Post Button -->
-						<div class="mt-6 flex justify-end">
-							<button
-								class="bg-black hover:bg-gray-800 text-white font-medium py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-								disabled={selectedFlights.size === 0 || isPosting}
-								on:click={handlePost}
-							>
-								{#if isPosting}
-									<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-									</svg>
-									{#if aiStage === 'initializing'}
-										Initializing AI Analysis...
-									{:else if aiStage === 'stage1'}
-										Stage 1: Large Model Analysis...
-									{:else}
-										Stage 2: Content Refinement...
-									{/if}
-								{:else}
-									<svg class="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18v18h-18z M8 8h8v8h-8z M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M16 7a1 1 0 1 0 0-2a1 1 0 1 0 0 2"></path>
-									</svg>
-									{$i18n.t('Post')} ({selectedFlights.size})
-								{/if}
-							</button>
-						</div>
-				{:else}
-					<!-- No Results -->
+			{#if searchResults.length > 0}
+				<FlightResultsTable
+					flights={searchResults}
+					{selectedFlights}
+					onToggleFlight={toggleFlightSelection}
+					onToggleSelectAll={toggleSelectAll}
+					onPost={handlePost}
+					{isPosting}
+					{aiStage}
+				/>
+			{:else}
+				<!-- No Results -->
+				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
 					<div class="text-center py-12">
 						<svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-1.009-5.824-2.709M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -545,8 +588,8 @@
 							{$i18n.t('Try adjusting your search criteria')}
 						</p>
 					</div>
-				{/if}
-			</div>
+				</div>
+			{/if}
 		</div>
 	</div>
 </div>

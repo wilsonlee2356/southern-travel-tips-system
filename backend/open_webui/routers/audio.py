@@ -5,8 +5,8 @@ import os
 import uuid
 from functools import lru_cache
 from pathlib import Path
-from pydub import AudioSegment
-from pydub.silence import split_on_silence
+# # from pydub import AudioSegment
+# from pydub.silence import split_on_silence
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
@@ -73,8 +73,8 @@ SPEECH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 #
 ##########################################
 
-from pydub import AudioSegment
-from pydub.utils import mediainfo
+# from pydub import AudioSegment
+# from pydub.utils import mediainfo
 
 
 def is_audio_conversion_required(file_path):
