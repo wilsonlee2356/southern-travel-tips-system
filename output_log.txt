@@ -1,0 +1,33 @@
+Dataset formatted successfully
+[22:07:19] 2025-09-19 22:07:19,516 - INFO -   Map:   0%|          | 0/10 [00:00<?, ? examples/s]
+[22:07:19] 2025-09-19 22:07:19,516 - INFO -   Map: 100%|##########| 10/10 [00:00<00:00, 144.40 examples/s]
+[22:07:19] 2025-09-19 22:07:19,609 - INFO -   Traceback (most recent call last):
+[22:07:19] 2025-09-19 22:07:19,609 - INFO -   File "C:\Users\Tristan\AppData\Local\Temp\tmpvjyrxx6r\train_model.py", line 328, in <module>
+[22:07:19] 2025-09-19 22:07:19,610 - INFO -   main()
+[22:07:19] 2025-09-19 22:07:19,610 - INFO -   File "C:\Users\Tristan\AppData\Local\Temp\tmpvjyrxx6r\train_model.py", line 280, in main
+[22:07:19] 2025-09-19 22:07:19,610 - INFO -   trainer = Trainer(
+[22:07:19] 2025-09-19 22:07:19,610 - INFO -   ^^^^^^^^
+[22:07:19] 2025-09-19 22:07:19,610 - INFO -   File "C:\Users\Tristan\Anaconda3\Lib\site-packages\transformers\utils\deprecation.py", line 172, in wrapped_func
+[22:07:19] 2025-09-19 22:07:19,611 - INFO -   return func(*args, **kwargs)
+[22:07:19] 2025-09-19 22:07:19,611 - INFO -   ^^^^^^^^^^^^^^^^^^^^^
+[22:07:19] 2025-09-19 22:07:19,611 - INFO -   File "C:\Users\Tristan\Anaconda3\Lib\site-packages\transformers\trainer.py", line 620, in __init__
+[22:07:19] 2025-09-19 22:07:19,611 - INFO -   self._move_model_to_device(model, args.device)
+[22:07:19] 2025-09-19 22:07:19,612 - INFO -   File "C:\Users\Tristan\Anaconda3\Lib\site-packages\transformers\trainer.py", line 913, in _move_model_to_device
+[22:07:19] 2025-09-19 22:07:19,612 - INFO -   model = model.to(device)
+[22:07:19] 2025-09-19 22:07:19,612 - INFO -   ^^^^^^^^^^^^^^^^
+[22:07:19] 2025-09-19 22:07:19,613 - INFO -   File "C:\Users\Tristan\Anaconda3\Lib\site-packages\torch\nn\modules\module.py", line 1343, in to
+[22:07:19] 2025-09-19 22:07:19,615 - INFO -   return self._apply(convert)
+[22:07:19] 2025-09-19 22:07:19,615 - INFO -   ^^^^^^^^^^^^^^^^^^^^
+[22:07:19] 2025-09-19 22:07:19,615 - INFO -   File "C:\Users\Tristan\Anaconda3\Lib\site-packages\torch\nn\modules\module.py", line 903, in _apply
+[22:07:19] 2025-09-19 22:07:19,615 - INFO -   module._apply(fn)
+[22:07:19] 2025-09-19 22:07:19,616 - INFO -   File "C:\Users\Tristan\Anaconda3\Lib\site-packages\torch\nn\modules\module.py", line 903, in _apply
+[22:07:19] 2025-09-19 22:07:19,616 - INFO -   module._apply(fn)
+[22:07:19] 2025-09-19 22:07:19,616 - INFO -   File "C:\Users\Tristan\Anaconda3\Lib\site-packages\torch\nn\modules\module.py", line 903, in _apply
+[22:07:19] 2025-09-19 22:07:19,617 - INFO -   module._apply(fn)
+[22:07:19] 2025-09-19 22:07:19,617 - INFO -   [Previous line repeated 1 more time]
+[22:07:19] 2025-09-19 22:07:19,617 - INFO -   File "C:\Users\Tristan\Anaconda3\Lib\site-packages\torch\nn\modules\module.py", line 930, in _apply
+[22:07:19] 2025-09-19 22:07:19,619 - INFO -   param_applied = fn(param)
+[22:07:19] 2025-09-19 22:07:19,619 - INFO -   ^^^^^^^^^
+[22:07:19] 2025-09-19 22:07:19,619 - INFO -   File "C:\Users\Tristan\Anaconda3\Lib\site-packages\torch\nn\modules\module.py", line 1336, in convert
+[22:07:19] 2025-09-19 22:07:19,621 - INFO -   raise NotImplementedError(
+[22:07:19] 2025-09-19 22:07:19,622 - INFO -   NotImplementedError: Cannot copy out of meta tensor; no data! Please use torch.nn.Module.to_empty() instead of torch.nn.Module.to() when moving module from meta to a different device.

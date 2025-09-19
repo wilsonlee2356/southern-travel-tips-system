@@ -299,47 +299,57 @@ def main():
     
     print("Loading model (this may take a while for large models)...")
     
-    # Configure quantization with CPU offloading for large models
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_use_double_quant=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16,
-        bnb_4bit_quant_storage=torch.uint8,  # Use uint8 for storage
-        llm_int8_enable_fp32_cpu_offload=True  # Enable CPU offloading for large models
-    )
-    
     try:
-        print("Attempting to load model with regular HTTP download...")
-        # Create custom device map for CPU offloading with your 40GB RAM
-        device_map = {{
-            "model.embed_tokens": "cpu",
-            "model.norm": "cpu", 
-            "lm_head": "cpu"
-        }}
+        print("Attempting to load model without quantization (using CPU offloading)...")
         
-        # Add layers to device map - put some on GPU, some on CPU
-        num_layers = 80 if "32B" in hf_model_name else 40  # Qwen2.5-32B has 80 layers
-        gpu_layers = min(40, num_layers // 2)  # Put half on GPU, half on CPU
-        
-        for i in range(num_layers):
-            if i < gpu_layers:
-                device_map[f"model.layers.{{i}}"] = 0  # GPU
-            else:
-                device_map[f"model.layers.{{i}}"] = "cpu"  # CPU
-        
-        model = AutoModelForCausalLM.from_pretrained(
-            hf_model_name,
-            quantization_config=bnb_config,
-            device_map=device_map,  # Custom device map for CPU offloading
-            trust_remote_code=True,
-            low_cpu_mem_usage=True,
-            token=False,  # Updated parameter name
-            local_files_only=False,
-            force_download=False,  # Use cache if available
-            proxies=None,  # Disable any proxy that might interfere
-            max_memory={{0: "15GB", "cpu": "35GB"}}  # Allocate memory explicitly
-        )
+        # For 32B models, use pure CPU offloading without quantization
+        if "32B" in hf_model_name:
+            device_map = {{
+                "model.embed_tokens": "cpu",
+                "model.norm": "cpu",
+                "lm_head": "cpu"
+            }}
+            
+            # Put most layers on CPU, only a few on GPU
+            num_layers = 80  # Qwen2.5-32B has 80 layers
+            gpu_layers = 20  # Only 20 layers on GPU
+            
+            for i in range(num_layers):
+                if i < gpu_layers:
+                    device_map[f"model.layers.{{i}}"] = 0  # GPU
+                else:
+                    device_map[f"model.layers.{{i}}"] = "cpu"  # CPU
+            
+            model = AutoModelForCausalLM.from_pretrained(
+                hf_model_name,
+                device_map=device_map,
+                torch_dtype=torch.float16,
+                trust_remote_code=True,
+                low_cpu_mem_usage=True,
+                token=False,
+                local_files_only=False,
+                force_download=False,
+                max_memory={{0: "14GB", "cpu": "35GB"}}
+            )
+        else:
+            # For smaller models, use quantization
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.float16
+            )
+            
+            model = AutoModelForCausalLM.from_pretrained(
+                hf_model_name,
+                quantization_config=bnb_config,
+                device_map="auto",
+                trust_remote_code=True,
+                low_cpu_mem_usage=True,
+                token=False,
+                local_files_only=False,
+                force_download=False
+            )
         print("Model loaded successfully")
     except Exception as e:
         print(f"Error loading model {{hf_model_name}}: {{e}}")
@@ -362,12 +372,16 @@ def main():
         use_rslora=False  # Disable RSLoRA for compatibility
     )
     
-    # Enable gradient checkpointing on the base model before adding LoRA
-    model.gradient_checkpointing_enable()
-    
-    # Prepare model for k-bit training (required for quantized models)
-    from peft import prepare_model_for_kbit_training
-    model = prepare_model_for_kbit_training(model)
+    # Prepare model for training (handle both quantized and non-quantized)
+    if "32B" in hf_model_name:
+        # For 32B models without quantization, just enable training mode
+        model.train()
+        print("Model prepared for training (no quantization)")
+    else:
+        # For smaller quantized models, use k-bit training preparation
+        from peft import prepare_model_for_kbit_training
+        model = prepare_model_for_kbit_training(model)
+        print("Model prepared for k-bit training")
     
     # Add LoRA adapters
     model = get_peft_model(model, peft_config)
@@ -425,10 +439,13 @@ def main():
         push_to_hub=False,
         report_to=None,
         dataloader_pin_memory=False,
-        gradient_checkpointing=True,  # Enable gradient checkpointing for memory savings
-        fp16=True,  # Use mixed precision training
+        gradient_checkpointing=False,  # Disable gradient checkpointing
+        fp16=False,  # Disable mixed precision
         dataloader_num_workers=0,  # Reduce workers to save memory
         max_grad_norm=1.0,  # Gradient clipping
+        ignore_data_skip=True,  # Skip data validation that might cause device issues
+        disable_tqdm=False,  # Keep progress bars
+        no_cuda=False,  # Allow CUDA usage
     )
     
     # Data collator for causal LM with proper padding

@@ -283,6 +283,14 @@ async def start_training(
         if not validation_result["valid"]:
             raise HTTPException(status_code=400, detail=validation_result["error"])
         
+        # Create training logs directory
+        logs_dir = Path(__file__).parent / "training_logs"
+        logs_dir.mkdir(exist_ok=True)
+        
+        # Create session log file
+        log_filename = f"training_{session_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        session_log_path = logs_dir / log_filename
+        
         # Initialize training session
         training_sessions[session_id] = {
             "session_id": session_id,
@@ -298,8 +306,20 @@ async def start_training(
             "end_time": None,
             "error": None,
             "config": config.dict(),
-            "dataset_filename": file.filename
+            "dataset_filename": file.filename,
+            "log_file": str(session_log_path)
         }
+        
+        # Write initial log entry
+        with open(session_log_path, 'w', encoding='utf-8') as f:
+            f.write(f"=== LoRA Fine-tuning Session Log ===\n")
+            f.write(f"Session ID: {session_id}\n")
+            f.write(f"Start Time: {datetime.now()}\n")
+            f.write(f"Base Model: {config.base_model}\n")
+            f.write(f"Adapter Name: {config.adapter_name}\n")
+            f.write(f"Dataset: {file.filename}\n")
+            f.write(f"Configuration: {json.dumps(config.dict(), indent=2)}\n")
+            f.write(f"{'='*50}\n\n")
         
         # Save and convert dataset to proper JSONL format (Windows compatible)
         import tempfile
@@ -432,7 +452,25 @@ async def get_training_logs(session_id: str):
     
     session = training_sessions[session_id]
     
-    # Try to find training log file
+    # Check for session log file first
+    if "log_file" in session and os.path.exists(session["log_file"]):
+        try:
+            with open(session["log_file"], 'r', encoding='utf-8') as f:
+                log_content = f.read()
+            return {
+                "success": True,
+                "logs": log_content,
+                "log_file": session["log_file"],
+                "session_id": session_id
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Could not read session log file: {str(e)}",
+                "log_file": session.get("log_file", "Not available")
+            }
+    
+    # Fallback to old log file location
     log_file = f"/tmp/dataset_{session_id}/training_output.log"
     if os.path.exists(log_file):
         try:
@@ -441,7 +479,8 @@ async def get_training_logs(session_id: str):
             return {
                 "success": True,
                 "logs": log_content,
-                "log_file": log_file
+                "log_file": log_file,
+                "session_id": session_id
             }
         except Exception as e:
             return {
@@ -453,7 +492,8 @@ async def get_training_logs(session_id: str):
         return {
             "success": False,
             "error": "Training log file not found",
-            "log_file": log_file
+            "log_file": session.get("log_file", "Not available"),
+            "session_id": session_id
         }
 
 async def run_training_async(session_id: str, config: Dict[str, Any], dataset_path: str):
@@ -649,6 +689,14 @@ async def run_training_async(session_id: str, config: Dict[str, Any], dataset_pa
                                 if output_text:
                                     logger.info(f"Training output: {output_text}")
                                     
+                                    # Write to session log file
+                                    if "log_file" in training_sessions[session_id]:
+                                        try:
+                                            with open(training_sessions[session_id]["log_file"], 'a', encoding='utf-8') as f:
+                                                f.write(f"[{datetime.now().strftime('%H:%M:%S')}] {output_text}\n")
+                                        except Exception as e:
+                                            logger.debug(f"Error writing to log file: {e}")
+                                    
                                     # Update progress based on output
                                     if output_text and ("epoch" in output_text.lower() or "training" in output_text.lower() or "installing" in output_text.lower()):
                                         update_progress_from_output(session_id, output_text)
@@ -754,6 +802,21 @@ async def run_training_async(session_id: str, config: Dict[str, Any], dataset_pa
             training_sessions[session_id]["message"] = "Training completed successfully!"
             training_sessions[session_id]["end_time"] = datetime.now()
             
+            # Write completion to log file
+            if "log_file" in training_sessions[session_id]:
+                try:
+                    with open(training_sessions[session_id]["log_file"], 'a', encoding='utf-8') as f:
+                        f.write(f"\n{'='*50}\n")
+                        f.write(f"TRAINING COMPLETED SUCCESSFULLY\n")
+                        f.write(f"End Time: {datetime.now()}\n")
+                        f.write(f"Final Status: {training_sessions[session_id]['status']}\n")
+                        f.write(f"Progress: {training_sessions[session_id]['progress']}%\n")
+                        if stdout_text:
+                            f.write(f"Final Output: {stdout_text}\n")
+                        f.write(f"{'='*50}\n")
+                except Exception as e:
+                    logger.debug(f"Error writing completion to log: {e}")
+            
             # Parse final result
             try:
                 result = json.loads(stdout_text)
@@ -778,6 +841,21 @@ async def run_training_async(session_id: str, config: Dict[str, Any], dataset_pa
                 training_sessions[session_id]["error"] = f"Process exited with code {return_code}"
                 
             training_sessions[session_id]["end_time"] = datetime.now()
+            
+            # Write failure to log file
+            if "log_file" in training_sessions[session_id]:
+                try:
+                    with open(training_sessions[session_id]["log_file"], 'a', encoding='utf-8') as f:
+                        f.write(f"\n{'='*50}\n")
+                        f.write(f"TRAINING FAILED\n")
+                        f.write(f"End Time: {datetime.now()}\n")
+                        f.write(f"Exit Code: {return_code}\n")
+                        f.write(f"Error: {training_sessions[session_id]['error']}\n")
+                        if stderr_text:
+                            f.write(f"Error Details:\n{stderr_text}\n")
+                        f.write(f"{'='*50}\n")
+                except Exception as e:
+                    logger.debug(f"Error writing failure to log: {e}")
     
     except Exception as e:
         logger.error(f"Training error: {e}")
