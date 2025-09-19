@@ -183,6 +183,12 @@ import os
 os.environ["HF_HUB_DISABLE_XET_STORAGE"] = "1"
 os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 os.environ["HF_HUB_DISABLE_EXPERIMENTAL_WARNING"] = "1"
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+os.environ["HUGGINGFACE_HUB_DISABLE_XET"] = "1"
+
+# Force disable Xet at the system level
+import sys
+sys.argv.extend(['--disable-xet', '--no-xet'])
 
 import torch
 import json
@@ -255,7 +261,7 @@ def main():
     learning_rate = {self.config['learning_rate']}
     num_epochs = {self.config['num_epochs']}
     batch_size = {self.config['batch_size']}
-    gradient_accumulation_steps = {self.config.get('gradient_accumulation_steps', 4)}
+    gradient_accumulation_steps = {self.config.get('gradient_accumulation_steps', 8)}
     
     # LoRA parameters
     lora_rank = {self.config.get('lora_rank', 16)}
@@ -293,27 +299,46 @@ def main():
     
     print("Loading model (this may take a while for large models)...")
     
-    # Configure aggressive quantization for memory efficiency
+    # Configure quantization with CPU offloading for large models
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_use_double_quant=True,
         bnb_4bit_quant_type="nf4",
         bnb_4bit_compute_dtype=torch.float16,
-        bnb_4bit_quant_storage=torch.uint8  # Use uint8 for storage
+        bnb_4bit_quant_storage=torch.uint8,  # Use uint8 for storage
+        llm_int8_enable_fp32_cpu_offload=True  # Enable CPU offloading for large models
     )
     
     try:
         print("Attempting to load model with regular HTTP download...")
+        # Create custom device map for CPU offloading with your 40GB RAM
+        device_map = {{
+            "model.embed_tokens": "cpu",
+            "model.norm": "cpu", 
+            "lm_head": "cpu"
+        }}
+        
+        # Add layers to device map - put some on GPU, some on CPU
+        num_layers = 80 if "32B" in hf_model_name else 40  # Qwen2.5-32B has 80 layers
+        gpu_layers = min(40, num_layers // 2)  # Put half on GPU, half on CPU
+        
+        for i in range(num_layers):
+            if i < gpu_layers:
+                device_map[f"model.layers.{{i}}"] = 0  # GPU
+            else:
+                device_map[f"model.layers.{{i}}"] = "cpu"  # CPU
+        
         model = AutoModelForCausalLM.from_pretrained(
             hf_model_name,
             quantization_config=bnb_config,
-            device_map="auto",
+            device_map=device_map,  # Custom device map for CPU offloading
             trust_remote_code=True,
             low_cpu_mem_usage=True,
             token=False,  # Updated parameter name
             local_files_only=False,
             force_download=False,  # Use cache if available
-            proxies=None  # Disable any proxy that might interfere
+            proxies=None,  # Disable any proxy that might interfere
+            max_memory={{0: "15GB", "cpu": "35GB"}}  # Allocate memory explicitly
         )
         print("Model loaded successfully")
     except Exception as e:

@@ -54,7 +54,7 @@ class TrainingConfig(BaseModel):
     learning_rate: float
     num_epochs: int
     batch_size: int
-    gradient_accumulation_steps: int = 4
+    gradient_accumulation_steps: int = 8
     lora_rank: int = 16
     lora_alpha: int = 32
     lora_dropout: float = 0.1
