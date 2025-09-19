@@ -25,7 +25,7 @@
 
 	// Model configuration
 	let modelConfig = {
-		baseModel: 'qwen2.5:7b',
+		baseModel: 'qwen2.5:32b',
 		adapterName: 'my-custom-adapter',
 		learningRate: 0.0001,
 		numEpochs: 3,
@@ -46,6 +46,7 @@
 	// Available models
 	let availableModels = [
 		'qwen2.5:32b',
+		'qwen2.5:14b',
 	];
 
 	// Chart data
