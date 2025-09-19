@@ -63,12 +63,13 @@ def start_api():
         logger.info("📡 API will be available at: http://localhost:8001")
         logger.info("📚 API documentation at: http://localhost:8001/docs")
         
-        # Start the server
+        # Start the server with multiple workers to prevent blocking
         subprocess.run([
             sys.executable, '-m', 'uvicorn', 
             'fine_tuning_api:app',
             '--host', '0.0.0.0',
             '--port', '8001',
+            '--workers', '2',  # Use 2 workers to handle concurrent requests
             '--reload'
         ])
         

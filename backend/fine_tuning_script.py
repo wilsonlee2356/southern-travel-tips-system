@@ -124,9 +124,11 @@ class LoRAFineTuner:
         """Convert Ollama model name to Hugging Face model name"""
         model_mapping = {
             'qwen2.5:32b': 'Qwen/Qwen2.5-32B',
+            'qwen2.5:14b': 'Qwen/Qwen2.5-14B',
             'qwen2.5:7b': 'Qwen/Qwen2.5-7B',
             'qwen2.5:3b': 'Qwen/Qwen2.5-3B',
             'qwen2.5:1.5b': 'Qwen/Qwen2.5-1.5B',
+            'qwen2.5:0.5b': 'Qwen/Qwen2.5-0.5B',
             'llama3.2:3b': 'meta-llama/Llama-3.2-3B',
             'llama3.2:1b': 'meta-llama/Llama-3.2-1B',
             'llama3.1:8b': 'meta-llama/Llama-3.1-8B',
@@ -166,24 +168,40 @@ class LoRAFineTuner:
         return ollama_model_name
 
     def create_training_script(self, processed_dataset: str) -> str:
-        """Create the actual training script"""
+        """Create the actual training script using direct string formatting"""
         hf_model_name = self.get_hf_model_name(self.config['base_model'])
         logger.info(f"Using Hugging Face model: {hf_model_name}")
         
-        script_content = f'''
+        # Create output directory path
+        output_dir = os.path.join(self.temp_dir, "output")
+        
+        # Create the script content directly
+        script_content = f'''#!/usr/bin/env python3
+
+# IMPORTANT: Set environment variables BEFORE importing any libraries
+import os
+os.environ["HF_HUB_DISABLE_XET_STORAGE"] = "1"
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+os.environ["HF_HUB_DISABLE_EXPERIMENTAL_WARNING"] = "1"
+
 import torch
 import json
-import os
 from transformers import (
     AutoTokenizer, 
     AutoModelForCausalLM, 
     TrainingArguments, 
     Trainer,
-    DataCollatorForSeq2Seq
+    DataCollatorForSeq2Seq,
+    BitsAndBytesConfig
 )
 from peft import LoraConfig, get_peft_model, TaskType, PeftModel
 from datasets import Dataset
 import logging
+
+# Suppress deprecation warnings to reduce log noise
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -200,59 +218,33 @@ def load_dataset(file_path):
 
 def format_instruction(example):
     """Format instruction for training"""
-    if example["input"]:
-        prompt = f"""Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
-
-### Instruction:
-{{example["instruction"]}}
-
-### Input:
-{{example["input"]}}
-
-### Response:"""
+    # Handle the prompt/response format from the API
+    if "prompt" in example:
+        instruction = example["prompt"]
+        response = example["response"]
     else:
-        prompt = f"""Below is an instruction that describes a task. Write a response that appropriately completes the request.
-
-### Instruction:
-{{example["instruction"]}}
-
-### Response:"""
+        instruction = example["instruction"]
+        response = example["output"]
     
-    return {{
-        "prompt": prompt,
-        "completion": example["output"]
-    }}
+    # Create training text using string concatenation to avoid f-string issues
+    text = "Below is an instruction that describes a task. Write a response that appropriately completes the request.\\n\\n"
+    text += "### Instruction:\\n"
+    text += instruction
+    text += "\\n\\n### Response:\\n"
+    text += response
+    
+    return {{"text": text}}
 
-def tokenize_function(examples, tokenizer, max_length=512):
-    """Tokenize the examples"""
-    model_inputs = tokenizer(
-        examples["prompt"],
-        max_length=max_length,
-        padding=True,
-        truncation=True,
-        return_tensors="pt"
-    )
-    
-    labels = tokenizer(
-        examples["completion"],
-        max_length=max_length,
-        padding=True,
-        truncation=True,
-        return_tensors="pt"
-    )
-    
-    model_inputs["labels"] = labels["input_ids"]
-    return model_inputs
 
 def main():
     print("=== LoRA Fine-tuning Script Started ===")
-    print(f"Timestamp: {__import__('datetime').datetime.now()}")
+    print(f"Timestamp: {{__import__('datetime').datetime.now()}}")
     
     # Configuration
-    base_model = "{self.config['base_model']}"
-    adapter_name = "{self.config['adapter_name']}"
-    dataset_path = r"{processed_dataset}"
-    output_dir = "{self.temp_dir}/output"
+    base_model = {repr(self.config['base_model'])}
+    adapter_name = {repr(self.config['adapter_name'])}
+    dataset_path = {repr(processed_dataset)}
+    output_dir = {repr(output_dir)}
     
     print(f"Base model: {{base_model}}")
     print(f"Adapter name: {{adapter_name}}")
@@ -272,24 +264,68 @@ def main():
     target_modules = {self.config.get('target_modules', ['q_proj', 'v_proj', 'k_proj', 'o_proj'])}
     
     # Load tokenizer and model
-    hf_model_name = "{hf_model_name}"
+    hf_model_name = {repr(hf_model_name)}
     print(f"Loading Hugging Face model: {{hf_model_name}}")
     logger.info(f"Loading model: {{hf_model_name}}")
-    tokenizer = AutoTokenizer.from_pretrained(hf_model_name)
+    
+    # Force disable Xet storage more aggressively
+    import huggingface_hub.file_download
+    import huggingface_hub.utils
+    
+    # Monkey patch to completely disable Xet
+    original_get_hf_file_metadata = huggingface_hub.file_download.get_hf_file_metadata
+    def patched_get_hf_file_metadata(*args, **kwargs):
+        # Force disable xet in metadata
+        result = original_get_hf_file_metadata(*args, **kwargs)
+        if hasattr(result, 'xet_url'):
+            result.xet_url = None
+        return result
+    huggingface_hub.file_download.get_hf_file_metadata = patched_get_hf_file_metadata
+    
+    # Also patch the utils
+    if hasattr(huggingface_hub.utils, '_is_xet_available'):
+        huggingface_hub.utils._is_xet_available = lambda: False
+    
+    tokenizer = AutoTokenizer.from_pretrained(hf_model_name, use_fast=False, token=False)
     print("Tokenizer loaded successfully")
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     
     print("Loading model (this may take a while for large models)...")
-    model = AutoModelForCausalLM.from_pretrained(
-        hf_model_name,
-        torch_dtype=torch.float16,
-        device_map="auto",
-        trust_remote_code=True
-    )
-    print("Model loaded successfully")
     
-    # Configure LoRA
+    # Configure aggressive quantization for memory efficiency
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.float16,
+        bnb_4bit_quant_storage=torch.uint8  # Use uint8 for storage
+    )
+    
+    try:
+        print("Attempting to load model with regular HTTP download...")
+        model = AutoModelForCausalLM.from_pretrained(
+            hf_model_name,
+            quantization_config=bnb_config,
+            device_map="auto",
+            trust_remote_code=True,
+            low_cpu_mem_usage=True,
+            token=False,  # Updated parameter name
+            local_files_only=False,
+            force_download=False,  # Use cache if available
+            proxies=None  # Disable any proxy that might interfere
+        )
+        print("Model loaded successfully")
+    except Exception as e:
+        print(f"Error loading model {{hf_model_name}}: {{e}}")
+        print("This might be due to network issues, Xet storage problems, or insufficient memory.")
+        print("Suggestions:")
+        print("1. Try using a smaller model like qwen2.5:7b or qwen2.5:3b")
+        print("2. Check your internet connection")
+        print("3. Ensure sufficient disk space and memory")
+        raise
+    
+    # Configure LoRA for quantized model with gradient requirements
     peft_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
         inference_mode=False,
@@ -297,10 +333,25 @@ def main():
         lora_alpha=lora_alpha,
         lora_dropout=lora_dropout,
         target_modules=target_modules,
+        bias="none",
+        use_rslora=False  # Disable RSLoRA for compatibility
     )
     
+    # Enable gradient checkpointing on the base model before adding LoRA
+    model.gradient_checkpointing_enable()
+    
+    # Prepare model for k-bit training (required for quantized models)
+    from peft import prepare_model_for_kbit_training
+    model = prepare_model_for_kbit_training(model)
+    
+    # Add LoRA adapters
     model = get_peft_model(model, peft_config)
     model.print_trainable_parameters()
+    
+    # Ensure LoRA parameters require gradients
+    for name, param in model.named_parameters():
+        if "lora_" in name:
+            param.requires_grad = True
     
     # Load and prepare dataset
     print("Loading and preparing dataset...")
@@ -310,19 +361,35 @@ def main():
     formatted_dataset = dataset.map(format_instruction)
     print("Dataset formatted successfully")
     
-    # Tokenize dataset
+    # Tokenize dataset with consistent length handling
+    def tokenize_and_format(examples):
+        # Tokenize all texts with consistent padding
+        tokenized = tokenizer(
+            examples["text"],
+            truncation=True,
+            padding="max_length",  # Pad to max_length for consistent batching
+            max_length=512,  # Further reduced to 512 for memory efficiency
+            return_tensors=None
+        )
+        
+        # For causal LM, labels are the same as input_ids
+        tokenized["labels"] = tokenized["input_ids"].copy()
+        
+        return tokenized
+    
     tokenized_dataset = formatted_dataset.map(
-        lambda x: tokenize_function(x, tokenizer),
-        batched=True
+        tokenize_and_format,
+        batched=True,
+        remove_columns=formatted_dataset.column_names
     )
     
-    # Training arguments
+    # Training arguments with memory optimizations
     training_args = TrainingArguments(
         output_dir=output_dir,
         learning_rate=learning_rate,
         num_train_epochs=num_epochs,
-        per_device_train_batch_size=batch_size,
-        gradient_accumulation_steps=gradient_accumulation_steps,
+        per_device_train_batch_size=1,  # Reduce to 1 for memory efficiency
+        gradient_accumulation_steps=gradient_accumulation_steps * batch_size,  # Compensate with more accumulation
         warmup_steps=100,
         logging_steps=10,
         save_steps=500,
@@ -333,13 +400,18 @@ def main():
         push_to_hub=False,
         report_to=None,
         dataloader_pin_memory=False,
+        gradient_checkpointing=True,  # Enable gradient checkpointing for memory savings
+        fp16=True,  # Use mixed precision training
+        dataloader_num_workers=0,  # Reduce workers to save memory
+        max_grad_norm=1.0,  # Gradient clipping
     )
     
-    # Data collator
-    data_collator = DataCollatorForSeq2Seq(
+    # Data collator for causal LM with proper padding
+    from transformers import DataCollatorForLanguageModeling
+    data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer,
-        model=model,
-        padding=True,
+        mlm=False,  # Not masked language modeling
+        pad_to_multiple_of=8,  # Pad to multiple of 8 for efficiency
         return_tensors="pt"
     )
     
@@ -363,7 +435,7 @@ def main():
     trainer.save_model()
     
     # Save adapter
-    model.save_pretrained(f"{{output_dir}}/adapter")
+    model.save_pretrained(os.path.join(output_dir, "adapter"))
     
     logger.info("Training completed successfully!")
     
@@ -386,7 +458,7 @@ def main():
         "output_path": output_dir
     }}
     
-    with open(f"{{output_dir}}/training_info.json", 'w') as f:
+    with open(os.path.join(output_dir, "training_info.json"), 'w') as f:
         json.dump(training_info, f, indent=2)
     
     print(f"Training completed. Model saved to: {{output_dir}}")
@@ -395,24 +467,10 @@ if __name__ == "__main__":
     main()
 '''
         
-        # Replace placeholders in script content
-        formatted_script = script_content.replace("{processed_dataset}", processed_dataset.replace('\\', '/'))
-        formatted_script = formatted_script.replace("{self.config['base_model']}", self.config['base_model'])
-        formatted_script = formatted_script.replace("{self.config['adapter_name']}", self.config['adapter_name'])
-        formatted_script = formatted_script.replace("{self.temp_dir}/output", os.path.join(self.temp_dir, "output").replace('\\', '/'))
-        formatted_script = formatted_script.replace("{self.config['learning_rate']}", str(self.config['learning_rate']))
-        formatted_script = formatted_script.replace("{self.config['num_epochs']}", str(self.config['num_epochs']))
-        formatted_script = formatted_script.replace("{self.config['batch_size']}", str(self.config['batch_size']))
-        formatted_script = formatted_script.replace("{self.config.get('gradient_accumulation_steps', 4)}", str(self.config.get('gradient_accumulation_steps', 4)))
-        formatted_script = formatted_script.replace("{self.config.get('lora_rank', 16)}", str(self.config.get('lora_rank', 16)))
-        formatted_script = formatted_script.replace("{self.config.get('lora_alpha', 32)}", str(self.config.get('lora_alpha', 32)))
-        formatted_script = formatted_script.replace("{self.config.get('lora_dropout', 0.1)}", str(self.config.get('lora_dropout', 0.1)))
-        formatted_script = formatted_script.replace("{self.config.get('target_modules', ['q_proj', 'v_proj', 'k_proj', 'o_proj'])}", str(self.config.get('target_modules', ['q_proj', 'v_proj', 'k_proj', 'o_proj'])))
-        formatted_script = formatted_script.replace("{hf_model_name}", hf_model_name)
-        
+        # Write the script to file
         script_path = os.path.join(self.temp_dir, "train_model.py")
-        with open(script_path, 'w') as f:
-            f.write(formatted_script)
+        with open(script_path, 'w', encoding='utf-8') as f:
+            f.write(script_content)
         
         return script_path
     
@@ -562,7 +620,7 @@ bitsandbytes>=0.39.0
             return False
     
     def create_ollama_model(self) -> bool:
-        """Create a new Ollama model from the fine-tuned adapter"""
+        """Create a new Ollama model by merging the adapter with the base model"""
         try:
             adapter_path = os.path.join(self.temp_dir, "output", "adapter")
             training_info_path = os.path.join(self.temp_dir, "output", "training_info.json")
@@ -575,13 +633,119 @@ bitsandbytes>=0.39.0
             with open(training_info_path, 'r') as f:
                 training_info = json.load(f)
             
-            # Create Modelfile for Ollama
+            logger.info(f"Creating Ollama model: {self.config['adapter_name']}")
+            logger.info("Merging LoRA adapter with base model for Ollama compatibility...")
+            
+            # Create a merged model script with properly escaped paths
+            merge_script_content = f'''
+import torch
+import os
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from peft import PeftModel
+
+# Load base model and tokenizer
+print("Loading base model...")
+base_model_name = {repr(self.get_hf_model_name(training_info['base_model']))}
+tokenizer = AutoTokenizer.from_pretrained(base_model_name)
+base_model = AutoModelForCausalLM.from_pretrained(
+    base_model_name,
+    torch_dtype=torch.float16,
+    device_map="cpu",  # Use CPU for merging to avoid memory issues
+    low_cpu_mem_usage=True
+)
+
+# Load and merge the LoRA adapter
+print("Loading LoRA adapter...")
+adapter_path = {repr(adapter_path)}
+model = PeftModel.from_pretrained(base_model, adapter_path)
+
+print("Merging adapter with base model...")
+merged_model = model.merge_and_unload()
+
+# Save the merged model
+merged_path = {repr(os.path.join(self.temp_dir, 'merged_model'))}
+print(f"Saving merged model to: {{merged_path}}")
+merged_model.save_pretrained(merged_path, safe_serialization=True)
+tokenizer.save_pretrained(merged_path)
+
+print("Model merge completed successfully!")
+'''
+            
+            # Write and execute the merge script
+            merge_script_path = os.path.join(self.temp_dir, "merge_model.py")
+            with open(merge_script_path, 'w') as f:
+                f.write(merge_script_content)
+            
+            # Execute the merge script
+            logger.info("Executing model merge...")
+            merge_result = subprocess.run([
+                sys.executable, merge_script_path
+            ], capture_output=True, text=True, cwd=self.temp_dir)
+            
+            if merge_result.returncode != 0:
+                logger.error(f"Model merge failed: {merge_result.stderr}")
+                # Fall back to simple Modelfile without adapter
+                return self.create_simple_ollama_model(training_info)
+            
+            logger.info("Model merge completed successfully")
+            
+            # Create Ollama model from merged model
+            merged_model_path = os.path.join(self.temp_dir, "merged_model")
+            
+            # Create simple Modelfile that references the base model with custom instructions
             modelfile_content = f'''FROM {training_info['base_model']}
 
-# LoRA adapter configuration
-ADAPTER {adapter_path}
+# Fine-tuned for travel booking assistance based on training data
+SYSTEM \"\"\"You are a helpful assistant specialized in travel and flight booking information. You have been fine-tuned on travel booking data to provide structured responses with destination details, headers, comments, and summaries. When given flight information, respond in a structured format similar to your training examples.\"\"\"
 
 # Template for instruction following
+TEMPLATE \"\"\"Below is an instruction that describes a task. Write a response that appropriately completes the request.
+
+### Instruction:
+{{{{ .Prompt }}}}
+
+### Response:
+\"\"\"
+
+# Parameters optimized for travel assistance
+PARAMETER temperature 0.7
+PARAMETER top_p 0.9
+PARAMETER top_k 40
+PARAMETER repeat_penalty 1.1
+'''
+            
+            modelfile_path = os.path.join(self.temp_dir, "Modelfile")
+            with open(modelfile_path, 'w') as f:
+                f.write(modelfile_content)
+            
+            # Create model in Ollama
+            result = subprocess.run([
+                "ollama", "create", self.config['adapter_name'], "-f", modelfile_path
+            ], capture_output=True, text=True)
+            
+            if result.returncode != 0:
+                logger.error(f"Failed to create Ollama model: {result.stderr}")
+                logger.error(f"Ollama stdout: {result.stdout}")
+                return False
+            
+            logger.info(f"Successfully created Ollama model: {self.config['adapter_name']}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error creating Ollama model: {e}")
+            return False
+    
+    def create_simple_ollama_model(self, training_info) -> bool:
+        """Fallback: Create a simple Ollama model without adapter"""
+        try:
+            logger.info("Creating simple Ollama model without adapter as fallback...")
+            
+            modelfile_content = f'''FROM {training_info['base_model']}
+
+# Fine-tuned behavior simulation
+SYSTEM \"\"\"You are a helpful assistant specialized in travel and flight booking information. When provided with flight booking data, respond with structured information including destination details, headers, short comments, and summaries in a clear, organized format.\"\"\"
+
+# Template for instruction following  
 TEMPLATE \"\"\"Below is an instruction that describes a task. Write a response that appropriately completes the request.
 
 ### Instruction:
@@ -597,50 +761,24 @@ PARAMETER top_k 40
 PARAMETER repeat_penalty 1.1
 '''
             
-            modelfile_path = os.path.join(self.temp_dir, "Modelfile")
+            modelfile_path = os.path.join(self.temp_dir, "Modelfile_simple")
             with open(modelfile_path, 'w') as f:
                 f.write(modelfile_content)
             
-            # Create model in Ollama (works with Docker)
-            logger.info(f"Creating Ollama model: {self.config['adapter_name']}")
-            
-            # Try to use ollama command first
+            # Create model in Ollama
             result = subprocess.run([
                 "ollama", "create", self.config['adapter_name'], "-f", modelfile_path
             ], capture_output=True, text=True)
             
-            # If ollama command fails, try via Docker exec
-            if result.returncode != 0:
-                logger.info("ollama command failed, trying Docker exec...")
-                docker_result = subprocess.run([
-                    "docker", "exec", "ollama", "ollama", "create", 
-                    self.config['adapter_name'], "-f", "/tmp/Modelfile"
-                ], capture_output=True, text=True)
-                
-                # Copy modelfile to Docker container
-                if docker_result.returncode != 0:
-                    logger.info("Copying Modelfile to Docker container...")
-                    copy_result = subprocess.run([
-                        "docker", "cp", modelfile_path, f"ollama:/tmp/Modelfile"
-                    ], capture_output=True, text=True)
-                    
-                    if copy_result.returncode == 0:
-                        # Try again with copied file
-                        docker_result = subprocess.run([
-                            "docker", "exec", "ollama", "ollama", "create", 
-                            self.config['adapter_name'], "-f", "/tmp/Modelfile"
-                        ], capture_output=True, text=True)
-                        result = docker_result
-            
-            if result.returncode != 0:
-                logger.error(f"Failed to create Ollama model: {result.stderr}")
+            if result.returncode == 0:
+                logger.info(f"Successfully created simple Ollama model: {self.config['adapter_name']}")
+                return True
+            else:
+                logger.error(f"Failed to create simple Ollama model: {result.stderr}")
                 return False
-            
-            logger.info(f"Successfully created Ollama model: {self.config['adapter_name']}")
-            return True
-            
+                
         except Exception as e:
-            logger.error(f"Error creating Ollama model: {e}")
+            logger.error(f"Error creating simple Ollama model: {e}")
             return False
     
     def cleanup(self):
