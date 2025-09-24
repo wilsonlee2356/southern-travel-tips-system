@@ -27,14 +27,6 @@
 	let modelConfig = {
 		baseModel: 'qwen2.5:32b',
 		adapterName: 'my-custom-adapter',
-		learningRate: 0.0001,
-		numEpochs: 3,
-		batchSize: 4,
-		gradientAccumulationSteps: 4,
-		loraRank: 16,
-		loraAlpha: 32,
-		loraDropout: 0.1,
-		targetModules: ['q_proj', 'v_proj', 'k_proj', 'o_proj'],
 		datasetPath: '',
 		outputPath: './models/fine-tuned'
 	};
@@ -74,6 +66,7 @@
 			// Set up callbacks
 			fineTuningClient.setCallbacks({
 				onProgress: (data) => {
+					console.log('Progress update received:', data);
 					trainingProgress = data.progress;
 					currentEpoch = data.epoch;
 					currentLoss = data.trainLoss;
@@ -286,79 +279,21 @@
 							/>
 						</div>
 
-						<!-- Learning Rate -->
-						<div>
-							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								Learning Rate: {modelConfig.learningRate}
-							</label>
-							<input
-								type="range"
-								min="0.00001"
-								max="0.01"
-								step="0.00001"
-								bind:value={modelConfig.learningRate}
-								class="w-full"
-							/>
-						</div>
-
-						<!-- Number of Epochs -->
-						<div>
-							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								Number of Epochs: {modelConfig.numEpochs}
-							</label>
-							<input
-								type="range"
-								min="1"
-								max="10"
-								step="1"
-								bind:value={modelConfig.numEpochs}
-								class="w-full"
-							/>
-						</div>
-
-						<!-- Batch Size -->
-						<div>
-							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								Batch Size: {modelConfig.batchSize}
-							</label>
-							<input
-								type="range"
-								min="1"
-								max="16"
-								step="1"
-								bind:value={modelConfig.batchSize}
-								class="w-full"
-							/>
-						</div>
-
-						<!-- LoRA Rank -->
-						<div>
-							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								LoRA Rank: {modelConfig.loraRank}
-							</label>
-							<input
-								type="range"
-								min="4"
-								max="64"
-								step="4"
-								bind:value={modelConfig.loraRank}
-								class="w-full"
-							/>
-						</div>
-
-						<!-- LoRA Alpha -->
-						<div>
-							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								LoRA Alpha: {modelConfig.loraAlpha}
-							</label>
-							<input
-								type="range"
-								min="8"
-								max="128"
-								step="8"
-								bind:value={modelConfig.loraAlpha}
-								class="w-full"
-							/>
+						<!-- Hyperparameters Notice -->
+						<div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+							<div class="flex items-start">
+								<svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+									<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+								</svg>
+								<div>
+									<h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">
+										Hyperparameters
+									</h3>
+									<p class="mt-1 text-sm text-blue-700 dark:text-blue-300">
+										All training hyperparameters (learning rate, epochs, batch size, LoRA settings) are now controlled by the system administrator and cannot be modified through the UI. This ensures consistent and optimized training configurations.
+									</p>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>

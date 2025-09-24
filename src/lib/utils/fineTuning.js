@@ -8,14 +8,8 @@ const FINETUNING_CONFIG = {
 	apiUrl: 'http://localhost:8001', // Fine-tuning API URL (Windows)
 	timeout: 30000,
 	defaultConfig: {
-		learningRate: 0.0001,
-		numEpochs: 3,
-		batchSize: 4,
-		gradientAccumulationSteps: 4,
-		loraRank: 16,
-		loraAlpha: 32,
-		loraDropout: 0.1,
-		targetModules: ['q_proj', 'v_proj', 'k_proj', 'o_proj']
+		// Hyperparameters are now controlled server-side
+		// Users can only configure model selection and adapter name
 	}
 };
 
@@ -210,18 +204,10 @@ export class FineTuningClient {
 		// Add dataset file
 		formData.append('file', dataset);
 		
-		// Build query parameters
+		// Build query parameters (hyperparameters are now controlled server-side)
 		const queryParams = new URLSearchParams({
 			base_model: config.baseModel,
-			adapter_name: config.adapterName,
-			learning_rate: config.learningRate.toString(),
-			num_epochs: config.numEpochs.toString(),
-			batch_size: config.batchSize.toString(),
-			gradient_accumulation_steps: config.gradientAccumulationSteps.toString(),
-			lora_rank: config.loraRank.toString(),
-			lora_alpha: config.loraAlpha.toString(),
-			lora_dropout: config.loraDropout.toString(),
-			target_modules: JSON.stringify(config.targetModules)
+			adapter_name: config.adapterName
 		});
 
 		const response = await fetch(`${this.config.apiUrl}/api/fine-tuning/start?${queryParams}`, {
@@ -234,7 +220,7 @@ export class FineTuningClient {
 			try {
 				const error = await response.json();
 				errorMessage = error.detail || error.message || JSON.stringify(error);
-			} catch (e) {
+			} catch (parseError) {
 				const errorText = await response.text();
 				errorMessage = errorText || `HTTP ${response.status}: ${response.statusText}`;
 			}
@@ -267,19 +253,22 @@ export class FineTuningClient {
 				}
 
 				const status = await response.json();
+				console.log('Training status received:', status);
 				
 				// Update progress
 				this.trainingProgress = status.progress;
 				this.trainingStatus = status.message;
 				
 				if (this.callbacks.onProgress) {
-					this.callbacks.onProgress({
+					const progressData = {
 						epoch: status.current_epoch,
 						progress: status.progress,
 						trainLoss: status.train_loss,
 						valLoss: status.validation_loss,
 						learningRate: status.learning_rate
-					});
+					};
+					console.log('Sending progress data to callback:', progressData);
+					this.callbacks.onProgress(progressData);
 				}
 
 				if (this.callbacks.onStatusChange) {
@@ -416,14 +405,9 @@ export class FineTuningClient {
 	 * @returns {Promise<Array>} List of available models
 	 */
 	async listFineTunedModels() {
-		try {
-			// In a real implementation, this would list available fine-tuned models
-			// For now, return empty array
-			return [];
-		} catch (error) {
-			console.error('Failed to list models:', error);
-			return [];
-		}
+		// In a real implementation, this would list available fine-tuned models
+		// For now, return empty array
+		return [];
 	}
 
 	/**
@@ -475,21 +459,7 @@ export const FineTuningUtils = {
 			errors.push('Adapter name is required');
 		}
 
-		if (config.learningRate <= 0 || config.learningRate > 1) {
-			errors.push('Learning rate must be between 0 and 1');
-		}
-
-		if (config.numEpochs <= 0 || config.numEpochs > 100) {
-			errors.push('Number of epochs must be between 1 and 100');
-		}
-
-		if (config.batchSize <= 0 || config.batchSize > 32) {
-			errors.push('Batch size must be between 1 and 32');
-		}
-
-		if (config.loraRank <= 0 || config.loraRank > 128) {
-			errors.push('LoRA rank must be between 1 and 128');
-		}
+		// Hyperparameters are now controlled server-side, no validation needed
 
 		return {
 			isValid: errors.length === 0,
@@ -500,10 +470,9 @@ export const FineTuningUtils = {
 	/**
 	 * Generate training command for Ollama
 	 * @param {Object} config - Training configuration
-	 * @param {string} _datasetPath - Path to dataset (unused)
 	 * @returns {string} Training command
 	 */
-	generateTrainingCommand(config, _datasetPath) {
+	generateTrainingCommand(config) {
 		return `ollama create ${config.adapterName} -f Modelfile --from ${config.baseModel}`;
 	},
 
@@ -521,17 +490,18 @@ export const FineTuningUtils = {
 
 	/**
 	 * Estimate training time
-	 * @param {Object} config - Training configuration
+	 * @param {Object} config - Training configuration (hyperparameters are server-controlled)
 	 * @param {number} datasetSize - Dataset size in MB
 	 * @returns {number} Estimated time in minutes
 	 */
 	estimateTrainingTime(config, datasetSize) {
-		// Rough estimation based on configuration
+		// Rough estimation based on dataset size only
+		// Hyperparameters are controlled server-side
 		const baseTime = datasetSize * 0.1; // 0.1 minutes per MB
-		const epochMultiplier = config.numEpochs;
-		const complexityMultiplier = config.loraRank / 16; // Based on LoRA rank
+		const estimatedEpochs = 3; // Default server-side epochs
+		const estimatedComplexity = 1.0; // Default server-side LoRA complexity
 		
-		return Math.round(baseTime * epochMultiplier * complexityMultiplier);
+		return Math.round(baseTime * estimatedEpochs * estimatedComplexity);
 	}
 };
 

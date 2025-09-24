@@ -23,6 +23,9 @@ from pydantic import BaseModel
 import uvicorn
 import logging
 
+# Import hyperparameters configuration
+from hyperparameters_config import get_training_config, validate_hyperparameters, get_config_summary
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -51,14 +54,7 @@ training_sessions: Dict[str, Dict[str, Any]] = {}
 class TrainingConfig(BaseModel):
     base_model: str
     adapter_name: str
-    learning_rate: float
-    num_epochs: int
-    batch_size: int
-    gradient_accumulation_steps: int = 8
-    lora_rank: int = 16
-    lora_alpha: int = 32
-    lora_dropout: float = 0.1
-    target_modules: List[str] = ["q_proj", "v_proj", "k_proj", "o_proj"]
+    # Hyperparameters are now controlled server-side via hyperparameters_config.py
 
 class TrainingStatus(BaseModel):
     session_id: str
@@ -90,7 +86,8 @@ async def health_check():
         "timestamp": datetime.now(),
         "active_sessions": len(training_sessions),
         "python_executable": sys.executable,
-        "script_path": str(Path(__file__).parent / "fine_tuning_script.py")
+        "script_path": str(Path(__file__).parent / "fine_tuning_script.py"),
+        "hyperparameters_controlled": "server-side"
     }
 
 @app.post("/api/fine-tuning/validate-config")
@@ -104,17 +101,14 @@ async def validate_config(config: TrainingConfig):
     if not config.adapter_name:
         errors.append("Adapter name is required")
     
-    if config.learning_rate <= 0 or config.learning_rate > 1:
-        errors.append("Learning rate must be between 0 and 1")
-    
-    if config.num_epochs <= 0 or config.num_epochs > 100:
-        errors.append("Number of epochs must be between 1 and 100")
-    
-    if config.batch_size <= 0 or config.batch_size > 32:
-        errors.append("Batch size must be between 1 and 32")
-    
-    if config.lora_rank <= 0 or config.lora_rank > 128:
-        errors.append("LoRA rank must be between 1 and 128")
+    # Get server-side hyperparameters for validation
+    try:
+        hyperparams = get_training_config(config.base_model)
+        is_valid, param_errors = validate_hyperparameters(hyperparams)
+        if not is_valid:
+            errors.extend(param_errors)
+    except Exception as e:
+        errors.append(f"Error loading hyperparameters: {str(e)}")
     
     return {
         "valid": len(errors) == 0,
@@ -235,37 +229,23 @@ async def start_training(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     base_model: str = Query(...),
-    adapter_name: str = Query(...),
-    learning_rate: float = Query(5e-4),
-    num_epochs: int = Query(3),
-    batch_size: int = Query(1),
-    gradient_accumulation_steps: int = Query(4),
-    lora_rank: int = Query(16),
-    lora_alpha: int = Query(32),
-    lora_dropout: float = Query(0.1),
-    target_modules: str = Query('["q_proj", "v_proj", "k_proj", "o_proj"]')
+    adapter_name: str = Query(...)
 ):
     """Start fine-tuning process"""
     try:
-        # Parse target_modules from JSON string
-        try:
-            target_modules_list = json.loads(target_modules)
-        except json.JSONDecodeError:
-            target_modules_list = ["q_proj", "v_proj", "k_proj", "o_proj"]
+        # Get server-side hyperparameters based on model
+        hyperparams = get_training_config(base_model)
+        logger.info(f"Using hyperparameters for {base_model}: {hyperparams}")
         
-        # Create config object from form parameters
+        # Create config object with server-side hyperparameters
         config = TrainingConfig(
             base_model=base_model,
-            adapter_name=adapter_name,
-            learning_rate=learning_rate,
-            num_epochs=num_epochs,
-            batch_size=batch_size,
-            gradient_accumulation_steps=gradient_accumulation_steps,
-            lora_rank=lora_rank,
-            lora_alpha=lora_alpha,
-            lora_dropout=lora_dropout,
-            target_modules=target_modules_list
+            adapter_name=adapter_name
         )
+        
+        # Add hyperparameters to config dict for the training script
+        config_dict = config.dict()
+        config_dict.update(hyperparams)
         
         # Validate config
         config_validation = await validate_config(config)
@@ -297,15 +277,15 @@ async def start_training(
             "status": "initializing",
             "progress": 0.0,
             "current_epoch": 0,
-            "total_epochs": config.num_epochs,
+            "total_epochs": hyperparams.get('num_epochs', 3),
             "train_loss": 0.0,
             "validation_loss": 0.0,
-            "learning_rate": config.learning_rate,
+            "learning_rate": hyperparams.get('learning_rate', 0.0001),
             "message": "Initializing training...",
             "start_time": datetime.now(),
             "end_time": None,
             "error": None,
-            "config": config.dict(),
+            "config": config_dict,
             "dataset_filename": file.filename,
             "log_file": str(session_log_path)
         }
@@ -318,7 +298,7 @@ async def start_training(
             f.write(f"Base Model: {config.base_model}\n")
             f.write(f"Adapter Name: {config.adapter_name}\n")
             f.write(f"Dataset: {file.filename}\n")
-            f.write(f"Configuration: {json.dumps(config.dict(), indent=2)}\n")
+            f.write(f"Configuration: {json.dumps(config_dict, indent=2)}\n")
             f.write(f"{'='*50}\n\n")
         
         # Save and convert dataset to proper JSONL format (Windows compatible)
@@ -367,7 +347,7 @@ async def start_training(
             raise HTTPException(status_code=400, detail=f"Invalid dataset format: {str(e)}")
         
         # Start training in background
-        background_tasks.add_task(run_training_async, session_id, config.dict(), temp_dataset_path)
+        background_tasks.add_task(run_training_async, session_id, config_dict, temp_dataset_path)
         
         return {
             "success": True,
@@ -434,6 +414,68 @@ async def list_training_sessions():
     return {
         "sessions": serializable_sessions
     }
+
+@app.get("/api/fine-tuning/hyperparameters")
+async def get_hyperparameters_config():
+    """Get current hyperparameters configuration"""
+    try:
+        from hyperparameters_config import MODEL_CONFIGS, get_config_summary
+        
+        return {
+            "hyperparameters_controlled": "server-side",
+            "model_configs": MODEL_CONFIGS,
+            "summary": get_config_summary(),
+            "note": "Hyperparameters are controlled by the system administrator via hyperparameters_config.py"
+        }
+    except Exception as e:
+        logger.error(f"Error getting hyperparameters config: {e}")
+        return {
+            "error": str(e),
+            "hyperparameters_controlled": "server-side"
+        }
+
+@app.post("/api/fine-tuning/test-progress-parsing")
+async def test_progress_parsing(session_id: str = "test_session", output_text: str = "Epoch 1/3 - Loss: 0.5234"):
+    """Test the progress parsing functionality"""
+    try:
+        # Create a test session if it doesn't exist
+        if session_id not in training_sessions:
+            training_sessions[session_id] = {
+                "session_id": session_id,
+                "status": "testing",
+                "progress": 0.0,
+                "current_epoch": 0,
+                "total_epochs": 3,
+                "train_loss": 0.0,
+                "validation_loss": 0.0,
+                "learning_rate": 0.0001,
+                "message": "Testing progress parsing..."
+            }
+        
+        # Test the progress parsing
+        update_progress_from_output(session_id, output_text)
+        
+        # Return the updated session data
+        session = training_sessions[session_id]
+        return {
+            "success": True,
+            "output_text": output_text,
+            "parsed_data": {
+                "current_epoch": session["current_epoch"],
+                "total_epochs": session["total_epochs"],
+                "progress": session["progress"],
+                "train_loss": session["train_loss"],
+                "validation_loss": session["validation_loss"],
+                "learning_rate": session["learning_rate"],
+                "message": session["message"]
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error testing progress parsing: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 @app.delete("/api/fine-tuning/session/{session_id}")
 async def delete_training_session(session_id: str):
@@ -918,13 +960,35 @@ def update_progress_from_output(session_id: str, output: str):
             loss_patterns = [
                 r'loss[:\s]*([0-9.]+)',
                 r'training_loss[:\s]*([0-9.]+)',
-                r'train_loss[:\s]*([0-9.]+)'
+                r'train_loss[:\s]*([0-9.]+)',
+                r'train loss[:\s]*([0-9.]+)',  # Added for "Train loss: X.XXXX" format
+                r'validation loss[:\s]*([0-9.]+)',  # Added for validation loss
+                r'val loss[:\s]*([0-9.]+)'  # Added for "Val loss: X.XXXX" format
             ]
             
             for pattern in loss_patterns:
                 loss_match = re.search(pattern, output_lower)
                 if loss_match:
-                    training_sessions[session_id]["train_loss"] = float(loss_match.group(1))
+                    loss_value = float(loss_match.group(1))
+                    if "validation" in output_lower or "val loss" in output_lower:
+                        training_sessions[session_id]["validation_loss"] = loss_value
+                    else:
+                        training_sessions[session_id]["train_loss"] = loss_value
+                    break
+        
+        # Parse learning rate
+        if "learning rate" in output_lower:
+            import re
+            lr_patterns = [
+                r'learning rate[:\s]*([0-9.e-]+)',
+                r'learning_rate[:\s]*([0-9.e-]+)',
+                r'lr[:\s]*([0-9.e-]+)'
+            ]
+            
+            for pattern in lr_patterns:
+                lr_match = re.search(pattern, output_lower)
+                if lr_match:
+                    training_sessions[session_id]["learning_rate"] = float(lr_match.group(1))
                     break
         
         # Update message based on training phases

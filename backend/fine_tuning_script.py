@@ -16,6 +16,26 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 import logging
 
+# Import hyperparameters configuration
+try:
+    from hyperparameters_config import get_training_config, get_model_size_category
+except ImportError:
+    # Fallback if hyperparameters_config.py is not available
+    def get_training_config(base_model: str) -> dict:
+        return {
+            'learning_rate': 0.0001,
+            'num_epochs': 3,
+            'batch_size': 4,
+            'gradient_accumulation_steps': 8,
+            'lora_rank': 16,
+            'lora_alpha': 32,
+            'lora_dropout': 0.1,
+            'target_modules': ['q_proj', 'v_proj', 'k_proj', 'o_proj']
+        }
+    
+    def get_model_size_category(model_name: str) -> str:
+        return 'medium'
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -28,19 +48,24 @@ class LoRAFineTuner:
         
     def validate_config(self) -> bool:
         """Validate the training configuration"""
-        required_fields = ['base_model', 'adapter_name', 'learning_rate', 'num_epochs', 'batch_size']
+        required_fields = ['base_model', 'adapter_name']
         
         for field in required_fields:
             if field not in self.config:
                 logger.error(f"Missing required field: {field}")
                 return False
-                
-        if self.config['learning_rate'] <= 0 or self.config['learning_rate'] > 1:
-            logger.error("Learning rate must be between 0 and 1")
-            return False
+        
+        # Hyperparameters are now loaded from configuration file
+        # Get hyperparameters for the base model
+        try:
+            hyperparams = get_training_config(self.config['base_model'])
+            logger.info(f"Loaded hyperparameters for {self.config['base_model']}: {hyperparams}")
             
-        if self.config['num_epochs'] <= 0 or self.config['num_epochs'] > 100:
-            logger.error("Number of epochs must be between 1 and 100")
+            # Merge hyperparameters into config
+            self.config.update(hyperparams)
+            
+        except Exception as e:
+            logger.error(f"Failed to load hyperparameters: {e}")
             return False
             
         return True
@@ -223,7 +248,7 @@ def load_dataset(file_path):
     return Dataset.from_list(data)
 
 def format_instruction(example):
-    """Format instruction for training"""
+    """Format instruction for training with Cantonese travel content style and JSON output"""
     # Handle the prompt/response format from the API
     if "prompt" in example:
         instruction = example["prompt"]
@@ -232,12 +257,21 @@ def format_instruction(example):
         instruction = example["instruction"]
         response = example["output"]
     
-    # Create training text using string concatenation to avoid f-string issues
-    text = "Below is an instruction that describes a task. Write a response that appropriately completes the request.\\n\\n"
-    text += "### Instruction:\\n"
+    # Check if response is a JSON object (dict) or string
+    if isinstance(response, dict):
+        # Format JSON response as a string
+        response_str = json.dumps(response, ensure_ascii=False, indent=2)
+        # Create training text with JSON output instructions
+        text = "你是一個專門分析機票優惠的助手，擅長用粵語（廣東話）寫出吸引人的旅遊內容。請只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：Destination（目的地）、Header（標題）、Short Comment（簡短評論）、Summary（詳細總結）。確保JSON格式完整，以}}結尾。\\n\\n"
+    else:
+        response_str = response
+        # Create training text with plain text output instructions
+        text = "你是一個專門分析機票優惠的助手，擅長用粵語（廣東話）寫出吸引人的旅遊內容。請用生動有趣的粵語風格寫出旅遊推薦內容。\\n\\n"
+    
+    text += "### 機票資料:\\n"
     text += instruction
-    text += "\\n\\n### Response:\\n"
-    text += response
+    text += "\\n\\n### 旅遊推薦內容:\\n"
+    text += response_str
     
     return {{"text": text}}
 
@@ -257,13 +291,13 @@ def main():
     print(f"Dataset path: {{dataset_path}}")
     print(f"Output directory: {{output_dir}}")
     
-    # Training parameters
-    learning_rate = {self.config['learning_rate']}
-    num_epochs = {self.config['num_epochs']}
-    batch_size = {self.config['batch_size']}
+    # Training parameters (loaded from hyperparameters_config.py)
+    learning_rate = {self.config.get('learning_rate', 0.0001)}
+    num_epochs = {self.config.get('num_epochs', 3)}
+    batch_size = {self.config.get('batch_size', 4)}
     gradient_accumulation_steps = {self.config.get('gradient_accumulation_steps', 8)}
     
-    # LoRA parameters
+    # LoRA parameters (loaded from hyperparameters_config.py)
     lora_rank = {self.config.get('lora_rank', 16)}
     lora_alpha = {self.config.get('lora_alpha', 32)}
     lora_dropout = {self.config.get('lora_dropout', 0.1)}
@@ -457,7 +491,7 @@ def main():
         return_tensors="pt"
     )
     
-    # Create trainer
+    # Create trainer (simplified without complex callbacks for now)
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -468,7 +502,9 @@ def main():
     
     # Start training
     print("=== Starting LoRA Training ===")
+    print(f"Training for {{num_epochs}} epochs with {{len(tokenized_dataset)}} examples")
     logger.info("Starting training...")
+    
     trainer.train()
     print("=== Training Completed ===")
     
@@ -500,7 +536,7 @@ def main():
         "output_path": output_dir
     }}
     
-    with open(os.path.join(output_dir, "training_info.json"), 'w') as f:
+    with open(os.path.join(output_dir, "training_info.json"), 'w', encoding='utf-8') as f:
         json.dump(training_info, f, indent=2)
     
     print(f"Training completed. Model saved to: {{output_dir}}")
@@ -580,6 +616,7 @@ bitsandbytes>=0.39.0
     def run_training(self, dataset_path: str) -> bool:
         """Run the actual training"""
         try:
+            import traceback
             # Prepare dataset
             processed_dataset = self.prepare_dataset(dataset_path)
             
@@ -644,7 +681,7 @@ bitsandbytes>=0.39.0
             
             # Save training output to log file
             log_file = os.path.join(self.temp_dir, "training_output.log")
-            with open(log_file, 'w') as f:
+            with open(log_file, 'w', encoding='utf-8') as f:
                 f.write("=== TRAINING OUTPUT ===\n")
                 f.write(f"Return code: {return_code}\n\n")
                 f.write("=== OUTPUT ===\n")
@@ -659,6 +696,7 @@ bitsandbytes>=0.39.0
             return False
         except Exception as e:
             logger.error(f"Error during training: {e}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return False
     
     def create_ollama_model(self) -> bool:
@@ -715,7 +753,7 @@ print("Model merge completed successfully!")
             
             # Write and execute the merge script
             merge_script_path = os.path.join(self.temp_dir, "merge_model.py")
-            with open(merge_script_path, 'w') as f:
+            with open(merge_script_path, 'w', encoding='utf-8') as f:
                 f.write(merge_script_content)
             
             # Execute the merge script
@@ -738,15 +776,15 @@ print("Model merge completed successfully!")
             modelfile_content = f'''FROM {training_info['base_model']}
 
 # Fine-tuned for travel booking assistance based on training data
-SYSTEM \"\"\"You are a helpful assistant specialized in travel and flight booking information. You have been fine-tuned on travel booking data to provide structured responses with destination details, headers, comments, and summaries. When given flight information, respond in a structured format similar to your training examples.\"\"\"
+SYSTEM \"\"\"你是一個專門分析機票優惠的助手，擅長用粵語（廣東話）寫出吸引人的旅遊內容。你已經經過專門訓練，能夠根據機票資料寫出結構化的旅遊推薦內容。請只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：Destination（目的地）、Header（標題）、Short Comment（簡短評論）、Summary（詳細總結）。確保JSON格式完整，以}}結尾。請用生動有趣的粵語風格回應，讓內容更具吸引力。\"\"\"
 
-# Template for instruction following
-TEMPLATE \"\"\"Below is an instruction that describes a task. Write a response that appropriately completes the request.
+# Template for Cantonese travel content with JSON output
+TEMPLATE \"\"\"你是一個專門分析機票優惠的助手，擅長用粵語（廣東話）寫出吸引人的旅遊內容。請根據提供的機票資料，只輸出JSON格式，不要輸出任何其他文字。包含Destination、Header、Short Comment、Summary欄位。確保JSON格式完整，以}}結尾。
 
-### Instruction:
+### 機票資料:
 {{{{ .Prompt }}}}
 
-### Response:
+### 旅遊推薦內容:
 \"\"\"
 
 # Parameters optimized for travel assistance
@@ -754,10 +792,11 @@ PARAMETER temperature 0.7
 PARAMETER top_p 0.9
 PARAMETER top_k 40
 PARAMETER repeat_penalty 1.1
+PARAMETER stop "}}"
 '''
             
             modelfile_path = os.path.join(self.temp_dir, "Modelfile")
-            with open(modelfile_path, 'w') as f:
+            with open(modelfile_path, 'w', encoding='utf-8') as f:
                 f.write(modelfile_content)
             
             # Create model in Ollama
@@ -784,16 +823,16 @@ PARAMETER repeat_penalty 1.1
             
             modelfile_content = f'''FROM {training_info['base_model']}
 
-# Fine-tuned behavior simulation
-SYSTEM \"\"\"You are a helpful assistant specialized in travel and flight booking information. When provided with flight booking data, respond with structured information including destination details, headers, short comments, and summaries in a clear, organized format.\"\"\"
+# Fine-tuned behavior simulation for Cantonese travel content with JSON output
+SYSTEM \"\"\"你是一個專門分析機票優惠的助手，擅長用粵語（廣東話）寫出吸引人的旅遊內容。當提供機票資料時，請只輸出JSON格式，不要輸出任何其他文字。包含Destination、Header、Short Comment、Summary欄位，並用生動有趣的粵語風格。確保JSON格式完整，以}}結尾。\"\"\"
 
-# Template for instruction following  
-TEMPLATE \"\"\"Below is an instruction that describes a task. Write a response that appropriately completes the request.
+# Template for Cantonese travel content with JSON output
+TEMPLATE \"\"\"你是一個專門分析機票優惠的助手，擅長用粵語（廣東話）寫出吸引人的旅遊內容。請根據提供的機票資料，只輸出JSON格式，不要輸出任何其他文字。包含Destination、Header、Short Comment、Summary欄位。確保JSON格式完整，以}}結尾。
 
-### Instruction:
+### 機票資料:
 {{{{ .Prompt }}}}
 
-### Response:
+### 旅遊推薦內容:
 \"\"\"
 
 # Parameters
@@ -801,10 +840,11 @@ PARAMETER temperature 0.7
 PARAMETER top_p 0.9
 PARAMETER top_k 40
 PARAMETER repeat_penalty 1.1
+PARAMETER stop "}}"
 '''
             
             modelfile_path = os.path.join(self.temp_dir, "Modelfile_simple")
-            with open(modelfile_path, 'w') as f:
+            with open(modelfile_path, 'w', encoding='utf-8') as f:
                 f.write(modelfile_content)
             
             # Create model in Ollama
@@ -858,8 +898,8 @@ PARAMETER repeat_penalty 1.1
             logger.error(f"Fine-tuning failed: {e}")
             return {"success": False, "error": str(e)}
         finally:
-            # Note: Don't cleanup here so user can inspect results
-            pass
+            # Clean up temporary files to save disk space
+            self.cleanup()
 
 def main():
     parser = argparse.ArgumentParser(description="LoRA Fine-tuning Script")
