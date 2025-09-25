@@ -11,7 +11,7 @@ Users can no longer modify these parameters through the UI.
 
 # Learning Parameters
 LEARNING_RATE = 0.0001
-NUM_EPOCHS = 5
+NUM_EPOCHS = 4
 BATCH_SIZE = 4
 GRADIENT_ACCUMULATION_STEPS = 8
 
@@ -40,9 +40,17 @@ BNB_4BIT_USE_DOUBLE_QUANT = True
 BNB_4BIT_QUANT_TYPE = "nf4"
 BNB_4BIT_COMPUTE_DTYPE = "float16"
 
-# For 32B models - CPU offloading configuration
+# GPU Configuration
+GPU_LAYERS = None  # Default: None (auto-detect)
 GPU_LAYERS_32B = 20  # Number of layers to keep on GPU for 32B models
 TOTAL_LAYERS_32B = 80  # Total layers in 32B models
+
+# ============================================================================
+# CONFIGURATION CONTROL
+# ============================================================================
+
+# Control parameter to decide when to use default vs model-specific configs
+USE_MODEL_SPECIFIC_CONFIGS = False  # Set to False to always use DEFAULT_HYPERPARAMETERS
 
 # ============================================================================
 # MODEL-SPECIFIC CONFIGURATIONS
@@ -98,18 +106,21 @@ def get_model_size_category(model_name: str) -> str:
         # Default to medium for unknown models
         return 'medium'
 
-def get_training_config(base_model: str) -> dict:
+def get_default_hyperparameters() -> dict:
     """
-    Get training configuration based on the base model
+    Get default hyperparameters configuration
     """
-    model_category = get_model_size_category(base_model)
-    config = MODEL_CONFIGS[model_category].copy()
-    
-    # Add common parameters
-    config.update({
+    return {
+        'learning_rate': LEARNING_RATE,
+        'num_epochs': NUM_EPOCHS,
+        'batch_size': BATCH_SIZE,
         'gradient_accumulation_steps': GRADIENT_ACCUMULATION_STEPS,
+        'lora_rank': LORA_RANK,
+        'lora_alpha': LORA_ALPHA,
         'lora_dropout': LORA_DROPOUT,
         'target_modules': TARGET_MODULES.copy(),
+        'use_quantization': USE_4BIT_QUANTIZATION,
+        'gpu_layers': GPU_LAYERS,
         'warmup_steps': WARMUP_STEPS,
         'logging_steps': LOGGING_STEPS,
         'save_steps': SAVE_STEPS,
@@ -119,18 +130,51 @@ def get_training_config(base_model: str) -> dict:
         'per_device_train_batch_size': PER_DEVICE_TRAIN_BATCH_SIZE,
         'max_length': MAX_LENGTH,
         'pad_to_multiple_of': PAD_TO_MULTIPLE_OF,
-    })
-    
-    # Add quantization parameters if using quantization
-    if config.get('use_quantization', True):
+        'use_4bit_quantization': USE_4BIT_QUANTIZATION,
+        'bnb_4bit_use_double_quant': BNB_4BIT_USE_DOUBLE_QUANT,
+        'bnb_4bit_quant_type': BNB_4BIT_QUANT_TYPE,
+        'bnb_4bit_compute_dtype': BNB_4BIT_COMPUTE_DTYPE,
+    }
+
+def get_training_config(base_model: str) -> dict:
+    """
+    Get training configuration based on the base model and configuration control setting
+    """
+    # Check if we should use model-specific configs or default hyperparameters
+    if USE_MODEL_SPECIFIC_CONFIGS:
+        # Use model-specific configuration
+        model_category = get_model_size_category(base_model)
+        config = MODEL_CONFIGS[model_category].copy()
+        
+        # Add common parameters
         config.update({
-            'use_4bit_quantization': USE_4BIT_QUANTIZATION,
-            'bnb_4bit_use_double_quant': BNB_4BIT_USE_DOUBLE_QUANT,
-            'bnb_4bit_quant_type': BNB_4BIT_QUANT_TYPE,
-            'bnb_4bit_compute_dtype': BNB_4BIT_COMPUTE_DTYPE,
+            'gradient_accumulation_steps': GRADIENT_ACCUMULATION_STEPS,
+            'lora_dropout': LORA_DROPOUT,
+            'target_modules': TARGET_MODULES.copy(),
+            'warmup_steps': WARMUP_STEPS,
+            'logging_steps': LOGGING_STEPS,
+            'save_steps': SAVE_STEPS,
+            'eval_steps': EVAL_STEPS,
+            'save_total_limit': SAVE_TOTAL_LIMIT,
+            'max_grad_norm': MAX_GRAD_NORM,
+            'per_device_train_batch_size': PER_DEVICE_TRAIN_BATCH_SIZE,
+            'max_length': MAX_LENGTH,
+            'pad_to_multiple_of': PAD_TO_MULTIPLE_OF,
         })
-    
-    return config
+        
+        # Add quantization parameters if using quantization
+        if config.get('use_quantization', True):
+            config.update({
+                'use_4bit_quantization': USE_4BIT_QUANTIZATION,
+                'bnb_4bit_use_double_quant': BNB_4BIT_USE_DOUBLE_QUANT,
+                'bnb_4bit_quant_type': BNB_4BIT_QUANT_TYPE,
+                'bnb_4bit_compute_dtype': BNB_4BIT_COMPUTE_DTYPE,
+            })
+        
+        return config
+    else:
+        # Use default hyperparameters for all models
+        return get_default_hyperparameters()
 
 # ============================================================================
 # VALIDATION CONSTRAINTS
@@ -166,13 +210,28 @@ def validate_hyperparameters(config: dict) -> tuple[bool, list[str]]:
 # CONFIGURATION SUMMARY
 # ============================================================================
 
+def get_configuration_mode() -> str:
+    """
+    Get current configuration mode
+    """
+    return "model_specific" if USE_MODEL_SPECIFIC_CONFIGS else "default"
+
 def get_config_summary() -> str:
     """
     Get a summary of the current hyperparameter configuration
     """
+    mode_text = "Model-Specific Configs" if USE_MODEL_SPECIFIC_CONFIGS else "Default Hyperparameters"
     return f"""
 Fine-tuning Hyperparameters Configuration:
 ==========================================
+
+Current Mode: {mode_text}
+Configuration Control: USE_MODEL_SPECIFIC_CONFIGS = {USE_MODEL_SPECIFIC_CONFIGS}
+
+To change the configuration mode:
+1. Edit this file (hyperparameters_config.py)
+2. Change line 52: USE_MODEL_SPECIFIC_CONFIGS = {not USE_MODEL_SPECIFIC_CONFIGS}
+3. Restart the fine-tuning service
 
 Default Configuration:
 - Learning Rate: {LEARNING_RATE}

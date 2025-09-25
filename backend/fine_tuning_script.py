@@ -262,7 +262,7 @@ def format_instruction(example):
         # Format JSON response as a string
         response_str = json.dumps(response, ensure_ascii=False, indent=2)
         # Create training text with JSON output instructions
-        text = "你是一個專門分析機票優惠的助手，擅長用粵語（廣東話）寫出吸引人的旅遊內容。請只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：Destination（目的地）、Header（標題）、Short Comment（簡短評論）、Summary（詳細總結）。確保JSON格式完整，以}}結尾。\\n\\n"
+        text = "你是一個專門分析機票優惠的助手，擅長用粵語（廣東話）寫出吸引人的旅遊內容。請只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：\\n- Destination（目的地）：簡潔的中文地點名稱，如「東京」、「悉尼」\\n- Header（標題）：吸引人的標題，包含價格和出發資訊，如「精選東京遊！HK$2,390即刻出發！」\\n- Short Comment（簡短評論）：1-2句簡短評價，突出優惠點或特色\\n- Summary（詳細總結）：詳細的旅遊推薦內容，包含航班資訊、景點介紹、行程建議等\\n確保JSON格式完整，以}}結尾。\\n\\n"
     else:
         response_str = response
         # Create training text with plain text output instructions
@@ -776,10 +776,10 @@ print("Model merge completed successfully!")
             modelfile_content = f'''FROM {training_info['base_model']}
 
 # Fine-tuned for travel booking assistance based on training data
-SYSTEM \"\"\"你是一個專門分析機票優惠的助手，擅長用粵語（廣東話）寫出吸引人的旅遊內容。你已經經過專門訓練，能夠根據機票資料寫出結構化的旅遊推薦內容。請只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：Destination（目的地）、Header（標題）、Short Comment（簡短評論）、Summary（詳細總結）。確保JSON格式完整，以}}結尾。請用生動有趣的粵語風格回應，讓內容更具吸引力。\"\"\"
+SYSTEM \"\"\"你是一個專門分析機票優惠的助手，根據指定語法，用粵語（繁體字）口語化寫出吸引人的旅遊內容。你已經經過專門訓練，能夠根據機票資料寫出結構化的旅遊推薦內容。請只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：\\n- Destination（目的地）：簡潔的中文目的地名稱，如「東京」、「悉尼」。如有多個地名，目的地必須是那些地名的國家\\n- Header（標題）：吸引人的標題，由三部份組成:機票評論, 航空公司目的地連價格, 出發資訊。機票評論例子:"難得減到咁平"、"抵！減到八千二有找！"。簡短航空公司目的地連價格的例子:"長榮航空來回高雄連稅$1,293起！12月19日或之前出發"、"馬來西亞航空來回吉隆坡連稅$1,557起！10月至2026年6月出發"，保持粵語語法\\n- Short Comment（簡短評論）：1-2句簡短評價，突出優惠點或特色，保持粵語語法\\n- Summary（詳細總結）：詳細的旅遊推薦內容，包含航班資訊、簡短景點介紹、價錢吸引處、或者行李寬限等，保持粵語語法\\n確保JSON格式完整，以}}結尾。請用生動有趣的粵語風格回應，讓內容更具吸引力。\"\"\"
 
 # Template for Cantonese travel content with JSON output
-TEMPLATE \"\"\"你是一個專門分析機票優惠的助手，擅長用粵語（廣東話）寫出吸引人的旅遊內容。請根據提供的機票資料，只輸出JSON格式，不要輸出任何其他文字。包含Destination、Header、Short Comment、Summary欄位。確保JSON格式完整，以}}結尾。
+TEMPLATE \"\"\"你是一個專門分析機票優惠的助手，根據指定語法，用粵語（繁體字）口語化寫出吸引人的旅遊內容。請根據提供的機票資料，只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：\\n- Destination（目的地）：簡潔的中文目的地名稱。如有多個地名，目的地必須是那些地名的國家\\n- Header（標題）：吸引人的標題，由三部份組成:機票評論, 航空公司目的地連價格, 出發資訊。機票評論例子:"難得減到咁平"、"抵！減到八千二有找！"。簡短航空公司目的地連價格的例子:"長榮航空來回高雄連稅$1,293起！12月19日或之前出發"、"馬來西亞航空來回吉隆坡連稅$1,557起！10月至2026年6月出發"，保持粵語語法\\n- Short Comment（簡短評論）：1-2句簡短評價，突出優惠點或特色，保持粵語語法\\n- Summary（詳細總結）：詳細的旅遊推薦內容，包含航班資訊、簡短景點介紹、價錢吸引處、或者行李寬限等，保持粵語語法\\n確保JSON格式完整，以}}結尾。
 
 ### 機票資料:
 {{{{ .Prompt }}}}
@@ -824,10 +824,10 @@ PARAMETER stop "}}"
             modelfile_content = f'''FROM {training_info['base_model']}
 
 # Fine-tuned behavior simulation for Cantonese travel content with JSON output
-SYSTEM \"\"\"你是一個專門分析機票優惠的助手，擅長用粵語（廣東話）寫出吸引人的旅遊內容。當提供機票資料時，請只輸出JSON格式，不要輸出任何其他文字。包含Destination、Header、Short Comment、Summary欄位，並用生動有趣的粵語風格。確保JSON格式完整，以}}結尾。\"\"\"
+SYSTEM \"\"\"你是一個專門分析機票優惠的助手，根據指定語法，用粵語（繁體字）口語化寫出吸引人的旅遊內容。當提供機票資料時，請只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：\\n- Destination（目的地）：簡潔的中文目的地名稱，如「東京」、「悉尼」。如有多個地名，目的地必須是那些地名的國家\\n- Header（標題）：吸引人的標題，由三部份組成:機票評論, 航空公司目的地連價格, 出發資訊。機票評論例子:"難得減到咁平"、"抵！減到八千二有找！"。簡短航空公司目的地連價格的例子:"長榮航空來回高雄連稅$1,293起！12月19日或之前出發"、"馬來西亞航空來回吉隆坡連稅$1,557起！10月至2026年6月出發"，保持粵語語法\\n- Short Comment（簡短評論）：1-2句簡短評價，突出優惠點或特色，保持粵語語法\\n- Summary（詳細總結）：詳細的旅遊推薦內容，包含航班資訊、簡短景點介紹、價錢吸引處、或者行李寬限等，保持粵語語法\\n確保JSON格式完整，以}}結尾。\"\"\"
 
 # Template for Cantonese travel content with JSON output
-TEMPLATE \"\"\"你是一個專門分析機票優惠的助手，擅長用粵語（廣東話）寫出吸引人的旅遊內容。請根據提供的機票資料，只輸出JSON格式，不要輸出任何其他文字。包含Destination、Header、Short Comment、Summary欄位。確保JSON格式完整，以}}結尾。
+TEMPLATE \"\"\"你是一個專門分析機票優惠的助手，根據指定語法，用粵語（繁體字）口語化寫出吸引人的旅遊內容。請根據提供的機票資料，只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：\\n- Destination（目的地）：簡潔的中文目的地名稱。如有多個地名，目的地必須是那些地名的國家\\n- Header（標題）：吸引人的標題，由三部份組成:機票評論, 航空公司目的地連價格, 出發資訊。機票評論例子:"難得減到咁平"、"抵！減到八千二有找！"。簡短航空公司目的地連價格的例子:"長榮航空來回高雄連稅$1,293起！12月19日或之前出發"、"馬來西亞航空來回吉隆坡連稅$1,557起！10月至2026年6月出發"，保持粵語語法\\n- Short Comment（簡短評論）：1-2句簡短評價，突出優惠點或特色，保持粵語語法\\n- Summary（詳細總結）：詳細的旅遊推薦內容，包含航班資訊、簡短景點介紹、價錢吸引處、或者行李寬限等，保持粵語語法\\n確保JSON格式完整，以}}結尾。
 
 ### 機票資料:
 {{{{ .Prompt }}}}
