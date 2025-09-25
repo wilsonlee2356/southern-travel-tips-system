@@ -12,6 +12,7 @@ import asyncio
 import subprocess
 import tempfile
 import shutil
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import logging
@@ -45,6 +46,7 @@ class LoRAFineTuner:
         self.config = config
         self.temp_dir = None
         self.model_output_path = None
+        self.session_id = config.get('session_id', f"training_{int(time.time())}")
         
     def validate_config(self) -> bool:
         """Validate the training configuration"""
@@ -769,47 +771,12 @@ print("Model merge completed successfully!")
             
             logger.info("Model merge completed successfully")
             
-            # Create Ollama model from merged model
-            merged_model_path = os.path.join(self.temp_dir, "merged_model")
+            # Export the adapter
+            self.export_adapter(training_info)
             
-            # Create simple Modelfile that references the base model with custom instructions
-            modelfile_content = f'''FROM {training_info['base_model']}
-
-# Fine-tuned for travel booking assistance based on training data
-SYSTEM \"\"\"你是一個專門分析機票優惠的助手，根據指定語法，用粵語（繁體字）口語化寫出吸引人的旅遊內容。你已經經過專門訓練，能夠根據機票資料寫出結構化的旅遊推薦內容。請只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：\\n- Destination（目的地）：簡潔的中文目的地名稱，如「東京」、「悉尼」。如有多個地名，目的地必須是那些地名的國家\\n- Header（標題）：吸引人的標題，由三部份組成:機票評論, 航空公司目的地連價格, 出發資訊。機票評論例子:"難得減到咁平"、"抵！減到八千二有找！"。簡短航空公司目的地連價格的例子:"長榮航空來回高雄連稅$1,293起！12月19日或之前出發"、"馬來西亞航空來回吉隆坡連稅$1,557起！10月至2026年6月出發"，保持粵語語法\\n- Short Comment（簡短評論）：1-2句簡短評價，突出優惠點或特色，保持粵語語法\\n- Summary（詳細總結）：詳細的旅遊推薦內容，包含航班資訊、簡短景點介紹、價錢吸引處、或者行李寬限等，保持粵語語法\\n確保JSON格式完整，以}}結尾。請用生動有趣的粵語風格回應，讓內容更具吸引力。\"\"\"
-
-# Template for Cantonese travel content with JSON output
-TEMPLATE \"\"\"你是一個專門分析機票優惠的助手，根據指定語法，用粵語（繁體字）口語化寫出吸引人的旅遊內容。請根據提供的機票資料，只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：\\n- Destination（目的地）：簡潔的中文目的地名稱。如有多個地名，目的地必須是那些地名的國家\\n- Header（標題）：吸引人的標題，由三部份組成:機票評論, 航空公司目的地連價格, 出發資訊。機票評論例子:"難得減到咁平"、"抵！減到八千二有找！"。簡短航空公司目的地連價格的例子:"長榮航空來回高雄連稅$1,293起！12月19日或之前出發"、"馬來西亞航空來回吉隆坡連稅$1,557起！10月至2026年6月出發"，保持粵語語法\\n- Short Comment（簡短評論）：1-2句簡短評價，突出優惠點或特色，保持粵語語法\\n- Summary（詳細總結）：詳細的旅遊推薦內容，包含航班資訊、簡短景點介紹、價錢吸引處、或者行李寬限等，保持粵語語法\\n確保JSON格式完整，以}}結尾。
-
-### 機票資料:
-{{{{ .Prompt }}}}
-
-### 旅遊推薦內容:
-\"\"\"
-
-# Parameters optimized for travel assistance
-PARAMETER temperature 0.7
-PARAMETER top_p 0.9
-PARAMETER top_k 40
-PARAMETER repeat_penalty 1.1
-PARAMETER stop "}}"
-'''
+            # Create model manifest and documentation
+            self.create_model_manifest(training_info)
             
-            modelfile_path = os.path.join(self.temp_dir, "Modelfile")
-            with open(modelfile_path, 'w', encoding='utf-8') as f:
-                f.write(modelfile_content)
-            
-            # Create model in Ollama
-            result = subprocess.run([
-                "ollama", "create", self.config['adapter_name'], "-f", modelfile_path
-            ], capture_output=True, text=True)
-            
-            if result.returncode != 0:
-                logger.error(f"Failed to create Ollama model: {result.stderr}")
-                logger.error(f"Ollama stdout: {result.stdout}")
-                return False
-            
-            logger.info(f"Successfully created Ollama model: {self.config['adapter_name']}")
             return True
             
         except Exception as e:
@@ -817,56 +784,432 @@ PARAMETER stop "}}"
             return False
     
     def create_simple_ollama_model(self, training_info) -> bool:
-        """Fallback: Create a simple Ollama model without adapter"""
+        """Fallback: Export adapter without creating Ollama model"""
         try:
-            logger.info("Creating simple Ollama model without adapter as fallback...")
+            logger.info("Exporting adapter without Ollama model creation...")
             
-            modelfile_content = f'''FROM {training_info['base_model']}
+            # Export the adapter
+            self.export_adapter(training_info)
+            
+            # Create model manifest and documentation
+            self.create_model_manifest(training_info)
+            
+            return True
+                
+        except Exception as e:
+            logger.error(f"Error exporting adapter: {e}")
+            return False
+    
+    def export_adapter(self, training_info):
+        """Export the fine-tuned adapter for sharing and reuse"""
+        try:
+            import shutil
+            from datetime import datetime
+            
+            # Create export directory
+            export_dir = os.path.join(os.path.dirname(self.temp_dir), f"adapter_export_{self.session_id}")
+            os.makedirs(export_dir, exist_ok=True)
+            
+            # Export adapter files
+            adapter_path = os.path.join(self.temp_dir, "adapter_model")
+            if os.path.exists(adapter_path):
+                # Copy adapter files to export directory
+                exported_adapter_path = os.path.join(export_dir, "adapter")
+                shutil.copytree(adapter_path, exported_adapter_path)
+                logger.info(f"Adapter files exported to: {exported_adapter_path}")
+            else:
+                logger.warning("Adapter path not found, creating configuration-only export")
+            
+            # Create adapter configuration file
+            adapter_config = {
+                "adapter_name": self.config['adapter_name'],
+                "base_model": training_info.get('base_model', 'unknown'),
+                "created_at": datetime.now().isoformat(),
+                "session_id": self.session_id,
+                "training_config": {
+                    "learning_rate": self.config.get('learning_rate', 0.0001),
+                    "epochs": self.config.get('num_epochs', 3),
+                    "batch_size": self.config.get('batch_size', 4),
+                    "lora_rank": self.config.get('lora_rank', 16),
+                    "lora_alpha": self.config.get('lora_alpha', 32),
+                    "lora_dropout": self.config.get('lora_dropout', 0.1),
+                    "target_modules": self.config.get('target_modules', ["q_proj", "v_proj", "k_proj", "o_proj"]),
+                    "use_quantization": self.config.get('use_quantization', True),
+                    "gradient_accumulation_steps": self.config.get('gradient_accumulation_steps', 8),
+                    "warmup_steps": self.config.get('warmup_steps', 100),
+                    "max_length": self.config.get('max_length', 512)
+                },
+                "description": "Fine-tuned LoRA adapter for Cantonese travel content generation",
+                "language": "Cantonese (Traditional Chinese)",
+                "task": "Travel content generation with JSON output",
+                "output_format": "JSON",
+                "instructions": {
+                    "system_prompt": "你是一個專門分析機票優惠的助手，根據指定語法，用粵語（繁體字）口語化寫出吸引人的旅遊內容。你已經經過專門訓練，能夠根據機票資料寫出結構化的旅遊推薦內容。請只輸出JSON格式，不要輸出任何其他文字。",
+                    "template": "你是一個專門分析機票優惠的助手，根據指定語法，用粵語（繁體字）口語化寫出吸引人的旅遊內容。請根據提供的機票資料，只輸出JSON格式，不要輸出任何其他文字。",
+                    "output_fields": {
+                        "Destination": "簡潔的中文目的地名稱，如「東京」、「悉尼」",
+                        "Header": "吸引人的標題，由三部份組成:機票評論, 航空公司目的地連價格, 出發資訊",
+                        "Short Comment": "1-2句簡短評價，說服他人購買，指出有何吸引之處",
+                        "Summary": "詳細的旅遊推薦內容，包含航班資訊、簡短景點介紹、價錢吸引處、或者行李寬限等"
+                    }
+                },
+                "parameters": {
+                    "temperature": 0.7,
+                    "top_p": 0.9,
+                    "top_k": 40,
+                    "repeat_penalty": 1.1,
+                    "stop": ["}}"]
+                },
+                "files": {
+                    "adapter_path": "adapter/",
+                    "training_log": f"training_{self.session_id}.log",
+                    "training_config": f"training_info_{self.session_id}.json"
+                }
+            }
+            
+            # Save adapter configuration
+            config_path = os.path.join(export_dir, "adapter_config.json")
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(adapter_config, f, ensure_ascii=False, indent=2)
+            
+            # Create usage instructions
+            usage_instructions = f"""# {self.config['adapter_name']} - Adapter Usage Instructions
 
-# Fine-tuned behavior simulation for Cantonese travel content with JSON output
-SYSTEM \"\"\"你是一個專門分析機票優惠的助手，根據指定語法，用粵語（繁體字）口語化寫出吸引人的旅遊內容。當提供機票資料時，請只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：\\n- Destination（目的地）：簡潔的中文目的地名稱，如「東京」、「悉尼」。如有多個地名，目的地必須是那些地名的國家\\n- Header（標題）：吸引人的標題，由三部份組成:機票評論, 航空公司目的地連價格, 出發資訊。機票評論例子:"難得減到咁平"、"抵！減到八千二有找！"。簡短航空公司目的地連價格的例子:"長榮航空來回高雄連稅$1,293起！12月19日或之前出發"、"馬來西亞航空來回吉隆坡連稅$1,557起！10月至2026年6月出發"，保持粵語語法\\n- Short Comment（簡短評論）：1-2句簡短評價，突出優惠點或特色，保持粵語語法\\n- Summary（詳細總結）：詳細的旅遊推薦內容，包含航班資訊、簡短景點介紹、價錢吸引處、或者行李寬限等，保持粵語語法\\n確保JSON格式完整，以}}結尾。\"\"\"
+## Overview
+This is a fine-tuned LoRA adapter for generating Cantonese travel content in JSON format.
 
-# Template for Cantonese travel content with JSON output
-TEMPLATE \"\"\"你是一個專門分析機票優惠的助手，根據指定語法，用粵語（繁體字）口語化寫出吸引人的旅遊內容。請根據提供的機票資料，只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：\\n- Destination（目的地）：簡潔的中文目的地名稱。如有多個地名，目的地必須是那些地名的國家\\n- Header（標題）：吸引人的標題，由三部份組成:機票評論, 航空公司目的地連價格, 出發資訊。機票評論例子:"難得減到咁平"、"抵！減到八千二有找！"。簡短航空公司目的地連價格的例子:"長榮航空來回高雄連稅$1,293起！12月19日或之前出發"、"馬來西亞航空來回吉隆坡連稅$1,557起！10月至2026年6月出發"，保持粵語語法\\n- Short Comment（簡短評論）：1-2句簡短評價，突出優惠點或特色，保持粵語語法\\n- Summary（詳細總結）：詳細的旅遊推薦內容，包含航班資訊、簡短景點介紹、價錢吸引處、或者行李寬限等，保持粵語語法\\n確保JSON格式完整，以}}結尾。
+## Adapter Information
+- **Adapter Name**: {self.config['adapter_name']}
+- **Base Model**: {training_info.get('base_model', 'unknown')}
+- **Created**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+- **Session ID**: {self.session_id}
 
-### 機票資料:
-{{{{ .Prompt }}}}
+## How to Use This Adapter
 
-### 旅遊推薦內容:
-\"\"\"
+### Option 1: With Transformers Library
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
 
-# Parameters
+# Load base model
+base_model = AutoModelForCausalLM.from_pretrained("{training_info.get('base_model', 'qwen2.5:14b').replace(':', '-')}")
+tokenizer = AutoTokenizer.from_pretrained("{training_info.get('base_model', 'qwen2.5:14b').replace(':', '-')}")
+
+# Load adapter
+model = PeftModel.from_pretrained(base_model, "adapter/")
+
+# Use for inference
+def generate_travel_content(flight_data):
+    prompt = f\"\"\"你是一個專門分析機票優惠的助手，根據指定語法，用粵語（繁體字）口語化寫出吸引人的旅遊內容。請根據提供的機票資料，只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：\\n- Destination（目的地）：簡潔的中文目的地名稱\\n- Header（標題）：吸引人的標題，由三部份組成:機票評論, 航空公司目的地連價格, 出發資訊\\n- Short Comment（簡短評論）：1-2句簡短評價，說服他人購買，指出有何吸引之處\\n- Summary（詳細總結）：詳細的旅遊推薦內容，包含航班資訊、簡短景點介紹、價錢吸引處、或者行李寬限等\\n確保JSON格式完整，以}}結尾。\\n\\n### 機票資料:\\n{{flight_data}}\\n\\n### 旅遊推薦內容:\"\"\"
+    
+    inputs = tokenizer(prompt, return_tensors="pt")
+    outputs = model.generate(**inputs, max_length=512, temperature=0.7, do_sample=True)
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+# Example usage
+flight_data = "ANA全日空航空，香港到東京羽田，HK$2,390，10月8日14:45出發"
+result = generate_travel_content(flight_data)
+print(result)
+```
+
+### Option 2: Merge with Base Model
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
+
+# Load base model
+base_model = AutoModelForCausalLM.from_pretrained("{training_info.get('base_model', 'qwen2.5:14b').replace(':', '-')}")
+tokenizer = AutoTokenizer.from_pretrained("{training_info.get('base_model', 'qwen2.5:14b').replace(':', '-')}")
+
+# Load and merge adapter
+model = PeftModel.from_pretrained(base_model, "adapter/")
+merged_model = model.merge_and_unload()
+
+# Save merged model
+merged_model.save_pretrained("merged_model")
+tokenizer.save_pretrained("merged_model")
+```
+
+### Option 3: Create Ollama Modelfile
+```dockerfile
+FROM {training_info.get('base_model', 'qwen2.5:14b')}
+
+SYSTEM \"\"\"你是一個專門分析機票優惠的助手，根據指定語法，用粵語（繁體字）口語化寫出吸引人的旅遊內容。你已經經過專門訓練，能夠根據機票資料寫出結構化的旅遊推薦內容。請只輸出JSON格式，不要輸出任何其他文字。包含以下欄位：\\n- Destination（目的地）：簡潔的中文目的地名稱，如「東京」、「悉尼」\\n- Header（標題）：吸引人的標題，由三部份組成:機票評論, 航空公司目的地連價格, 出發資訊\\n- Short Comment（簡短評論）：1-2句簡短評價，說服他人購買，指出有何吸引之處\\n- Summary（詳細總結）：詳細的旅遊推薦內容，包含航班資訊、簡短景點介紹、價錢吸引處、或者行李寬限等\\n確保JSON格式完整，以}}結尾。\"\"\"
+
+TEMPLATE \"\"\"你是一個專門分析機票優惠的助手，根據指定語法，用粵語（繁體字）口語化寫出吸引人的旅遊內容。請根據提供的機票資料，只輸出JSON格式，不要輸出任何其他文字。\\n\\n### 機票資料:\\n{{{{ .Prompt }}}}\\n\\n### 旅遊推薦內容:\"\"\"
+
 PARAMETER temperature 0.7
 PARAMETER top_p 0.9
 PARAMETER top_k 40
 PARAMETER repeat_penalty 1.1
 PARAMETER stop "}}"
-'''
+```
+
+## Training Configuration
+- Learning Rate: {self.config.get('learning_rate', 0.0001)}
+- Epochs: {self.config.get('num_epochs', 3)}
+- Batch Size: {self.config.get('batch_size', 4)}
+- LoRA Rank: {self.config.get('lora_rank', 16)}
+- LoRA Alpha: {self.config.get('lora_alpha', 32)}
+- LoRA Dropout: {self.config.get('lora_dropout', 0.1)}
+- Target Modules: {self.config.get('target_modules', ["q_proj", "v_proj", "k_proj", "o_proj"])}
+
+## Output Format
+The adapter generates JSON output with the following structure:
+```json
+{{
+  "Destination": "東京",
+  "Header": "精選東京遊！HK$2,390即刻出發！",
+  "Short Comment": "來一趟經濟實惠的東京之旅，賞櫻、品嚐美食，與日本文化近距離接觸。",
+  "Summary": "利用ANA全日空航空，從香港前往東京羽田機場，只需HK$2,390便能體驗精采的旅程。10月8日搭乘下午兩點四十五分航班，帶來便利的時間安排。行李規定為一件不超過23kg的行李，讓你輕鬆享受旅程。"
+}}
+```
+
+## Files Included
+- `adapter/` - The LoRA adapter files
+- `adapter_config.json` - Adapter configuration and metadata
+- `USAGE.md` - This usage guide
+- `training_{self.session_id}.log` - Training log
+- `training_info_{self.session_id}.json` - Training configuration
+
+## Notes
+- This adapter is specifically trained for Cantonese (Traditional Chinese) travel content generation
+- The output is always in JSON format with the specified fields
+- Use temperature 0.7 for balanced creativity and consistency
+- The adapter works best with the base model it was trained on
+"""
             
-            modelfile_path = os.path.join(self.temp_dir, "Modelfile_simple")
-            with open(modelfile_path, 'w', encoding='utf-8') as f:
-                f.write(modelfile_content)
+            # Save usage instructions
+            usage_path = os.path.join(export_dir, "USAGE.md")
+            with open(usage_path, 'w', encoding='utf-8') as f:
+                f.write(usage_instructions)
             
-            # Create model in Ollama
+            # Copy training files to export directory
+            training_files = [
+                f"training_{self.session_id}.log",
+                f"training_info_{self.session_id}.json"
+            ]
+            
+            for file_name in training_files:
+                src_path = os.path.join(self.temp_dir, file_name)
+                if os.path.exists(src_path):
+                    dst_path = os.path.join(export_dir, file_name)
+                    shutil.copy2(src_path, dst_path)
+            
+            logger.info(f"Adapter exported successfully to: {export_dir}")
+            logger.info(f"Export includes: adapter files, config, usage instructions, and training logs")
+            
+        except Exception as e:
+            logger.error(f"Error exporting adapter: {e}")
+    
+    def create_model_manifest(self, training_info):
+        """Create comprehensive model manifest and documentation"""
+        try:
+            import json
+            from datetime import datetime
+            
+            # Get model info from Ollama
+            model_info = self.get_ollama_model_info()
+            
+            # Create comprehensive manifest
+            manifest = {
+                "model_name": self.config['adapter_name'],
+                "version": "1.0.0",
+                "created_at": datetime.now().isoformat(),
+                "base_model": training_info.get('base_model', 'unknown'),
+                "description": "Fine-tuned model for Cantonese travel content generation with JSON output",
+                "language": "Cantonese (Traditional Chinese)",
+                "task": "Travel content generation",
+                "output_format": "JSON",
+                "training_config": {
+                    "learning_rate": self.config.get('learning_rate', 0.0001),
+                    "epochs": self.config.get('num_epochs', 3),
+                    "batch_size": self.config.get('batch_size', 4),
+                    "lora_rank": self.config.get('lora_rank', 16),
+                    "lora_alpha": self.config.get('lora_alpha', 32),
+                    "lora_dropout": self.config.get('lora_dropout', 0.1),
+                    "use_quantization": self.config.get('use_quantization', True),
+                    "gradient_accumulation_steps": self.config.get('gradient_accumulation_steps', 8),
+                    "warmup_steps": self.config.get('warmup_steps', 100),
+                    "max_length": self.config.get('max_length', 512)
+                },
+                "model_info": model_info,
+                "output_fields": {
+                    "Destination": {
+                        "description": "簡潔的中文目的地名稱，如「東京」、「悉尼」",
+                        "type": "string",
+                        "example": "東京"
+                    },
+                    "Header": {
+                        "description": "吸引人的標題，由三部份組成:機票評論, 航空公司目的地連價格, 出發資訊",
+                        "type": "string", 
+                        "example": "精選東京遊！HK$2,390即刻出發！"
+                    },
+                    "Short Comment": {
+                        "description": "1-2句簡短評價，說服他人購買，指出有何吸引之處",
+                        "type": "string",
+                        "example": "來一趟經濟實惠的東京之旅，賞櫻、品嚐美食，與日本文化近距離接觸。"
+                    },
+                    "Summary": {
+                        "description": "詳細的旅遊推薦內容，包含航班資訊、簡短景點介紹、價錢吸引處、或者行李寬限等",
+                        "type": "string",
+                        "example": "利用ANA全日空航空，從香港前往東京羽田機場，只需HK$2,390便能體驗精采的旅程。"
+                    }
+                },
+                "usage_instructions": {
+                    "input_format": "機票資料（航班資訊、價格、出發日期等）",
+                    "output_format": "JSON格式，包含Destination、Header、Short Comment、Summary四個欄位",
+                    "language": "粵語（繁體字）",
+                    "style": "口語化、生動有趣、吸引人"
+                },
+                "parameters": {
+                    "temperature": 0.7,
+                    "top_p": 0.9,
+                    "top_k": 40,
+                    "repeat_penalty": 1.1,
+                    "stop": ["}}"]
+                },
+                "files": {
+                    "modelfile": "Modelfile",
+                    "training_log": f"training_{self.session_id}.log",
+                    "training_config": f"training_info_{self.session_id}.json"
+                }
+            }
+            
+            # Save manifest to temp directory
+            manifest_path = os.path.join(self.temp_dir, "model_manifest.json")
+            with open(manifest_path, 'w', encoding='utf-8') as f:
+                json.dump(manifest, f, ensure_ascii=False, indent=2)
+            
+            # Create human-readable documentation
+            self.create_model_documentation(manifest)
+            
+            logger.info(f"Model manifest created: {manifest_path}")
+            
+        except Exception as e:
+            logger.error(f"Error creating model manifest: {e}")
+    
+    def get_ollama_model_info(self):
+        """Get model information from Ollama"""
+        try:
             result = subprocess.run([
-                "ollama", "create", self.config['adapter_name'], "-f", modelfile_path
+                "ollama", "show", self.config['adapter_name'], "--json"
             ], capture_output=True, text=True)
             
             if result.returncode == 0:
-                logger.info(f"Successfully created simple Ollama model: {self.config['adapter_name']}")
-                return True
+                return json.loads(result.stdout)
             else:
-                logger.error(f"Failed to create simple Ollama model: {result.stderr}")
-                return False
-                
+                return {"error": f"Failed to get model info: {result.stderr}"}
         except Exception as e:
-            logger.error(f"Error creating simple Ollama model: {e}")
-            return False
+            return {"error": f"Error getting model info: {e}"}
+    
+    def create_model_documentation(self, manifest):
+        """Create human-readable model documentation"""
+        try:
+            doc_content = f"""# {manifest['model_name']} - Model Documentation
+
+## Overview
+- **Model Name**: {manifest['model_name']}
+- **Version**: {manifest['version']}
+- **Created**: {manifest['created_at']}
+- **Base Model**: {manifest['base_model']}
+- **Language**: {manifest['language']}
+- **Task**: {manifest['task']}
+
+## Description
+{manifest['description']}
+
+## Output Format
+The model generates structured JSON output in Cantonese (Traditional Chinese) with the following fields:
+
+### Destination
+- **Description**: {manifest['output_fields']['Destination']['description']}
+- **Type**: {manifest['output_fields']['Destination']['type']}
+- **Example**: {manifest['output_fields']['Destination']['example']}
+
+### Header  
+- **Description**: {manifest['output_fields']['Header']['description']}
+- **Type**: {manifest['output_fields']['Header']['type']}
+- **Example**: {manifest['output_fields']['Header']['example']}
+
+### Short Comment
+- **Description**: {manifest['output_fields']['Short Comment']['description']}
+- **Type**: {manifest['output_fields']['Short Comment']['type']}
+- **Example**: {manifest['output_fields']['Short Comment']['example']}
+
+### Summary
+- **Description**: {manifest['output_fields']['Summary']['description']}
+- **Type**: {manifest['output_fields']['Summary']['type']}
+- **Example**: {manifest['output_fields']['Summary']['example']}
+
+## Usage Instructions
+- **Input Format**: {manifest['usage_instructions']['input_format']}
+- **Output Format**: {manifest['usage_instructions']['output_format']}
+- **Language**: {manifest['usage_instructions']['language']}
+- **Style**: {manifest['usage_instructions']['style']}
+
+## Model Parameters
+- Temperature: {manifest['parameters']['temperature']}
+- Top P: {manifest['parameters']['top_p']}
+- Top K: {manifest['parameters']['top_k']}
+- Repeat Penalty: {manifest['parameters']['repeat_penalty']}
+- Stop Tokens: {manifest['parameters']['stop']}
+
+## Training Configuration
+- Learning Rate: {manifest['training_config']['learning_rate']}
+- Epochs: {manifest['training_config']['epochs']}
+- Batch Size: {manifest['training_config']['batch_size']}
+- LoRA Rank: {manifest['training_config']['lora_rank']}
+- LoRA Alpha: {manifest['training_config']['lora_alpha']}
+- LoRA Dropout: {manifest['training_config']['lora_dropout']}
+- Use Quantization: {manifest['training_config']['use_quantization']}
+- Gradient Accumulation Steps: {manifest['training_config']['gradient_accumulation_steps']}
+- Warmup Steps: {manifest['training_config']['warmup_steps']}
+- Max Length: {manifest['training_config']['max_length']}
+
+## Files
+- Modelfile: {manifest['files']['modelfile']}
+- Training Log: {manifest['files']['training_log']}
+- Training Config: {manifest['files']['training_config']}
+
+## Example Usage
+```bash
+ollama run {manifest['model_name']}
+```
+
+Then provide flight/travel data as input to get structured Cantonese travel content in JSON format.
+"""
+            
+            # Save documentation
+            doc_path = os.path.join(self.temp_dir, "README.md")
+            with open(doc_path, 'w', encoding='utf-8') as f:
+                f.write(doc_content)
+            
+            logger.info(f"Model documentation created: {doc_path}")
+            
+        except Exception as e:
+            logger.error(f"Error creating model documentation: {e}")
     
     def cleanup(self):
-        """Clean up temporary files"""
+        """Clean up temporary files, but preserve manifest and documentation"""
         if self.temp_dir and os.path.exists(self.temp_dir):
             try:
+                # Preserve important files before cleanup
+                manifest_files = ['model_manifest.json', 'README.md']
+                preserved_dir = os.path.join(os.path.dirname(self.temp_dir), f"model_artifacts_{self.session_id}")
+                
+                if any(os.path.exists(os.path.join(self.temp_dir, f)) for f in manifest_files):
+                    os.makedirs(preserved_dir, exist_ok=True)
+                    for file_name in manifest_files:
+                        src_path = os.path.join(self.temp_dir, file_name)
+                        if os.path.exists(src_path):
+                            dst_path = os.path.join(preserved_dir, file_name)
+                            shutil.copy2(src_path, dst_path)
+                            logger.info(f"Preserved {file_name} in {preserved_dir}")
+                
+                # Note: Adapter export directory is already preserved separately
+                
+                # Clean up the temporary directory
                 shutil.rmtree(self.temp_dir)
                 logger.info("Cleaned up temporary files")
             except Exception as e:

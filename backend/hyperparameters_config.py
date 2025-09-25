@@ -11,7 +11,7 @@ Users can no longer modify these parameters through the UI.
 
 # Learning Parameters
 LEARNING_RATE = 0.0001
-NUM_EPOCHS = 4
+NUM_EPOCHS = 3
 BATCH_SIZE = 4
 GRADIENT_ACCUMULATION_STEPS = 8
 
