@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import logging
+import torch
 
 # Import hyperparameters configuration
 try:
@@ -56,7 +57,7 @@ class LoRAFineTuner:
             if field not in self.config:
                 logger.error(f"Missing required field: {field}")
                 return False
-        
+                
         # Hyperparameters are now loaded from configuration file
         # Get hyperparameters for the base model
         try:
@@ -71,6 +72,7 @@ class LoRAFineTuner:
             return False
             
         return True
+    
     
     def prepare_dataset(self, dataset_path: str) -> str:
         """Prepare dataset for training"""
@@ -514,8 +516,33 @@ def main():
     logger.info("Saving model...")
     trainer.save_model()
     
-    # Save adapter
-    model.save_pretrained(os.path.join(output_dir, "adapter"))
+    # Save adapter in GGUF format
+    adapter_path = os.path.join(output_dir, "adapter")
+    model.save_pretrained(adapter_path)
+    
+    # Convert adapter to GGUF format
+    try:
+        from gguf_converter import convert_adapter_to_gguf
+        # Create config dict for GGUF conversion
+        gguf_config = {{
+            "adapter_name": "{self.config.get('adapter_name', 'unknown')}",
+            "base_model": "{self.config.get('base_model', 'unknown')}",
+            "lora_rank": {self.config.get('lora_rank', 16)},
+            "lora_alpha": {self.config.get('lora_alpha', 32)},
+            "lora_dropout": {self.config.get('lora_dropout', 0.1)},
+            "learning_rate": {self.config.get('learning_rate', 0.0001)},
+            "num_epochs": {self.config.get('num_epochs', 3)},
+            "batch_size": {self.config.get('batch_size', 4)},
+            "target_modules": {self.config.get('target_modules', ["q_proj", "v_proj", "k_proj", "o_proj"])}
+        }}
+        success = convert_adapter_to_gguf(adapter_path, model, tokenizer, gguf_config)
+        if success:
+            logger.info("Adapter converted to GGUF format successfully")
+        else:
+            logger.warning("GGUF conversion failed, adapter saved in original format")
+    except Exception as e:
+        logger.warning(f"Failed to convert adapter to GGUF: {{e}}")
+        logger.info("Adapter saved in original format")
     
     logger.info("Training completed successfully!")
     
@@ -543,9 +570,14 @@ def main():
     
     print(f"Training completed. Model saved to: {{output_dir}}")
 
+
 if __name__ == "__main__":
     main()
 '''
+        
+        # Copy GGUF converter to temp directory
+        gguf_converter_path = os.path.join(self.temp_dir, "gguf_converter.py")
+        shutil.copy2("gguf_converter.py", gguf_converter_path)
         
         # Write the script to file
         script_path = os.path.join(self.temp_dir, "train_model.py")
@@ -795,7 +827,7 @@ print("Model merge completed successfully!")
             self.create_model_manifest(training_info)
             
             return True
-                
+            
         except Exception as e:
             logger.error(f"Error exporting adapter: {e}")
             return False
@@ -806,19 +838,33 @@ print("Model merge completed successfully!")
             import shutil
             from datetime import datetime
             
-            # Create export directory
-            export_dir = os.path.join(os.path.dirname(self.temp_dir), f"adapter_export_{self.session_id}")
+            # Create export directory in a permanent location
+            export_dir = os.path.join(os.getcwd(), "adapter_exports", f"adapter_export_{self.session_id}")
             os.makedirs(export_dir, exist_ok=True)
             
-            # Export adapter files
-            adapter_path = os.path.join(self.temp_dir, "adapter_model")
-            if os.path.exists(adapter_path):
-                # Copy adapter files to export directory
-                exported_adapter_path = os.path.join(export_dir, "adapter")
-                shutil.copytree(adapter_path, exported_adapter_path)
-                logger.info(f"Adapter files exported to: {exported_adapter_path}")
-            else:
-                logger.warning("Adapter path not found, creating configuration-only export")
+            # Export adapter files - check multiple possible locations
+            possible_adapter_paths = [
+                os.path.join(self.temp_dir, "output", "adapter"),  # This is where it's actually saved
+                os.path.join(self.temp_dir, "adapter_model"),
+                os.path.join(self.temp_dir, "adapter"),
+                os.path.join(self.temp_dir, "output", "adapter_model")
+            ]
+            
+            adapter_found = False
+            for adapter_path in possible_adapter_paths:
+                if os.path.exists(adapter_path):
+                    logger.info(f"Found adapter at: {adapter_path}")
+                    # Copy adapter files to export directory
+                    exported_adapter_path = os.path.join(export_dir, "adapter")
+                    shutil.copytree(adapter_path, exported_adapter_path)
+                    logger.info(f"Adapter files exported to: {exported_adapter_path}")
+                    adapter_found = True
+                    break
+            
+            if not adapter_found:
+                logger.warning("Adapter files not found in any expected location")
+                logger.warning(f"Searched paths: {possible_adapter_paths}")
+                logger.warning("Creating configuration-only export")
             
             # Create adapter configuration file
             adapter_config = {
@@ -1186,7 +1232,7 @@ Then provide flight/travel data as input to get structured Cantonese travel cont
                 f.write(doc_content)
             
             logger.info(f"Model documentation created: {doc_path}")
-            
+                
         except Exception as e:
             logger.error(f"Error creating model documentation: {e}")
     

@@ -77,7 +77,22 @@
 		'溫哥華': 'YVR',
 		'vancouver': 'YVR',
 		'多倫多': 'YYZ',
-		'toronto': 'YYZ'
+		'toronto': 'YYZ',
+		// Japan airports
+		'東京': 'NRT',
+		'tokyo': 'NRT',
+		'大阪': 'KIX',
+		'osaka': 'KIX',
+		'名古屋': 'NGO',
+		'nagoya': 'NGO',
+		'福岡': 'FUK',
+		'fukuoka': 'FUK',
+		'札幌': 'CTS',
+		'sapporo': 'CTS',
+		'沖繩': 'OKA',
+		'okinawa': 'OKA',
+		'japan': 'NRT', // Default to Tokyo for Japan
+		'japanese': 'NRT'
 	};
 
 	// Function to get location code from city name
@@ -95,8 +110,9 @@
 			}
 		}
 		
-		// If no match found, assume it's already a code or return as is
-		return cityName.toUpperCase();
+		// If no match found, return null to indicate invalid input
+		// This will trigger the validation error in the search function
+		return null;
 	};
 
 	// Sample flight data for demonstration
@@ -169,7 +185,10 @@
 				const destinationCode = getLocationCode(searchForm.destination);
 
 				if (!originCode || !destinationCode) {
-					throw new Error('Please enter valid origin and destination cities');
+					const missingFields = [];
+					if (!originCode) missingFields.push('origin');
+					if (!destinationCode) missingFields.push('destination');
+					throw new Error(`Please enter valid ${missingFields.join(' and ')} cities. Use specific city names or airport codes (e.g., "Tokyo", "NRT", "Osaka", "KIX").`);
 				}
 
 				if (!searchForm.departureDate) {
