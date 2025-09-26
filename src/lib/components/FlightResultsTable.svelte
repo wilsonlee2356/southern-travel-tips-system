@@ -1,5 +1,6 @@
 <script>
 	import { getContext } from 'svelte';
+	import { fetchAdapters, fetchMergedModels, fetchRAGModels } from '$lib/utils/adapterApi.js';
 	
 	const i18n = getContext('i18n');
 	
@@ -11,6 +12,99 @@
 	export let onPost = () => {};
 	export let isPosting = false;
 	export let aiStage = '';
+	
+	// Binding props for adapter selection
+	export let selectedAdapter = null;
+	export let selectedMergedModel = null;
+	export let selectedRAGModel = null;
+	
+	// Adapter selection state
+	let availableAdapters = [];
+	let availableMergedModels = [];
+	let availableRAGModels = [];
+	let isLoadingAdapters = false;
+	let adapterError = '';
+	
+	// Load adapters and merged models on component mount
+	$: if (typeof window !== 'undefined') {
+		loadAdapters();
+	}
+	
+	async function loadAdapters() {
+		isLoadingAdapters = true;
+		adapterError = '';
+		
+		try {
+			// Load adapters, merged models, and RAG models
+			const [adaptersResult, mergedModelsResult, ragModelsResult] = await Promise.all([
+				fetchAdapters(),
+				fetchMergedModels(),
+				fetchRAGModels()
+			]);
+			
+			if (adaptersResult.success) {
+				availableAdapters = adaptersResult.adapters;
+			} else {
+				console.warn('Failed to load adapters:', adaptersResult.error);
+			}
+			
+			if (mergedModelsResult.success) {
+				availableMergedModels = mergedModelsResult.mergedModels;
+			} else {
+				console.warn('Failed to load merged models:', mergedModelsResult.error);
+			}
+			
+			if (ragModelsResult.success) {
+				availableRAGModels = ragModelsResult.rag_models;
+			} else {
+				console.warn('Failed to load RAG models:', ragModelsResult.error);
+			}
+			
+		} catch (error) {
+			console.error('Error loading AI models:', error);
+			adapterError = 'Failed to load AI models';
+		} finally {
+			isLoadingAdapters = false;
+		}
+	}
+	
+	// Handle adapter selection change
+	function handleAdapterChange(event) {
+		const adapterId = event.target.value;
+		selectedAdapter = availableAdapters.find(adapter => adapter.export_id === adapterId) || null;
+		selectedMergedModel = null; // Reset merged model selection
+	}
+	
+	// Handle merged model selection change
+	function handleMergedModelChange(event) {
+		const modelName = event.target.value;
+		selectedMergedModel = availableMergedModels.find(model => model.merged_model_name === modelName) || null;
+	}
+	
+	// Handle RAG model selection change
+	function handleRAGModelChange(event) {
+		const modelName = event.target.value;
+		selectedRAGModel = availableRAGModels.find(model => model.rag_model_name === modelName) || null;
+	}
+	
+	// Get available options for dropdowns
+	$: adapterOptions = availableAdapters.map(adapter => ({
+		value: adapter.export_id,
+		label: `${adapter.adapter_name} (${adapter.base_model})`,
+		adapter: adapter
+	}));
+	
+	$: mergedModelOptions = availableMergedModels.map(model => ({
+		value: model.merged_model_name,
+		label: `${model.adapter_name} + ${model.base_model}`,
+		model: model
+	}));
+	
+	$: ragModelOptions = availableRAGModels.map(model => ({
+		value: model.rag_model_name,
+		label: `${model.adapter_name} (RAG) - ${new Date(model.created_at).toLocaleString()}`,
+		model: model
+	}));
 
 	// Table state
 	let currentPage = 1;
@@ -489,10 +583,90 @@
 	<!-- Post Button -->
 	{#if selectedFlights.size > 0}
 		<div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-			<div class="flex justify-end">
+			<div class="flex items-center justify-between gap-4">
+				<!-- Adapter Selection -->
+				<div class="flex items-center gap-4">
+					<!-- Adapter Dropdown -->
+					<div class="flex flex-col">
+						<label for="adapter-select" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+							{$i18n.t('AI Model')}
+						</label>
+						<select
+							id="adapter-select"
+							class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+							on:change={handleAdapterChange}
+							disabled={isLoadingAdapters || isPosting}
+						>
+							<option value="">{$i18n.t('Select AI Model...')}</option>
+							{#each adapterOptions as option}
+								<option value={option.value}>{option.label}</option>
+							{/each}
+						</select>
+					</div>
+					
+					<!-- Merged Model Dropdown (if adapters are available) -->
+					{#if availableMergedModels.length > 0}
+						<div class="flex flex-col">
+							<label for="merged-model-select" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+								{$i18n.t('Merged Model')}
+							</label>
+							<select
+								id="merged-model-select"
+								class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+								on:change={handleMergedModelChange}
+								disabled={isLoadingAdapters || isPosting}
+							>
+								<option value="">{$i18n.t('Select Merged Model...')}</option>
+								{#each mergedModelOptions as option}
+									<option value={option.value}>{option.label}</option>
+								{/each}
+							</select>
+						</div>
+					{/if}
+					
+					<!-- RAG Model Dropdown (if RAG models are available) -->
+					{#if availableRAGModels.length > 0}
+						<div class="flex flex-col">
+							<label for="rag-model-select" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+								RAG Model
+							</label>
+							<select
+								id="rag-model-select"
+								class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+								on:change={handleRAGModelChange}
+								disabled={isLoadingAdapters || isPosting}
+							>
+								<option value="">Select RAG Model...</option>
+								{#each ragModelOptions as option}
+									<option value={option.value}>{option.label}</option>
+								{/each}
+							</select>
+						</div>
+					{/if}
+					
+					<!-- Loading indicator -->
+					{#if isLoadingAdapters}
+						<div class="flex items-center text-sm text-gray-500 dark:text-gray-400">
+							<svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+							</svg>
+							{$i18n.t('Loading models...')}
+						</div>
+					{/if}
+					
+					<!-- Error message -->
+					{#if adapterError}
+						<div class="text-sm text-red-600 dark:text-red-400">
+							{adapterError}
+						</div>
+					{/if}
+				</div>
+				
+				<!-- Post Button -->
 				<button
 					class="bg-black hover:bg-gray-800 text-white font-medium py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-					disabled={isPosting}
+					disabled={isPosting || (!selectedAdapter && !selectedMergedModel)}
 					on:click={onPost}
 				>
 					{#if isPosting}
@@ -515,6 +689,17 @@
 					{/if}
 				</button>
 			</div>
+			
+			<!-- Selection info -->
+			{#if selectedAdapter || selectedMergedModel}
+				<div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+					{#if selectedMergedModel}
+						Using merged model: <span class="font-medium">{selectedMergedModel.adapter_name} + {selectedMergedModel.base_model}</span>
+					{:else if selectedAdapter}
+						Selected adapter: <span class="font-medium">{selectedAdapter.adapter_name}</span> (will be merged with {selectedAdapter.base_model})
+					{/if}
+				</div>
+			{/if}
 		</div>
 	{/if}
 </div>

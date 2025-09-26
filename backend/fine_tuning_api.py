@@ -1053,6 +1053,268 @@ async def list_models():
         logger.error(f"Error listing models: {e}")
         return {"models": [], "error": str(e)}
 
+# Adapter Merger endpoints
+@app.get("/api/adapters/list")
+async def list_available_adapters():
+    """List all available adapters"""
+    try:
+        from adapter_merger import AdapterMerger
+        merger = AdapterMerger()
+        adapters = merger.list_available_adapters()
+        return {"adapters": adapters, "count": len(adapters)}
+    except Exception as e:
+        logger.error(f"Error listing adapters: {e}")
+        return {"adapters": [], "count": 0, "error": str(e)}
+
+@app.get("/api/adapters/{adapter_id}")
+async def get_adapter_info(adapter_id: str):
+    """Get detailed information about a specific adapter"""
+    try:
+        from adapter_merger import AdapterMerger
+        merger = AdapterMerger()
+        adapter_info = merger.get_adapter_info(adapter_id)
+        if adapter_info:
+            return {"adapter": adapter_info}
+        else:
+            return {"error": f"Adapter {adapter_id} not found"}
+    except Exception as e:
+        logger.error(f"Error getting adapter info: {e}")
+        return {"error": str(e)}
+
+@app.post("/api/adapters/merge")
+async def merge_adapter(request: dict):
+    """Merge an adapter with a base model"""
+    try:
+        adapter_id = request.get("adapter_id")
+        base_model = request.get("base_model")
+        
+        if not adapter_id:
+            return {"error": "adapter_id is required"}
+        
+        from adapter_merger import AdapterMerger
+        merger = AdapterMerger()
+        result = merger.merge_adapter_with_model(adapter_id, base_model)
+        return result
+    except Exception as e:
+        logger.error(f"Error merging adapter: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/merged-models/list")
+async def list_merged_models():
+    """List all merged models"""
+    try:
+        from adapter_merger import AdapterMerger
+        merger = AdapterMerger()
+        merged_models = merger.list_merged_models()
+        return {"merged_models": merged_models, "count": len(merged_models)}
+    except Exception as e:
+        logger.error(f"Error listing merged models: {e}")
+        return {"merged_models": [], "count": 0, "error": str(e)}
+
+@app.delete("/api/merged-models/{model_name}")
+async def delete_merged_model(model_name: str):
+    """Delete a merged model"""
+    try:
+        from adapter_merger import AdapterMerger
+        merger = AdapterMerger()
+        result = merger.delete_merged_model(model_name)
+        return result
+    except Exception as e:
+        logger.error(f"Error deleting merged model: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/merged-models/{model_name}/register-ollama")
+async def register_merged_model_with_ollama(model_name: str):
+    """Register a merged model with Ollama for inference"""
+    try:
+        from adapter_merger import AdapterMerger
+        merger = AdapterMerger()
+        result = merger.register_merged_model_with_ollama(model_name)
+        return result
+    except Exception as e:
+        logger.error(f"Error registering merged model with Ollama: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/merged-models/{model_name}/inference-info")
+async def get_inference_endpoint(model_name: str):
+    """Get inference endpoint information for a merged model"""
+    try:
+        from adapter_merger import AdapterMerger
+        merger = AdapterMerger()
+        result = merger.get_inference_endpoint(model_name)
+        return result
+    except Exception as e:
+        logger.error(f"Error getting inference endpoint: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/inference/generate")
+async def generate_with_merged_model(request: dict):
+    """Generate text using a merged model via Ollama"""
+    try:
+        model_name = request.get("model_name")
+        prompt = request.get("prompt")
+        
+        if not model_name or not prompt:
+            return {"error": "model_name and prompt are required"}
+        
+        # Get inference info
+        from adapter_merger import AdapterMerger
+        merger = AdapterMerger()
+        inference_info = merger.get_inference_endpoint(model_name)
+        
+        if not inference_info["success"]:
+            return inference_info
+        
+        if not inference_info.get("ollama_registered", False):
+            return {"error": "Model not registered with Ollama. Please register it first."}
+        
+        # Call Ollama API
+        import requests
+        ollama_model_name = inference_info["ollama_model_name"]
+        
+        ollama_request = {
+            "model": ollama_model_name,
+            "prompt": prompt,
+            "stream": False
+        }
+        
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json=ollama_request,
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return {
+                "success": True,
+                "response": result.get("response", ""),
+                "model": ollama_model_name
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"Ollama API error: {response.status_code}",
+                "details": response.text
+            }
+            
+    except Exception as e:
+        logger.error(f"Error generating with merged model: {e}")
+        return {"success": False, "error": str(e)}
+
+# RAG-specific endpoints
+@app.post("/api/rag/create-model")
+async def create_rag_model(request: dict):
+    """Create a RAG-optimized model from an adapter"""
+    try:
+        adapter_id = request.get("adapter_id")
+        base_model = request.get("base_model", "qwen2.5:14b")
+        
+        if not adapter_id:
+            return {"error": "adapter_id is required"}
+        
+        from rag_adapter_merger import RAGAdapterMerger
+        merger = RAGAdapterMerger()
+        result = merger.create_rag_merged_model(adapter_id, base_model)
+        return result
+    except Exception as e:
+        logger.error(f"Error creating RAG model: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/rag/models/list")
+async def list_rag_models():
+    """List all RAG models"""
+    try:
+        from rag_adapter_merger import RAGAdapterMerger
+        merger = RAGAdapterMerger()
+        rag_models = merger.list_rag_models()
+        return {"rag_models": rag_models, "count": len(rag_models)}
+    except Exception as e:
+        logger.error(f"Error listing RAG models: {e}")
+        return {"rag_models": [], "count": 0, "error": str(e)}
+
+@app.get("/api/rag/current-config")
+async def get_current_rag_config():
+    """Get current RAG configuration from OpenWebUI"""
+    try:
+        # This would need to be implemented to read OpenWebUI's RAG config
+        # For now, return a basic structure
+        return {
+            "success": True,
+            "config": {
+                "embedding_engine": "sentence-transformers",
+                "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+                "ollama_base_url": "http://localhost:11434",
+                "chunk_size": 1000,
+                "chunk_overlap": 100,
+                "top_k": 3
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting RAG config: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/api/rag/test-model")
+async def test_rag_model(request: dict):
+    """Test a RAG model with a sample query"""
+    try:
+        model_name = request.get("model_name")
+        test_query = request.get("test_query", "測試RAG功能")
+        
+        if not model_name:
+            return {
+                "success": False,
+                "error": "Model name is required"
+            }
+        
+        # Test the model by making a simple generation request
+        from rag_adapter_merger import RAGAdapterMerger
+        rag_merger = RAGAdapterMerger()
+        test_result = rag_merger.test_rag_model(model_name, test_query)
+        
+        return {
+            "success": True,
+            "test_result": test_result,
+            "model_name": model_name,
+            "test_query": test_query
+        }
+    except Exception as e:
+        logger.error(f"Error testing RAG model: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.delete("/api/rag/models/{model_name}")
+async def delete_rag_model(model_name: str):
+    """Delete a RAG model"""
+    try:
+        from rag_adapter_merger import RAGAdapterMerger
+        rag_merger = RAGAdapterMerger()
+        
+        # Delete the RAG model
+        success = rag_merger.delete_rag_model(model_name)
+        
+        if success:
+            return {
+                "success": True,
+                "message": f"RAG model '{model_name}' deleted successfully"
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"Failed to delete RAG model '{model_name}'"
+            }
+    except Exception as e:
+        logger.error(f"Error deleting RAG model: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
 if __name__ == "__main__":
     uvicorn.run(
         "fine_tuning_api:app",

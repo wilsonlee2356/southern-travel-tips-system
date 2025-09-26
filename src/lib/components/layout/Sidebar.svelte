@@ -689,6 +689,36 @@
 					</Tooltip>
 				</div>
 
+				<div class="">
+					<Tooltip content="RAG Manager" placement="right">
+						<a
+							class=" cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
+							href="/rag-manager"
+							on:click={async (e) => {
+								e.stopImmediatePropagation();
+								e.preventDefault();
+
+								goto('/rag-manager');
+								itemClickHandler();
+							}}
+							draggable="false"
+						>
+							<div class=" self-center flex items-center justify-center size-9">
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4.5">
+									<path
+										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.5"
+										stroke-linejoin="round"
+										stroke-linecap="round"
+									/>
+								</svg>
+							</div>
+						</a>
+					</Tooltip>
+				</div>
+
 				{#if false}
 					<div class="">
 						<Tooltip content={$i18n.t('Workspace')} placement="right">
@@ -920,6 +950,32 @@
 
 						<div class="flex self-center translate-y-[0.5px]">
 							<div class=" self-center text-sm font-primary">{$i18n.t('Model Fine-tuning')}</div>
+						</div>
+					</a>
+				</div>
+
+				<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
+					<a
+						class="grow flex items-center space-x-3 rounded-lg px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+						href="/rag-manager"
+						on:click={itemClickHandler}
+						draggable="false"
+					>
+						<div class="self-center">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4.5">
+								<path
+									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linejoin="round"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</div>
+
+						<div class="flex self-center translate-y-[0.5px]">
+							<div class=" self-center text-sm font-primary">RAG Manager</div>
 						</div>
 					</a>
 				</div>

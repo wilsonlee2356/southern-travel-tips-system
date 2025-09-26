@@ -1,0 +1,12 @@
+{
+  "rag_model_name": "my-custom-adapter_rag_1758909308",
+  "rag_model_path": "C:\\Git clone\\southern-travel-tips-system\\backend\\rag_models\\my-custom-adapter_rag_1758909308",
+  "ollama_model_name": "my-custom-adapter_rag_1758909308_ollama",
+  "adapter_id": "adapter_export_training_1758890353",
+  "adapter_name": "my-custom-adapter",
+  "base_model": "qwen2.5:14b",
+  "created_at": "2025-09-27 01:55:08",
+  "status": "ready_for_rag",
+  "purpose": "RAG",
+  "method": "lightweight_adapter_reference"
+}
