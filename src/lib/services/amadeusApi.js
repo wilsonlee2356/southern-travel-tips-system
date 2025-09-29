@@ -3,7 +3,7 @@
  * Handles authentication and flight search requests
  */
 
-import { getAmadeusConfig, getDevConfig, isConfigAvailable } from '$lib/config/amadeus.js';
+import { getAmadeusConfig, getDevConfig } from '$lib/config/amadeus.js';
 
 class AmadeusApiService {
 	constructor() {
@@ -37,6 +37,7 @@ class AmadeusApiService {
 		}
 
 		try {
+			console.log('Requesting Amadeus access token...');
 			const response = await fetch(`${this.config.BASE_URL}/v1/security/oauth2/token`, {
 				method: 'POST',
 				headers: {
@@ -49,8 +50,12 @@ class AmadeusApiService {
 				}),
 			});
 
+			console.log('Amadeus authentication response status:', response.status);
+
 			if (!response.ok) {
-				throw new Error(`Authentication failed: ${response.status} ${response.statusText}`);
+				const errorData = await response.json().catch(() => ({}));
+				console.error('Amadeus authentication error:', errorData);
+				throw new Error(`Authentication failed: ${response.status} ${response.statusText}. ${errorData.error_description || errorData.error || ''}`);
 			}
 
 			const data = await response.json();
@@ -58,10 +63,26 @@ class AmadeusApiService {
 			// Set expiry time (subtract buffer time for safety)
 			this.tokenExpiry = Date.now() + (data.expires_in - this.config.TOKEN_EXPIRY_BUFFER) * 1000;
 
+			console.log('Amadeus access token obtained successfully');
 			return this.accessToken;
 		} catch (error) {
 			console.error('Error getting Amadeus access token:', error);
-			throw new Error('Failed to authenticate with Amadeus API');
+			throw new Error(`Failed to authenticate with Amadeus API: ${error.message}`);
+		}
+	}
+
+	/**
+	 * Test API credentials and connection
+	 */
+	async testConnection() {
+		try {
+			console.log('Testing Amadeus API connection...');
+			await this.getAccessToken();
+			console.log('Amadeus API connection test successful');
+			return true;
+		} catch (error) {
+			console.error('Amadeus API connection test failed:', error);
+			return false;
 		}
 	}
 
@@ -78,6 +99,41 @@ class AmadeusApiService {
 	 */
 	async searchFlightOffers(searchParams) {
 		try {
+			// Validate required parameters
+			if (!searchParams.originLocationCode) {
+				throw new Error('Origin location code is required');
+			}
+			if (!searchParams.destinationLocationCode) {
+				throw new Error('Destination location code is required');
+			}
+			if (!searchParams.departureDate) {
+				throw new Error('Departure date is required');
+			}
+
+			// Validate date format
+			const departureDate = new Date(searchParams.departureDate);
+			if (isNaN(departureDate.getTime())) {
+				throw new Error('Invalid departure date format. Use YYYY-MM-DD');
+			}
+
+			// Check if departure date is not in the past
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+			if (departureDate < today) {
+				throw new Error('Departure date cannot be in the past');
+			}
+
+			// Validate return date if provided
+			if (searchParams.returnDate) {
+				const returnDate = new Date(searchParams.returnDate);
+				if (isNaN(returnDate.getTime())) {
+					throw new Error('Invalid return date format. Use YYYY-MM-DD');
+				}
+				if (returnDate <= departureDate) {
+					throw new Error('Return date must be after departure date');
+				}
+			}
+
 			const token = await this.getAccessToken();
 
 			// Build query parameters
@@ -95,7 +151,10 @@ class AmadeusApiService {
 				queryParams.append('returnDate', searchParams.returnDate);
 			}
 
-			const response = await fetch(`${this.config.BASE_URL}/v2/shopping/flight-offers?${queryParams}`, {
+			const requestUrl = `${this.config.BASE_URL}/v2/shopping/flight-offers?${queryParams}`;
+			console.log('Amadeus API Request URL:', requestUrl);
+
+			const response = await fetch(requestUrl, {
 				method: 'GET',
 				headers: {
 					'Authorization': `Bearer ${token}`,
@@ -103,12 +162,29 @@ class AmadeusApiService {
 				},
 			});
 
+			console.log('Amadeus API Response Status:', response.status, response.statusText);
+
 			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(`Flight search failed: ${response.status} ${response.statusText}. ${errorData.detail || ''}`);
+				let errorMessage = `Flight search failed: ${response.status} ${response.statusText}`;
+				try {
+					const errorData = await response.json();
+					console.error('Amadeus API Error Details:', errorData);
+					
+					// Handle specific Amadeus error codes
+					if (errorData.errors && Array.isArray(errorData.errors)) {
+						const errorMessages = errorData.errors.map(err => err.detail || err.title || 'Unknown error');
+						errorMessage += `. ${errorMessages.join(', ')}`;
+					} else if (errorData.detail) {
+						errorMessage += `. ${errorData.detail}`;
+					}
+				} catch (parseError) {
+					console.error('Failed to parse error response:', parseError);
+				}
+				throw new Error(errorMessage);
 			}
 
 			const data = await response.json();
+			console.log('Amadeus API Response Data:', data);
 			return data;
 		} catch (error) {
 			console.error('Error searching flights:', error);
@@ -175,14 +251,30 @@ class AmadeusApiService {
 			// Get travel class
 			const travelClass = this.mapTravelClass(offer.travelerPricings[0].fareOption);
 
+			// Get city names in Chinese
+			const startingPlaceCode = firstSegment.departure.iataCode;
+			const destinationCode = lastSegment.arrival.iataCode;
+			const startingPlaceChinese = this.getCityName(startingPlaceCode);
+			const destinationChinese = this.getCityName(destinationCode);
+
+			console.log(`Flight ${index + 1} transformation:`, {
+				airlineCode,
+				airlineName,
+				startingPlaceCode,
+				startingPlaceChinese,
+				destinationCode,
+				destinationChinese,
+				travelClass
+			});
+
 			return {
 				id: `amadeus_${index}`,
 				airline: airlineName,
 				airlineCode: airlineCode,
-				startingPlace: this.getCityName(firstSegment.departure.iataCode),
-				startingPlaceCode: firstSegment.departure.iataCode,
-				destination: this.getCityName(lastSegment.arrival.iataCode),
-				destinationCode: lastSegment.arrival.iataCode,
+				startingPlace: startingPlaceChinese,
+				startingPlaceCode: startingPlaceCode,
+				destination: destinationChinese,
+				destinationCode: destinationCode,
 				cost: totalPrice,
 				currency: offer.price.currency,
 				seatClass: travelClass,
@@ -204,12 +296,12 @@ class AmadeusApiService {
 	 */
 	mapTravelClass(fareOption) {
 		const classMap = {
-			'STANDARD': 'Economy',
-			'INCLUSIVE': 'Economy',
-			'BUSINESS': 'Business',
-			'FIRST': 'First'
+			'STANDARD': '經濟艙',
+			'INCLUSIVE': '經濟艙',
+			'BUSINESS': '商務艙',
+			'FIRST': '頭等艙'
 		};
-		return classMap[fareOption] || 'Economy';
+		return classMap[fareOption] || '經濟艙';
 	}
 
 	/**
@@ -217,27 +309,37 @@ class AmadeusApiService {
 	 */
 	getAirlineName(iataCode) {
 		const airlineMap = {
+			// Major Asian Airlines
 			'CX': '國泰航空',
 			'BR': '長榮航空',
 			'NH': '全日空航空公司',
-			'EK': '阿聯酋航空',
-			'BA': '英國航空公司',
-			'AA': 'American Airlines',
-			'DL': 'Delta Air Lines',
-			'UA': 'United Airlines',
-			'LH': 'Lufthansa',
-			'AF': 'Air France',
-			'KL': 'KLM Royal Dutch Airlines',
-			'SQ': 'Singapore Airlines',
-			'JL': 'Japan Airlines',
-			'KE': 'Korean Air',
-			'TG': 'Thai Airways',
-			'QF': 'Qantas',
-			'AC': 'Air Canada',
-			'WS': 'WestJet',
+			'JL': '日本航空',
+			'KE': '大韓航空',
+			'OZ': '韓亞航空',
+			'SQ': '新加坡航空',
+			'TG': '泰國航空',
+			'MH': '馬來西亞航空',
+			'GA': '印尼鷹航',
+			'PR': '菲律賓航空',
+			'5J': '宿霧太平洋航空',
+			'VJ': '越捷航空',
+			'VN': '越南航空',
+			'FD': '泰國亞洲航空',
+			'AK': '馬來西亞亞洲航空',
+			'D7': '馬來西亞亞洲航空',
+			'QZ': '印尼亞洲航空',
+			'Z2': '菲律賓亞洲航空',
+			'SL': '泰國亞洲航空',
+			'XJ': '泰國亞洲航空',
+			'DD': '印尼亞洲航空',
+			'QH': '印尼亞洲航空',
+			'Z9': '印尼亞洲航空',
+			
+			// Chinese Airlines
 			'CZ': '中國南方航空',
 			'CA': '中國國際航空',
 			'MF': '廈門航空',
+			'MU': '中國東方航空',
 			'3U': '四川航空',
 			'9C': '春秋航空',
 			'HO': '吉祥航空',
@@ -262,32 +364,112 @@ class AmadeusApiService {
 			'QW': '青島航空',
 			'SC': '山東航空',
 			'ZH': '深圳航空',
-			'3U': '四川航空',
 			'FM': '上海航空',
 			'KN': '聯合航空',
-			'PN': '西部航空',
-			'8L': '祥鵬航空',
-			'G5': '華夏航空',
-			'KY': '昆明航空',
-			'TV': '西藏航空',
-			'UQ': '烏魯木齊航空',
-			'9H': '長安航空',
-			'DR': '瑞麗航空',
-			'GJ': '長龍航空',
-			'NS': '河北航空',
-			'EU': '成都航空',
-			'BK': '奧凱航空',
-			'FU': '福州航空',
-			'GT': '桂林航空',
-			'LT': '龍江航空',
-			'RY': '江西航空',
-			'QW': '青島航空',
-			'SC': '山東航空',
-			'ZH': '深圳航空',
-			'FM': '上海航空',
-			'KN': '聯合航空'
+			
+			// Korean Low Cost Carriers
+			'7C': '濟州航空',
+			'H1': '韓亞航空',
+			'BX': '釜山航空',
+			'ZE': '東星航空',
+			'LJ': '真航空',
+			'4V': '濟州航空',
+			
+			// Middle East Airlines
+			'EK': '阿聯酋航空',
+			'EY': '阿提哈德航空',
+			'QR': '卡塔爾航空',
+			'SV': '沙特阿拉伯航空',
+			'MS': '埃及航空',
+			'RJ': '約旦皇家航空',
+			'KU': '科威特航空',
+			'GF': '海灣航空',
+			'WY': '阿曼航空',
+			'FZ': '杜拜航空',
+			'G9': '阿拉伯航空',
+			'XY': '尼亞美航空',
+			
+			// Indian Airlines
+			'IX': '印度航空',
+			'AI': '印度航空',
+			'6E': '印度靛藍航空',
+			'9W': '印度捷特航空',
+			'SG': '香料航空',
+			'G8': '印度航空',
+			'UK': '維斯塔拉航空',
+			'QP': '印度航空',
+			'9I': '印度航空',
+			'2T': '印度航空',
+			
+			// European Airlines
+			'BA': '英國航空',
+			'LH': '漢莎航空',
+			'AF': '法國航空',
+			'KL': '荷蘭皇家航空',
+			'LX': '瑞士航空',
+			'OS': '奧地利航空',
+			'SN': '布魯塞爾航空',
+			'TP': '葡萄牙航空',
+			'IB': '西班牙航空',
+			'AY': '芬蘭航空',
+			'SK': '北歐航空',
+			'LO': '波蘭航空',
+			'OK': '捷克航空',
+			'RO': '羅馬尼亞航空',
+			'SU': '俄羅斯航空',
+			'U6': '烏拉爾航空',
+			'FV': '俄羅斯航空',
+			'UN': '俄羅斯航空',
+			'DP': '俄羅斯航空',
+			'5N': '俄羅斯航空',
+			'Y7': '俄羅斯航空',
+			
+			// North American Airlines
+			'AA': '美國航空',
+			'DL': '達美航空',
+			'UA': '聯合航空',
+			'WN': '西南航空',
+			'B6': '捷藍航空',
+			'NK': '精神航空',
+			'F9': '邊疆航空',
+			'AS': '阿拉斯加航空',
+			'HA': '夏威夷航空',
+			'AC': '加拿大航空',
+			'WS': '西捷航空',
+			'PD': '波特航空',
+			'TS': '越洋航空',
+			'WG': '太陽之翼航空',
+			'Y9': '加拿大航空',
+			
+			// Australian Airlines
+			'QF': '澳洲航空',
+			'VA': '維珍澳洲航空',
+			'JQ': '捷星航空',
+			'TT': '澳洲虎航',
+			'DJ': '維珍澳洲航空',
+			
+			// African Airlines
+			'ET': '衣索比亞航空',
+			'SA': '南非航空',
+			'KQ': '肯尼亞航空',
+			'WB': '盧旺達航空',
+			'UL': '斯里蘭卡航空',
+			'PK': '巴基斯坦國際航空',
+			'BG': '孟加拉航空',
+			
+			// Other Airlines
+			'NZ': '紐西蘭航空'
 		};
-		return airlineMap[iataCode] || iataCode;
+		
+		// Return Chinese name if found, otherwise return the IATA code with a generic label
+		const chineseName = airlineMap[iataCode];
+		if (chineseName) {
+			return chineseName;
+		} else {
+			// For unknown airlines, return the code with a generic label
+			console.warn(`Unknown airline code: ${iataCode}`);
+			return `${iataCode}航空`;
+		}
 	}
 
 	/**
@@ -367,38 +549,6 @@ class AmadeusApiService {
 			'WNZ': '溫州',
 			'NGB': '寧波',
 			'HGH': '杭州',
-			'WNZ': '溫州',
-			'LYG': '連雲港',
-			'NTG': '南通',
-			'YNT': '煙台',
-			'WEH': '威海',
-			'JIN': '濟南',
-			'CGO': '鄭州',
-			'WUH': '武漢',
-			'CSX': '長沙',
-			'XMN': '廈門',
-			'FOC': '福州',
-			'HAK': '海口',
-			'LXA': '拉薩',
-			'KMG': '昆明',
-			'XNN': '西寧',
-			'LHW': '蘭州',
-			'INC': '銀川',
-			'TYN': '太原',
-			'SJW': '石家莊',
-			'DLC': '大連',
-			'HRB': '哈爾濱',
-			'URC': '烏魯木齊',
-			'CKG': '重慶',
-			'TSN': '天津',
-			'TAO': '青島',
-			'NKG': '南京',
-			'XIY': '西安',
-			'CTU': '成都',
-			'SZX': '深圳',
-			'CAN': '廣州',
-			'PEK': '北京',
-			'PVG': '上海',
 			
 			// Major international cities
 			'SYD': '雪梨',
@@ -414,16 +564,6 @@ class AmadeusApiService {
 			'OOL': '黃金海岸',
 			'MCY': '陽光海岸',
 			'ROK': '羅克漢普頓',
-			'TSV': '湯斯維爾',
-			'CNS': '凱恩斯',
-			'DRW': '達爾文',
-			'HOB': '荷巴特',
-			'CBR': '坎培拉',
-			'ADL': '阿德萊德',
-			'PER': '珀斯',
-			'BNE': '布里斯班',
-			'MEL': '墨爾本',
-			'SYD': '雪梨',
 			
 			// Other major cities
 			'LAX': '洛杉磯',
@@ -466,46 +606,7 @@ class AmadeusApiService {
 			'GBE': '哈博羅內',
 			'WDH': '溫得和克',
 			'MPM': '馬普托',
-			'BJM': '布瓊布拉',
-			'KGL': '基加利',
-			'DAR': '達累斯薩拉姆',
-			'LUN': '盧薩卡',
-			'GBE': '哈博羅內',
-			'WDH': '溫得和克',
-			'MPM': '馬普托',
-			'BJM': '布瓊布拉',
-			'NBO': '內羅畢',
-			'LOS': '拉各斯',
-			'CPT': '開普敦',
-			'JNB': '約翰內斯堡',
-			'CAI': '開羅',
-			'RUH': '利雅得',
-			'JED': '吉達',
-			'BAH': '巴林',
-			'KWI': '科威特',
-			'DOH': '多哈',
-			'AUH': '阿布達比',
-			'DXB': '杜拜',
-			'IST': '伊斯坦堡',
-			'ATH': '雅典',
-			'BUD': '布達佩斯',
-			'PRG': '布拉格',
-			'WAW': '華沙',
-			'HEL': '赫爾辛基',
-			'OSL': '奧斯陸',
-			'ARN': '斯德哥爾摩',
-			'CPH': '哥本哈根',
-			'VIE': '維也納',
-			'ZUR': '蘇黎世',
-			'BCN': '巴塞隆納',
-			'MAD': '馬德里',
-			'FCO': '羅馬',
-			'AMS': '阿姆斯特丹',
-			'FRA': '法蘭克福',
-			'CDG': '巴黎',
-			'LHR': '倫敦',
-			'JFK': '紐約',
-			'LAX': '洛杉磯'
+			'BJM': '布瓊布拉'
 		};
 		
 		return cityMap[airportCode] || airportCode;

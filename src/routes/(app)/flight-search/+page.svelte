@@ -47,7 +47,111 @@
 
 	// Location code mapping for common cities
 	const locationCodeMap = {
-		// Major cities and their IATA codes
+		// Direct airport code mappings (most important - these should be checked first)
+		'HKG': 'HKG',
+		'ICN': 'ICN',
+		'NRT': 'NRT',
+		'KIX': 'KIX',
+		'TPE': 'TPE',
+		'SIN': 'SIN',
+		'BKK': 'BKK',
+		'DXB': 'DXB',
+		'LHR': 'LHR',
+		'JFK': 'JFK',
+		'LAX': 'LAX',
+		'SYD': 'SYD',
+		'CDG': 'CDG',
+		'FRA': 'FRA',
+		'AMS': 'AMS',
+		'YVR': 'YVR',
+		'YYZ': 'YYZ',
+		'NGO': 'NGO',
+		'FUK': 'FUK',
+		'CTS': 'CTS',
+		'OKA': 'OKA',
+		'KHH': 'KHH',
+		'PEK': 'PEK',
+		'PVG': 'PVG',
+		'CAN': 'CAN',
+		'SZX': 'SZX',
+		'CTU': 'CTU',
+		'XIY': 'XIY',
+		'NKG': 'NKG',
+		'TAO': 'TAO',
+		'TSN': 'TSN',
+		'CKG': 'CKG',
+		'URC': 'URC',
+		'HRB': 'HRB',
+		'DLC': 'DLC',
+		'SJW': 'SJW',
+		'TYN': 'TYN',
+		'INC': 'INC',
+		'LHW': 'LHW',
+		'XNN': 'XNN',
+		'KMG': 'KMG',
+		'LXA': 'LXA',
+		'HAK': 'HAK',
+		'FOC': 'FOC',
+		'XMN': 'XMN',
+		'CSX': 'CSX',
+		'WUH': 'WUH',
+		'CGO': 'CGO',
+		'JIN': 'JIN',
+		'YNT': 'YNT',
+		'WEH': 'WEH',
+		'LYG': 'LYG',
+		'NTG': 'NTG',
+		'WNZ': 'WNZ',
+		'NGB': 'NGB',
+		'HGH': 'HGH',
+		'MEL': 'MEL',
+		'BNE': 'BNE',
+		'PER': 'PER',
+		'ADL': 'ADL',
+		'CBR': 'CBR',
+		'HOB': 'HOB',
+		'DRW': 'DRW',
+		'CNS': 'CNS',
+		'TSV': 'TSV',
+		'OOL': 'OOL',
+		'MCY': 'MCY',
+		'ROK': 'ROK',
+		'FCO': 'FCO',
+		'MAD': 'MAD',
+		'BCN': 'BCN',
+		'ZUR': 'ZUR',
+		'VIE': 'VIE',
+		'CPH': 'CPH',
+		'ARN': 'ARN',
+		'OSL': 'OSL',
+		'HEL': 'HEL',
+		'WAW': 'WAW',
+		'PRG': 'PRG',
+		'BUD': 'BUD',
+		'ATH': 'ATH',
+		'IST': 'IST',
+		'AUH': 'AUH',
+		'DOH': 'DOH',
+		'KWI': 'KWI',
+		'BAH': 'BAH',
+		'JED': 'JED',
+		'RUH': 'RUH',
+		'CAI': 'CAI',
+		'JNB': 'JNB',
+		'CPT': 'CPT',
+		'LOS': 'LOS',
+		'NBO': 'NBO',
+		'ADD': 'ADD',
+		'KRT': 'KRT',
+		'KGL': 'KGL',
+		'DAR': 'DAR',
+		'LUN': 'LUN',
+		'GBE': 'GBE',
+		'WDH': 'WDH',
+		'MPM': 'MPM',
+		'BJM': 'BJM',
+		
+		// City name mappings
 		'香港': 'HKG',
 		'hong kong': 'HKG',
 		'首爾': 'ICN',
@@ -85,10 +189,6 @@
 		'多倫多': 'YYZ',
 		'toronto': 'YYZ',
 		// Japan airports
-		'東京': 'NRT',
-		'tokyo': 'NRT',
-		'大阪': 'KIX',
-		'osaka': 'KIX',
 		'名古屋': 'NGO',
 		'nagoya': 'NGO',
 		'福岡': 'FUK',
@@ -105,13 +205,16 @@
 	const getLocationCode = (cityName) => {
 		if (!cityName) return '';
 		
-		// First try exact match
-		const exactMatch = locationCodeMap[cityName.toLowerCase()];
+		// Clean the input - remove extra spaces and convert to uppercase for airport codes
+		const cleanName = cityName.trim();
+		
+		// First try exact match (case insensitive for city names, case sensitive for airport codes)
+		const exactMatch = locationCodeMap[cleanName.toLowerCase()] || locationCodeMap[cleanName.toUpperCase()];
 		if (exactMatch) return exactMatch;
 		
-		// Try partial match
+		// Try partial match for city names (case insensitive)
 		for (const [key, code] of Object.entries(locationCodeMap)) {
-			if (key.includes(cityName.toLowerCase()) || cityName.toLowerCase().includes(key)) {
+			if (key.toLowerCase().includes(cleanName.toLowerCase()) || cleanName.toLowerCase().includes(key.toLowerCase())) {
 				return code;
 			}
 		}
@@ -187,8 +290,13 @@
 		try {
 			if (useAmadeusApi) {
 				// Use Amadeus API for real flight search
+				console.log('Looking up origin code for:', searchForm.startingPlace);
 				const originCode = getLocationCode(searchForm.startingPlace);
+				console.log('Origin code result:', originCode);
+				
+				console.log('Looking up destination code for:', searchForm.destination);
 				const destinationCode = getLocationCode(searchForm.destination);
+				console.log('Destination code result:', destinationCode);
 
 				if (!originCode || !destinationCode) {
 					const missingFields = [];
@@ -199,6 +307,23 @@
 
 				if (!searchForm.departureDate) {
 					throw new Error('Please select a departure date');
+				}
+
+				// Validate return date if provided
+				if (searchForm.returnDate) {
+					const departureDate = new Date(searchForm.departureDate);
+					const returnDate = new Date(searchForm.returnDate);
+					
+					if (returnDate <= departureDate) {
+						throw new Error('Return date must be after departure date');
+					}
+					
+					// Check if return date is not too far in the future (Amadeus has limits)
+					const maxReturnDate = new Date();
+					maxReturnDate.setFullYear(maxReturnDate.getFullYear() + 1);
+					if (returnDate > maxReturnDate) {
+						throw new Error('Return date cannot be more than 1 year in the future');
+					}
 				}
 
 				// Map seat class to Amadeus format
@@ -216,10 +341,12 @@
 					max: 20
 				};
 
-				// Add return date if provided
+				// Add return date if provided and valid
 				if (searchForm.returnDate) {
 					searchParams.returnDate = searchForm.returnDate;
 				}
+
+				console.log('Amadeus API Search Parameters:', searchParams);
 
 				// Call Amadeus API
 				const amadeusResponse = await amadeusApi.searchFlightOffers(searchParams);

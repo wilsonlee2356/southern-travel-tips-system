@@ -310,3 +310,9 @@ dist
 cypress/videos
 cypress/screenshots
 .vscode/settings.json
+
+# RAG models directory
+backend/rag_models/
+
+# Adapter exports directory
+backend/adapter_exports/
