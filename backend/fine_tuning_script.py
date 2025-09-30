@@ -1045,8 +1045,65 @@ The adapter generates JSON output with the following structure:
             logger.info(f"Adapter exported successfully to: {export_dir}")
             logger.info(f"Export includes: adapter files, config, usage instructions, and training logs")
             
+            # Automatically create a RAG model after adapter export
+            self.create_rag_model_automatically(export_dir, training_info)
+            
         except Exception as e:
             logger.error(f"Error exporting adapter: {e}")
+    
+    def create_rag_model_automatically(self, export_dir, training_info):
+        """Automatically create a RAG model after adapter export"""
+        try:
+            logger.info("Creating RAG model automatically after adapter export...")
+            
+            # Import the RAG adapter merger
+            from rag_adapter_merger import RAGAdapterMerger
+            
+            # Get adapter export ID from the export directory path (keep the full export ID)
+            export_id = os.path.basename(export_dir)
+            
+            # Create RAG adapter merger instance
+            rag_merger = RAGAdapterMerger()
+            
+            # Create RAG model using the lightweight merge approach
+            base_model = training_info.get('base_model', 'qwen2.5:14b')
+            rag_result = rag_merger.create_rag_merged_model(export_id, base_model)
+            
+            if rag_result["success"]:
+                logger.info(f"✅ RAG model created successfully: {rag_result['rag_model_name']}")
+                logger.info(f"✅ Ollama model registered: {rag_result['ollama_model_name']}")
+                logger.info(f"✅ Model is ready for immediate use in Flight Search!")
+                
+                # Log the model details for user reference
+                print(f"""
+🎉 AUTOMATIC RAG MODEL CREATION COMPLETED! 🎉
+
+Your fine-tuned adapter has been automatically merged and is ready to use:
+
+📦 RAG Model: {rag_result['rag_model_name']}
+🤖 Ollama Model: {rag_result['ollama_model_name']}
+🏗️  Base Model: {base_model}
+📁 Location: {rag_result['rag_model_path']}
+
+✅ You can now use this model in the Flight Search page!
+✅ No additional setup required - it's ready to go!
+
+To use this model:
+1. Go to Flight Search page
+2. Select "{rag_result['adapter_name']} + RAG" from the AI Model dropdown
+3. Search and post flights - it will use your fine-tuned model!
+
+""")
+            else:
+                logger.warning(f"Failed to create RAG model automatically: {rag_result.get('error', 'Unknown error')}")
+                logger.info("Adapter is still available for manual RAG model creation in the RAG Manager page")
+                
+        except ImportError:
+            logger.warning("RAG adapter merger not available - skipping automatic RAG model creation")
+            logger.info("You can manually create a RAG model in the RAG Manager page")
+        except Exception as e:
+            logger.warning(f"Error creating RAG model automatically: {e}")
+            logger.info("Adapter is still available for manual RAG model creation in the RAG Manager page")
     
     def create_model_manifest(self, training_info):
         """Create comprehensive model manifest and documentation"""

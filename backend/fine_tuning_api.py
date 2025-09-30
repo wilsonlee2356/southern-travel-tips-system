@@ -750,6 +750,14 @@ async def run_training_async(session_id: str, config: Dict[str, Any], dataset_pa
                                         training_sessions[session_id]["message"] = "Training started..."
                                     elif "Training Completed" in output_text:
                                         training_sessions[session_id]["message"] = "Training completed!"
+                                        training_sessions[session_id]["progress"] = 90.0
+                                    elif "Creating RAG model automatically" in output_text:
+                                        training_sessions[session_id]["message"] = "Creating RAG model..."
+                                    elif "RAG model created successfully" in output_text:
+                                        training_sessions[session_id]["message"] = "RAG model created!"
+                                        training_sessions[session_id]["progress"] = 95.0
+                                    elif "AUTOMATIC RAG MODEL CREATION COMPLETED" in output_text:
+                                        training_sessions[session_id]["message"] = "Ready to use!"
                                         training_sessions[session_id]["progress"] = 100.0
                         
                         except queue.Empty:
@@ -789,6 +797,14 @@ async def run_training_async(session_id: str, config: Dict[str, Any], dataset_pa
                                     training_sessions[session_id]["message"] = "Training started..."
                                 elif "Training Completed" in output_text:
                                     training_sessions[session_id]["message"] = "Training completed!"
+                                    training_sessions[session_id]["progress"] = 90.0
+                                elif "Creating RAG model automatically" in output_text:
+                                    training_sessions[session_id]["message"] = "Creating RAG model..."
+                                elif "RAG model created successfully" in output_text:
+                                    training_sessions[session_id]["message"] = "RAG model created!"
+                                    training_sessions[session_id]["progress"] = 95.0
+                                elif "AUTOMATIC RAG MODEL CREATION COMPLETED" in output_text:
+                                    training_sessions[session_id]["message"] = "Ready to use!"
                                     training_sessions[session_id]["progress"] = 100.0
                         
                         await asyncio.sleep(0.1)

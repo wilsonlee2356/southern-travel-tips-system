@@ -690,7 +690,62 @@
 				</div>
 
 				<div class="">
-					<Tooltip content="RAG Manager" placement="right">
+					<Tooltip content={$i18n.t('Make Dataset')} placement="right">
+						<a
+							class=" cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
+							href="/make-dataset"
+							on:click={async (e) => {
+								e.stopImmediatePropagation();
+								e.preventDefault();
+
+								goto('/make-dataset');
+								itemClickHandler();
+							}}
+							draggable="false"
+						>
+							<div class=" self-center flex items-center justify-center size-9">
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4.5">
+									<path
+										d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.5"
+										stroke-linejoin="round"
+										stroke-linecap="round"
+									/>
+									<path
+										d="M14 2v6h6"
+										stroke="currentColor"
+										stroke-width="1.5"
+										stroke-linejoin="round"
+										stroke-linecap="round"
+									/>
+									<path
+										d="M16 13H8"
+										stroke="currentColor"
+										stroke-width="1.5"
+										stroke-linecap="round"
+									/>
+									<path
+										d="M16 17H8"
+										stroke="currentColor"
+										stroke-width="1.5"
+										stroke-linecap="round"
+									/>
+									<path
+										d="M10 9H8"
+										stroke="currentColor"
+										stroke-width="1.5"
+										stroke-linecap="round"
+									/>
+								</svg>
+							</div>
+						</a>
+					</Tooltip>
+				</div>
+
+				<div class="">
+					<Tooltip content="Fine-tuned Models Manager" placement="right">
 						<a
 							class=" cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
 							href="/rag-manager"
@@ -957,6 +1012,57 @@
 				<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
 					<a
 						class="grow flex items-center space-x-3 rounded-lg px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+						href="/make-dataset"
+						on:click={itemClickHandler}
+						draggable="false"
+					>
+						<div class="self-center">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4.5">
+								<path
+									d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linejoin="round"
+									stroke-linecap="round"
+								/>
+								<path
+									d="M14 2v6h6"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linejoin="round"
+									stroke-linecap="round"
+								/>
+								<path
+									d="M16 13H8"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+								/>
+								<path
+									d="M16 17H8"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+								/>
+								<path
+									d="M10 9H8"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</div>
+
+						<div class="flex self-center translate-y-[0.5px]">
+							<div class=" self-center text-sm font-primary">{$i18n.t('Make Dataset')}</div>
+						</div>
+					</a>
+				</div>
+
+				<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
+					<a
+						class="grow flex items-center space-x-3 rounded-lg px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
 						href="/rag-manager"
 						on:click={itemClickHandler}
 						draggable="false"
@@ -975,7 +1081,7 @@
 						</div>
 
 						<div class="flex self-center translate-y-[0.5px]">
-							<div class=" self-center text-sm font-primary">RAG Manager</div>
+							<div class=" self-center text-sm font-primary">Fine-tuned Models</div>
 						</div>
 					</a>
 				</div>

@@ -5,12 +5,12 @@
 
 // Configuration
 const OLLAMA_CONFIG = {
-	baseUrl: 'http://localhost:11434', // Default Ollama API URL
-	openWebUIUrl: 'http://localhost:8080', // OpenWebUI URL (adjust as needed)
-	model: 'humblemat/hon9kon9ize_CantoneseLLMChat-v1.0-7B-F16.gguf:latest', // Default model name (change to your pulled model)
-	largeModel: 'qwen2.5:32b', // Larger model for initial analysis (adjust to your available model)
+	baseUrl: 'http://localhost:8080', // OpenWebUI API URL for RAG functionality
+	openWebUIUrl: 'http://localhost:8080', // OpenWebUI URL
+	model: 'humblemat/hon9kon9ize_CantoneseLLMChat-v1.0-7B-F16.gguf:latest', // Default model name
+	largeModel: 'qwen2.5:32b', // Larger model for initial analysis
 	timeout: 30000, // 30 seconds timeout
-	knowledgeUUID: '9028d569-f4e6-47d2-bc11-14f130548a23', // Knowledge base UUID for context
+	knowledgeUUID: '9028d569-f4e6-47d2-bc11-14f130548a23', // Knowledge base UUID for RAG context
 };
 
 /**
@@ -72,36 +72,111 @@ export class OllamaAIClient {
 	 * @returns {Promise<string>} AI response
 	 */
 	async generateResponse(prompt, options = {}) {
+		const modelToUse = options.model || this.config.model;
 		const requestOptions = {
-			model: options.model || this.config.model,
-			prompt: prompt,
+			model: modelToUse,
+			messages: [
+				{
+					role: "user",
+					content: prompt
+				}
+			],
 			stream: false,
 			knowledge: this.config.knowledgeUUID,
-			options: {
-				temperature: options.temperature || 0.7,
-				top_p: options.top_p || 0.9,
-				max_tokens: options.max_tokens || 1000,
-				...options.ollamaOptions
-			}
+			temperature: options.temperature || 0.7,
+			top_p: options.top_p || 0.9,
+			max_tokens: options.max_tokens || 1000,
+			...options.ollamaOptions
 		};
 
+		// Enhanced logging for debugging
+		console.log('🔍 OllamaAIClient.generateResponse() called:');
+		console.log('  📍 Base URL:', this.config.baseUrl);
+		console.log('  🤖 Model to use:', modelToUse);
+		console.log('  🔧 Options passed:', options);
+		console.log('  📋 Full request options:', requestOptions);
+		console.log('  🌐 Full URL:', `${this.config.baseUrl}/api/v1/chat/completions`);
+
+		// Test if the model exists first
 		try {
-			const response = await fetch(`${this.config.baseUrl}/api/generate`, {
+			console.log('🔍 Testing model availability...');
+			
+			// Get authentication token for model check
+			const token = localStorage.getItem('token');
+			const modelHeaders = {
+				'Content-Type': 'application/json',
+			};
+			
+			if (token) {
+				modelHeaders['Authorization'] = `Bearer ${token}`;
+			}
+			
+			const modelsResponse = await fetch(`${this.config.baseUrl}/api/v1/models`, {
+				headers: modelHeaders
+			});
+			if (modelsResponse.ok) {
+				const modelsData = await modelsResponse.json();
+				const availableModels = modelsData.data?.map(m => m.id) || [];
+				console.log('  ✅ Available models:', availableModels);
+				console.log('  ❓ Model exists?', availableModels.includes(modelToUse));
+				if (!availableModels.includes(modelToUse)) {
+					console.warn('⚠️ Model not found in available models list!');
+				}
+			} else {
+				console.warn('⚠️ Could not fetch available models list');
+			}
+		} catch (modelsError) {
+			console.warn('⚠️ Error checking available models:', modelsError);
+		}
+
+		try {
+			console.log('🚀 Making request to OpenWebUI API...');
+			
+			// Get authentication token from localStorage
+			const token = localStorage.getItem('token');
+			const headers = {
+				'Content-Type': 'application/json',
+			};
+			
+			// Add authorization header if token exists
+			if (token) {
+				headers['Authorization'] = `Bearer ${token}`;
+				console.log('  🔐 Using authentication token');
+			} else {
+				console.warn('  ⚠️ No authentication token found');
+			}
+			
+			const response = await fetch(`${this.config.baseUrl}/api/v1/chat/completions`, {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
+				headers: headers,
 				body: JSON.stringify(requestOptions),
 			});
 
+			console.log('📡 Response received:');
+			console.log('  📊 Status:', response.status);
+			console.log('  📋 Status Text:', response.statusText);
+			console.log('  🔗 URL:', response.url);
+
 			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
+				const errorText = await response.text();
+				console.error('❌ HTTP Error Details:');
+				console.error('  📊 Status:', response.status);
+				console.error('  📋 Status Text:', response.statusText);
+				console.error('  📄 Response Body:', errorText);
+				throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
 			}
 
 			const data = await response.json();
-			return data.response || 'No response generated';
+			console.log('✅ Response parsed successfully');
+			console.log('  📄 Response data:', data);
+			// OpenWebUI returns response in data.choices[0].message.content
+			return data.choices?.[0]?.message?.content || data.response || 'No response generated';
 		} catch (error) {
-			console.error('Error generating response:', error);
+			console.error('💥 Error in generateResponse:');
+			console.error('  🔍 Error type:', error.constructor.name);
+			console.error('  📝 Error message:', error.message);
+			console.error('  📍 Stack trace:', error.stack);
+			console.error('  🔧 Request options that failed:', requestOptions);
 			throw error;
 		}
 	}
@@ -345,7 +420,7 @@ export class FlightAIHelper {
 	 * @returns {Promise<string>} AI analysis
 	 */
 	async analyzeFlightDeal(flightData) {
-		const prompt = `根據已選機票資料和航空促銷文件指引的格式,並根據促銷文本指引分別生成目的地,標題,評論和總結,重要!評論只能在三十字以內,而總結能夠長約一百字.這些都必須是繁體中文.你的輸出必須只能有Json,絕對不能有任何文字,符號或回應在前後.Json格式內只能有"destination","header","short_comment"和"summary".Json內不能有任何換行,以下是Json例子
+		const prompt = `根據已選機票資料和指引的格式,並根據指引分別生成目的地,標題,評論和總結,任何日期必須以中文形式年月日.重要!評論只能在三十字以內,而總結能夠長約一百字.這些都必須是繁體中文廣東話語氣.你的輸出必須只能有Json,絕對不能有任何文字,符號或回應在前後.Json格式內只能有"destination","header","short_comment"和"summary".Json內不能有任何換行,以下是Json例子
 						{
 							"destination": "美國",
 							"header": "創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
@@ -363,10 +438,32 @@ export class FlightAIHelper {
 						出發時間：${flightData.flightTime}
 						行李資訊：${flightData.luggageInfo}]`;
 
-		return await this.client.generateResponse(prompt, {
-			temperature: 0.2, // Lower temperature for more factual responses
-			max_tokens: 3000
+		return await this.client.generateResponseWithLargeModel(prompt, {
+			temperature: 0.4, // Balanced creativity and accuracy
+			max_tokens: 800
 		});
+		// const prompt = `根據已選機票資料和航空促銷文件指引的格式,並根據促銷文本指引分別生成目的地,標題,評論和總結,重要!評論只能在三十字以內,而總結能夠長約一百字.這些都必須是繁體中文.你的輸出必須只能有Json,絕對不能有任何文字,符號或回應在前後.Json格式內只能有"destination","header","short_comment"和"summary".Json內不能有任何換行,以下是Json例子
+		// 				{
+		// 					"destination": "美國",
+		// 					"header": "創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
+		// 					"short_comment": "好多平飛！去美國嘅人真係少咗？",
+		// 					"summary": "國泰直航一減再減，不斷創疫後新低價，直迫轉機價！直航慳時間就算貴幾厝，都值得俾啦！優惠仲可以 open jaw，可以唔走回頭路玩晒加州兩大城市，連復活節都有平，正呀～"
+		// 				}
+		// 				已選機票資料:
+		// 				[
+		// 				航空公司：${flightData.airline}
+		// 				出發地點：${flightData.startingPlace}
+		// 				目的地：${flightData.destination}
+		// 				來回價錢：$${flightData.returnPrice}
+		// 				艙等：${flightData.seatClass}
+		// 				出發日期：${flightData.departureDate}
+		// 				出發時間：${flightData.flightTime}
+		// 				行李資訊：${flightData.luggageInfo}]`;
+
+		// return await this.client.generateResponse(prompt, {
+		// 	temperature: 0.2, // Lower temperature for more factual responses
+		// 	max_tokens: 3000
+		// });
 	}
 
 	/**
@@ -461,7 +558,7 @@ Use your knowledge base to provide accurate airline information and route insigh
 	}
 
 	/**
-	 * Stage 1: Generate initial flight analysis using larger model
+	 * Stage 1: Generate initial flight analysis using selected model
 	 * @param {Object} flightData - Flight data object
 	 * @returns {Promise<string>} Initial AI analysis JSON
 	 */
@@ -484,9 +581,9 @@ Use your knowledge base to provide accurate airline information and route insigh
 						出發時間：${flightData.flightTime}
 						行李資訊：${flightData.luggageInfo}]`;
 
-		return await this.client.generateResponseWithLargeModel(prompt, {
+		return await this.client.generateResponse(prompt, {
 			temperature: 0.4, // Balanced creativity and accuracy
-			max_tokens: 2400
+			max_tokens: 800
 		});
 	}
 
@@ -496,7 +593,12 @@ Use your knowledge base to provide accurate airline information and route insigh
 	 * @param {Object} flightData - Flight data object for context
 	 * @returns {Promise<string>} Refined content JSON
 	 */
-	async refineFlightContent(initialContent, flightData) {
+	async refineFlightContent(initialContent, flightData, model = null) {
+		console.log('refineFlightContent called with model:', model);
+		console.log('client.config.model:', this.client.config.model);
+		const actualModel = model || this.client.config.model;
+		console.log('Using model for refinement:', actualModel);
+		
 		const prompt = `
 以下是初步分析結果:
 {
@@ -519,9 +621,9 @@ Use your knowledge base to provide accurate airline information and route insigh
   "summary": "國泰直航一減再減，不斷創疫後新低價，直迫轉機價！直航慳時間就算貴幾厝，都值得俾啦！優惠仲可以 open jaw，可以唔走回頭路玩晒加州兩大城市，連復活節都有平，正呀～"
 }`;
 
-		return await this.client.generateResponse(prompt, {
+		return await this.client.generateResponseWithLargeModel(prompt, {
 			temperature: 0.8, // Slightly higher for creative refinement
-			max_tokens: 1600
+			max_tokens: 800
 		});
 	}
 
@@ -544,18 +646,22 @@ Use your knowledge base to provide accurate airline information and route insigh
 			const cleanedResponse = cleanJsonResponse(initialResponse);
 			const initialContent = JSON.parse(cleanedResponse);
 			
-			console.log('Stage 2: Refining content with current model...');
-			if (onStageUpdate) onStageUpdate('stage2');
-			
-			// Stage 2: Refine with current model
-			const refinedResponse = await this.refineFlightContent(initialContent, flightData);
-			console.log('Refined response:', refinedResponse);
-			
-			// Remove markdown formatting if present
-			const cleanedRefinedResponse = cleanJsonResponse(refinedResponse);
-			const refinedContent = JSON.parse(cleanedRefinedResponse);
-			
-			return refinedContent;
+		// TODO: Uncomment Stage 2 later
+		// console.log('Stage 2: Refining content with current model...');
+		// console.log('Stage 2 using model:', this.client.config.model);
+		// if (onStageUpdate) onStageUpdate('stage2');
+		
+		// Stage 2: Refine with current model (use the same model as Stage 1)
+		// const refinedResponse = await this.refineFlightContent(initialContent, flightData, this.client.config.model);
+		// console.log('Refined response:', refinedResponse);
+		
+		// Remove markdown formatting if present
+		// const cleanedRefinedResponse = cleanJsonResponse(refinedResponse);
+		// const refinedContent = JSON.parse(cleanedRefinedResponse);
+		
+		// For now, return the initial content without refinement
+		console.log('Skipping Stage 2 refinement, returning initial content');
+		return initialContent;
 		} catch (error) {
 			console.error('Error in two-stage analysis:', error);
 			

@@ -110,11 +110,27 @@ function generateLuggageInfo(seatClass) {
 /**
  * Generates AI analysis for flight data using two-stage pipeline
  * @param {Object} flightData - Formatted flight data object
+ * @param {Object} modelToUse - The AI model to use for analysis
  * @returns {Promise<Object>} AI analysis with header, content, and summary
  */
-export async function generateAIFlightAnalysis(flightData) {
+export async function generateAIFlightAnalysis(flightData, modelToUse = null) {
 	try {
-		const client = new OllamaAIClient();
+		// Determine which model to use
+		let modelName = 'qwen2.5:14b'; // Default fallback
+		
+		if (modelToUse) {
+			if (modelToUse.ollama_model_name) {
+				modelName = modelToUse.ollama_model_name;
+			} else if (modelToUse.rag_model_name) {
+				modelName = modelToUse.rag_model_name;
+			} else if (modelToUse.merged_model_name) {
+				modelName = modelToUse.merged_model_name;
+			} else if (modelToUse.base_model) {
+				modelName = modelToUse.base_model;
+			}
+		}
+		
+		const client = new OllamaAIClient({ model: modelName });
 		const flightHelper = new FlightAIHelper(client);
 		
 		console.log('Starting two-stage AI analysis for flight data:', flightData);
@@ -145,8 +161,9 @@ export async function generateAIFlightAnalysis(flightData) {
  * @param {Array} selectedFlights - Array of selected flight objects
  * @param {Function} goto - SvelteKit navigation function
  * @param {Function} onStageUpdate - Optional callback for stage updates
+ * @param {Object} modelToUse - The AI model to use for analysis
  */
-export async function navigateToPostWithFlightData(selectedFlights, goto, onStageUpdate = null) {
+export async function navigateToPostWithFlightData(selectedFlights, goto, onStageUpdate = null, modelToUse = null) {
 	const postData = formatFlightDataForPost(selectedFlights);
 	
 	if (!postData) {
@@ -155,12 +172,13 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 	}
 
 	// Generate AI analysis with stage tracking
-	const aiAnalysis = await generateAIFlightAnalysisWithStages(postData, onStageUpdate);
+	const aiAnalysis = await generateAIFlightAnalysisWithStages(postData, onStageUpdate, modelToUse);
 	
 	// Combine flight data with AI analysis
 	const completePostData = {
 		...postData,
-		aiAnalysis: aiAnalysis
+		aiAnalysis: aiAnalysis,
+		modelInfo: modelToUse // Include model information
 	};
 
 	// Store the complete data in sessionStorage for the Post page to retrieve
@@ -174,11 +192,30 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
  * Generates AI analysis with stage tracking
  * @param {Object} flightData - Formatted flight data object
  * @param {Function} onStageUpdate - Optional callback for stage updates
+ * @param {Object} modelToUse - The AI model to use for analysis
  * @returns {Promise<Object>} AI analysis with header, content, and summary
  */
-export async function generateAIFlightAnalysisWithStages(flightData, onStageUpdate = null) {
+export async function generateAIFlightAnalysisWithStages(flightData, onStageUpdate = null, modelToUse = null) {
 	try {
-		const client = new OllamaAIClient();
+		// Determine which model to use
+		let modelName = 'qwen2.5:14b'; // Default fallback
+		
+		if (modelToUse) {
+			if (modelToUse.ollama_model_name) {
+				modelName = modelToUse.ollama_model_name;
+			} else if (modelToUse.rag_model_name) {
+				modelName = modelToUse.rag_model_name;
+			} else if (modelToUse.merged_model_name) {
+				modelName = modelToUse.merged_model_name;
+			} else if (modelToUse.base_model) {
+				modelName = modelToUse.base_model;
+			}
+		}
+		
+		console.log('Using AI model:', modelName, 'for flight analysis');
+		console.log('Model details:', modelToUse);
+		
+		const client = new OllamaAIClient({ model: modelName });
 		const flightHelper = new FlightAIHelper(client);
 		
 		console.log('Starting two-stage AI analysis for flight data:', flightData);

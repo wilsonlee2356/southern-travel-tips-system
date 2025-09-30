@@ -1,18 +1,12 @@
 <script>
     import { onMount } from 'svelte';
-    import { createRAGModel, fetchRAGModels, getCurrentRAGConfig, testRAGModel, fetchAdapters, deleteRAGModel } from '$lib/utils/adapterApi.js';
+    import { fetchRAGModels, deleteRAGModel } from '$lib/utils/adapterApi.js';
 
     // State
-    let adapters = [];
     let ragModels = [];
-    let currentConfig = null;
-    let selectedAdapter = '';
-    let selectedBaseModel = 'qwen2.5:14b';
     let isLoading = false;
     let error = '';
     let success = '';
-    let testResult = null;
-    let testQuery = '測試RAG功能';
 
     // Load data on mount
     onMount(async () => {
@@ -24,109 +18,49 @@
         error = '';
         
         try {
-            console.log('Loading adapters...');
-            // Load adapters
-            const adaptersResult = await fetchAdapters();
-            console.log('Adapters result:', adaptersResult);
-            if (adaptersResult.success) {
-                adapters = adaptersResult.adapters;
-            } else {
-                console.error('Failed to load adapters:', adaptersResult.error);
-                error = `Failed to load adapters: ${adaptersResult.error}`;
-            }
-
-            console.log('Loading RAG models...');
-            // Load RAG models
+            console.log('Loading fine-tuned models...');
+            // Load RAG models (which are the fine-tuned models ready to use)
             const ragResult = await fetchRAGModels();
-            console.log('RAG models result:', ragResult);
+            console.log('Fine-tuned models result:', ragResult);
+            
             if (ragResult.success) {
                 ragModels = ragResult.rag_models;
+                console.log('Loaded fine-tuned models:', ragModels);
             } else {
-                console.error('Failed to load RAG models:', ragResult.error || 'Unknown error');
-                error = `Failed to load RAG models: ${ragResult.error || 'Unknown error'}`;
+                console.error('Failed to load fine-tuned models:', ragResult.error);
+                error = `Failed to load fine-tuned models: ${ragResult.error || 'Unknown error'}`;
             }
-
-            console.log('Loading current config...');
-            // Load current config
-            const configResult = await getCurrentRAGConfig();
-            console.log('Config result:', configResult);
-            if (configResult.success) {
-                currentConfig = configResult.config;
-            } else {
-                console.error('Failed to load config:', configResult.error);
-            }
+            
         } catch (err) {
-            console.error('Error in loadData:', err);
-            error = `Failed to load data: ${err.message}`;
+            console.error('Error loading data:', err);
+            error = `Error loading data: ${err.message}`;
         } finally {
             isLoading = false;
-        }
-    }
-
-    async function createRAG() {
-        if (!selectedAdapter || selectedAdapter === 'undefined') {
-            error = 'Please select a valid adapter';
-            return;
-        }
-
-        isLoading = true;
-        error = '';
-        success = '';
-
-        try {
-            console.log('Creating RAG model with adapter:', selectedAdapter, 'base model:', selectedBaseModel);
-            // Find the adapter export ID for the selected adapter
-            const selectedAdapterData = adapters.find(adapter => 
-                (adapter.adapter_name || adapter.adapter_id || adapter.id || adapter.name) === selectedAdapter
-            );
-            
-            if (!selectedAdapterData) {
-                error = 'Selected adapter not found';
-                return;
-            }
-            
-            const adapterId = selectedAdapterData.export_id || selectedAdapterData.adapter_name;
-            console.log('Using adapter ID:', adapterId);
-            
-            const result = await createRAGModel(adapterId, selectedBaseModel);
-            console.log('RAG model creation result:', result);
-            success = `RAG model created successfully: ${result.model_name}`;
-            await loadData(); // Refresh the list
-        } catch (err) {
-            console.error('Error creating RAG model:', err);
-            error = `Failed to create RAG model: ${err.message}`;
-        } finally {
-            isLoading = false;
-        }
-    }
-
-    async function testModel(modelName) {
-        try {
-            const result = await testRAGModel(modelName, testQuery);
-            testResult = result;
-        } catch (err) {
-            error = `Failed to test model: ${err.message}`;
         }
     }
 
     async function deleteModel(modelName) {
-        if (!confirm(`Are you sure you want to delete RAG model "${modelName}"? This action cannot be undone.`)) {
+        if (!confirm(`Are you sure you want to delete the fine-tuned model "${modelName}"?\n\nThis will delete:\n• The fine-tuned model\n• The adapter export files\n• The Ollama model registration\n\nThis action cannot be undone.`)) {
             return;
         }
         
+        isLoading = true;
+        error = '';
+        success = '';
+        
         try {
-            isLoading = true;
             const result = await deleteRAGModel(modelName);
+            console.log('Delete result:', result);
             
             if (result.success) {
-                success = `RAG model "${modelName}" deleted successfully`;
+                success = `Fine-tuned model "${modelName}" and its adapter export deleted successfully`;
                 await loadData(); // Refresh the list
             } else {
-                error = `Failed to delete RAG model: ${result.error}`;
+                error = result.error || 'Failed to delete model';
             }
         } catch (err) {
-            console.error('Error deleting RAG model:', err);
-            error = `Failed to delete RAG model: ${err.message}`;
+            console.error('Error deleting model:', err);
+            error = `Error deleting model: ${err.message}`;
         } finally {
             isLoading = false;
         }
@@ -135,204 +69,291 @@
     function clearMessages() {
         error = '';
         success = '';
-        testResult = null;
     }
 </script>
 
-<div class="rag-manager">
+<div class="fine-tuned-models-manager">
     <div class="header-section">
-        <h2>RAG Model Management</h2>
+        <div class="title-container">
+            <h2>Fine-tuned Models Manager</h2>
+            <p class="description">Manage your fine-tuned models that are ready to use in Flight Search. These models are automatically created after fine-tuning completes.</p>
+        </div>
         <button on:click={loadData} class="btn btn-secondary" disabled={isLoading}>
-            {isLoading ? 'Loading...' : 'Refresh Data'}
+            {isLoading ? 'Loading...' : 'Refresh Models'}
         </button>
     </div>
     
-    <!-- Current RAG Configuration -->
-    {#if currentConfig}
-        <div class="config-section">
-            <h3>Current RAG Configuration</h3>
-            <div class="config-info">
-                <p><strong>Embedding Engine:</strong> {currentConfig.embedding_engine}</p>
-                <p><strong>Embedding Model:</strong> {currentConfig.embedding_model}</p>
-                <p><strong>Ollama Base URL:</strong> {currentConfig.ollama_base_url}</p>
-                <p><strong>Chunk Size:</strong> {currentConfig.chunk_size}</p>
-                <p><strong>Top K:</strong> {currentConfig.top_k}</p>
-            </div>
+    <!-- Info Section -->
+    <div class="info-section">
+        <h3>📋 About Fine-tuned Models</h3>
+        <div class="info-content">
+            <p>These are your fine-tuned models that are ready to use in the Flight Search page. Each model combines a trained adapter with the base model using lightweight merging.</p>
+            <ul>
+                <li><strong>Created automatically</strong> after fine-tuning completes</li>
+                <li><strong>Ready to use</strong> in Flight Search page immediately</li>
+                <li><strong>Optimized for RAG</strong> with travel content generation</li>
+                <li><strong>Lightweight</strong> - uses existing base model with adapter</li>
+            </ul>
         </div>
-    {/if}
-
-    <!-- Create RAG Model -->
-    <div class="create-section">
-        <h3>Create RAG Model</h3>
-        <div class="form-group">
-            <label for="adapter-select">Select Adapter:</label>
-            <select id="adapter-select" bind:value={selectedAdapter}>
-                <option value="">Choose an adapter...</option>
-                {#each adapters as adapter}
-                    <option value={adapter.adapter_name || adapter.adapter_id || adapter.id || adapter.name}>
-                        {adapter.adapter_name || adapter.adapter_id || adapter.id || adapter.name || 'Unknown Adapter'}
-                    </option>
-                {/each}
-            </select>
-            {#if adapters.length === 0}
-                <p class="text-sm text-gray-500">No adapters found. Make sure your backend is running on port 8001.</p>
-            {/if}
-        </div>
-        
-        <div class="form-group">
-            <label for="base-model">Base Model:</label>
-            <input 
-                id="base-model" 
-                type="text" 
-                bind:value={selectedBaseModel} 
-                placeholder="qwen2.5:14b"
-            />
-        </div>
-        
-        <button 
-            on:click={createRAG} 
-            disabled={isLoading || !selectedAdapter}
-            class="btn btn-primary"
-        >
-            {isLoading ? 'Creating...' : 'Create RAG Model'}
-        </button>
     </div>
 
-    <!-- RAG Models List -->
+    <!-- Fine-tuned Models List -->
     <div class="models-section">
-        <h3>Available RAG Models</h3>
+        <h3>Available Fine-tuned Models</h3>
         {#if ragModels.length === 0}
-            <p>No RAG models found. Create one above.</p>
+            <div class="no-models">
+                <p>📭 No fine-tuned models found.</p>
+                <p>Fine-tune a model first, and it will automatically appear here after training completes.</p>
+            </div>
         {:else}
             <div class="models-list">
                 {#each ragModels as model}
                     <div class="model-card">
-                        <h4>{model.rag_model_name}</h4>
-                        <p><strong>Adapter:</strong> {model.adapter_name}</p>
-                        <p><strong>Base Model:</strong> {model.base_model}</p>
-                        <p><strong>Created:</strong> {new Date(model.created_at).toLocaleString()}</p>
-                        <p><strong>Status:</strong> {model.status}</p>
+                        <div class="model-header">
+                            <h4>🤖 {model.rag_model_name}</h4>
+                        </div>
+                        
+                        <div class="model-details">
+                            <div class="detail-row">
+                                <span class="label">Adapter:</span>
+                                <span class="value">{model.adapter_name}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="label">Base Model:</span>
+                                <span class="value">{model.base_model}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="label">Created:</span>
+                                <span class="value">{new Date(model.created_at).toLocaleString()}</span>
+                            </div>
+                            <!-- <div class="detail-row">
+                                <span class="label">Purpose:</span>
+                                <span class="value">{model.purpose}</span>
+                            </div> -->
+                        </div>
                         
                         <div class="model-actions">
-                            <button 
-                                on:click={() => testModel(model.rag_model_name)} 
-                                class="btn btn-secondary"
-                            >
-                                Test Model
-                            </button>
                             <button 
                                 on:click={() => deleteModel(model.rag_model_name)} 
                                 class="btn btn-danger"
                                 disabled={isLoading}
                             >
-                                Delete Model
+                                🗑️ Delete Model
                             </button>
                         </div>
+                        
                     </div>
                 {/each}
             </div>
         {/if}
     </div>
 
-    <!-- Test Section -->
-    {#if testResult}
-        <div class="test-section">
-            <h3>Test Results</h3>
-            <div class="test-query">
-                <label for="test-query">Test Query:</label>
-                <input 
-                    id="test-query" 
-                    type="text" 
-                    bind:value={testQuery} 
-                    placeholder="測試RAG功能"
-                />
-            </div>
-            
-            {#if testResult.success}
-                <div class="test-success">
-                    <h4>✅ Test Successful</h4>
-                    <p><strong>Model:</strong> {testResult.model}</p>
-                    <p><strong>Query:</strong> {testResult.test_query}</p>
-                    <div class="response">
-                        <strong>Response:</strong>
-                        <pre>{testResult.response}</pre>
-                    </div>
-                </div>
-            {:else}
-                <div class="test-error">
-                    <h4>❌ Test Failed</h4>
-                    <p><strong>Error:</strong> {testResult.error}</p>
-                </div>
-            {/if}
-        </div>
-    {/if}
-
     <!-- Messages -->
     {#if error}
         <div class="alert alert-error">
-            <strong>Error:</strong> {error}
+            <strong>❌ Error:</strong> {error}
             <button on:click={clearMessages} class="close-btn">×</button>
         </div>
     {/if}
 
     {#if success}
         <div class="alert alert-success">
-            <strong>Success:</strong> {success}
+            <strong>✅ Success:</strong> {success}
             <button on:click={clearMessages} class="close-btn">×</button>
         </div>
     {/if}
 
     {#if isLoading}
         <div class="loading">
-            <p>Loading...</p>
+            <p>⏳ Loading...</p>
         </div>
     {/if}
 </div>
 
 <style>
-    .rag-manager {
-        max-width: 800px;
+    .fine-tuned-models-manager {
+        max-width: 900px;
         margin: 0 auto;
         padding: 20px;
     }
 
-    .config-section, .create-section, .models-section, .test-section {
+    .header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         margin-bottom: 30px;
         padding: 20px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        background: #f9f9f9;
+        background: #ffffff;
+        border-radius: 12px;
+        color: black;
     }
 
-    .form-group {
+    .header-section h2 {
+        margin: 0 0 8px 0;
+        font-size: 1.8rem;
+        font-weight: 600;
+    }
+
+    .title-container {
+        flex: 1;
+    }
+
+    .description {
+        margin: 0;
+        font-size: 0.9rem;
+        opacity: 0.9;
+        line-height: 1.4;
+    }
+
+    .info-section, .models-section {
+        margin-bottom: 30px;
+        padding: 25px;
+        border: 1px solid #d1d5db;
+        border-radius: 12px;
+        background: #ffffff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .info-section h3 {
+        margin-top: 0;
+        color: #495057;
+        font-size: 1.3rem;
+    }
+
+    .info-content {
+        color: #6c757d;
+    }
+
+    .info-content ul {
+        margin: 15px 0;
+        padding-left: 20px;
+    }
+
+    .info-content li {
+        margin: 8px 0;
+    }
+
+    .models-section h3 {
+        margin-top: 0;
+        color: #495057;
+        font-size: 1.3rem;
+    }
+
+    .no-models {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6c757d;
+        background: white;
+        border-radius: 8px;
+        border: 2px dashed #dee2e6;
+    }
+
+    .no-models p {
+        margin: 10px 0;
+        font-size: 1.1rem;
+    }
+
+    .models-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 20px;
+    }
+
+    .model-card {
+        padding: 20px;
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .model-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+
+    .model-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .model-header h4 {
+        margin: 0;
+        color: #495057;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    .status-ready {
+        background: #d4edda;
+        color: #155724;
+    }
+
+
+    .model-details {
         margin-bottom: 15px;
     }
 
-    .form-group label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 8px 0;
+        padding: 4px 0;
     }
 
-    .form-group select,
-    .form-group input {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
+    .detail-row .label {
+        font-weight: 600;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .detail-row .value {
+        color: #495057;
+        font-size: 0.9rem;
+        text-align: right;
+        max-width: 60%;
+        word-break: break-word;
+    }
+
+    .model-actions {
+        margin: 15px 0;
+        padding-top: 15px;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .usage-info {
+        background: #e7f3ff;
+        padding: 12px;
+        border-radius: 6px;
+        border-left: 4px solid #007bff;
+    }
+
+    .usage-info p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #004085;
     }
 
     .btn {
         padding: 10px 20px;
         border: none;
-        border-radius: 4px;
+        border-radius: 6px;
         cursor: pointer;
-        margin-right: 10px;
-    }
-
-    .btn-primary {
-        background: #007bff;
-        color: white;
+        font-weight: 500;
+        transition: all 0.2s ease;
     }
 
     .btn-secondary {
@@ -340,9 +361,17 @@
         color: white;
     }
 
+    .btn-secondary:hover:not(:disabled) {
+        background: #5a6268;
+    }
+
     .btn-danger {
         background: #dc3545;
         color: white;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+        background: #c82333;
     }
 
     .btn:disabled {
@@ -350,54 +379,12 @@
         cursor: not-allowed;
     }
 
-    .models-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 20px;
-    }
-
-    .model-card {
-        padding: 15px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        background: white;
-    }
-
-    .model-actions {
-        margin-top: 10px;
-    }
-
-    .test-section {
-        background: #f0f8ff;
-    }
-
-    .test-success {
-        background: #d4edda;
-        padding: 15px;
-        border-radius: 4px;
-        margin-top: 10px;
-    }
-
-    .test-error {
-        background: #f8d7da;
-        padding: 15px;
-        border-radius: 4px;
-        margin-top: 10px;
-    }
-
-    .response pre {
-        background: #f8f9fa;
-        padding: 10px;
-        border-radius: 4px;
-        overflow-x: auto;
-        white-space: pre-wrap;
-    }
-
     .alert {
-        padding: 15px;
-        margin: 15px 0;
-        border-radius: 4px;
+        padding: 15px 20px;
+        margin: 20px 0;
+        border-radius: 8px;
         position: relative;
+        font-weight: 500;
     }
 
     .alert-error {
@@ -414,34 +401,58 @@
 
     .close-btn {
         position: absolute;
-        top: 5px;
-        right: 10px;
+        top: 8px;
+        right: 12px;
         background: none;
         border: none;
-        font-size: 20px;
+        font-size: 18px;
         cursor: pointer;
+        color: inherit;
+        opacity: 0.7;
+    }
+
+    .close-btn:hover {
+        opacity: 1;
     }
 
     .loading {
         text-align: center;
-        padding: 20px;
+        padding: 40px;
+        color: #6c757d;
+        font-size: 1.1rem;
     }
 
-    .config-info p {
-        margin: 5px 0;
-    }
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+        .fine-tuned-models-manager {
+            background: #1a1a1a;
+            color: #e9ecef;
+        }
 
-    .header-section {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-        padding: 15px;
-        background: #f8f9fa;
-        border-radius: 8px;
-    }
+        .info-section, .models-section {
+            background: #ffffff;
+            border-color: #d1d5db;
+            color: #000000;
+        }
 
-    .header-section h2 {
-        margin: 0;
+        .model-card {
+            background: #2d3748;
+            border-color: #4a5568;
+        }
+
+        .no-models {
+            background: #2d3748;
+            border-color: #4a5568;
+            color: #a0aec0;
+        }
+
+        .usage-info {
+            background: #2b6cb0;
+            border-left-color: #3182ce;
+        }
+
+        .usage-info p {
+            color: #bee3f8;
+        }
     }
 </style>

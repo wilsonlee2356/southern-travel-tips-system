@@ -25,8 +25,8 @@
 
 	// Model configuration
 	let modelConfig = {
-		baseModel: 'qwen2.5:32b',
-		adapterName: 'my-custom-adapter',
+		baseModel: 'qwen2.5:14b',
+		adapterName: 'my-custom-model',
 		datasetPath: '',
 		outputPath: './models/fine-tuned'
 	};
@@ -37,7 +37,6 @@
 
 	// Available models
 	let availableModels = [
-		'qwen2.5:32b',
 		'qwen2.5:14b',
 	];
 
@@ -223,23 +222,83 @@
 		? 'md:max-w-[calc(100%-260px)]'
 		: 'md:max-w-full'} md:ml-0"
 >
-	<!-- Header -->
-	<div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-		<div class="flex items-center space-x-4">
+	<nav class="   px-2 pt-1.5 backdrop-blur-xl w-full drag-region">
+		<div class=" flex items-center">
 			{#if $mobile}
-				<button
-					class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-					on:click={() => ($showSidebar = !$showSidebar)}
-				>
-					<Sidebar className="size-5" />
-				</button>
+				<div class="{$showSidebar ? 'md:hidden' : ''} flex flex-none items-center">
+					<Tooltip
+						content={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
+						interactive={true}
+					>
+						<button
+							id="sidebar-toggle-button"
+							class=" cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition cursor-"
+							on:click={() => {
+								showSidebar.set(!$showSidebar);
+							}}
+						>
+							<div class=" self-center p-1.5">
+								<Sidebar />
+							</div>
+						</button>
+					</Tooltip>
+				</div>
 			{/if}
-			<h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-				{$i18n.t('Model Fine-tuning')}
-			</h1>
+
+			<div class="ml-2 py-0.5 self-center flex items-center justify-between w-full">
+				<div class="">
+					<div
+						class="flex gap-1 scrollbar-none overflow-x-auto w-fit text-center text-sm font-medium bg-transparent py-1 touch-auto pointer-events-auto"
+					>
+						<a class="min-w-fit transition flex items-center gap-2" href="/fine-tuning">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-5 text-gray-900 dark:text-gray-100">
+								<path
+									d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5l1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.5"
+								/>
+							</svg>
+							{$i18n.t('Model Fine-tuning')}
+						</a>
+					</div>
+				</div>
+
+				<div class=" self-center flex items-center gap-1">
+					{#if $user !== undefined && $user !== null}
+						<UserMenu
+							className="max-w-[240px]"
+							role={$user?.role}
+							help={true}
+							on:show={(e) => {
+								if (e.detail === 'archived-chat') {
+									showArchivedChats.set(true);
+								}
+							}}
+						>
+							<button
+								class="select-none flex rounded-xl p-1.5 w-full hover:bg-gray-50 dark:hover:bg-gray-850 transition"
+								aria-label="User Menu"
+							>
+								<div class=" self-center">
+									<img
+										src={$user?.profile_image_url}
+										class="size-6 object-cover rounded-full"
+										alt="User profile"
+									/>
+								</div>
+								<div class="ml-2 text-left">
+									<div class="text-xs font-medium text-gray-900 dark:text-white truncate">
+										{$user?.name || $user?.email}
+									</div>
+								</div>
+							</button>
+						</UserMenu>
+					{/if}
+				</div>
+			</div>
 		</div>
-		<UserMenu />
-	</div>
+	</nav>
 
 	<!-- Main Content -->
 	<div class="flex-1 overflow-y-auto">
@@ -266,21 +325,21 @@
 							</select>
 						</div>
 
-						<!-- Adapter Name -->
+						<!-- Model Name -->
 						<div>
 							<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								Adapter Name
+								Model Name
 							</label>
 							<input
 								type="text"
 								bind:value={modelConfig.adapterName}
 								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-								placeholder="my-custom-adapter"
+								placeholder="my-custom-model"
 							/>
 						</div>
 
 						<!-- Hyperparameters Notice -->
-						<div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+						<!-- <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
 							<div class="flex items-start">
 								<svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
 									<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
@@ -294,7 +353,7 @@
 									</p>
 								</div>
 							</div>
-						</div>
+						</div> -->
 					</div>
 				</div>
 

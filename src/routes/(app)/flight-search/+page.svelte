@@ -11,7 +11,7 @@
 	import { goto } from '$app/navigation';
 	import { amadeusApi } from '$lib/services/amadeusApi.js';
 	import FlightResultsTable from '$lib/components/FlightResultsTable.svelte';
-	import { mergeAdapter, registerMergedModelWithOllama } from '$lib/utils/adapterApi.js';
+	// No longer need adapter merging imports since we only use pre-existing merged models
 
 	// Form state
 	let searchForm = {
@@ -33,10 +33,9 @@
 	let searchError = ''; // Track search errors
 	let useAmadeusApi = true; // Toggle between mock and real API
 	
-	// Adapter selection state
-	let selectedAdapter = null;
-	let selectedMergedModel = null;
+	// Model selection state
 	let selectedRAGModel = null;
+	let selectedBaseModel = null;
 
 	// Initialize with all flights on page load
 	$: if (typeof window !== 'undefined') {
@@ -432,7 +431,7 @@
 			return;
 		}
 		
-		if (!selectedAdapter && !selectedMergedModel && !selectedRAGModel) {
+		if (!selectedRAGModel && !selectedBaseModel) {
 			alert('Please select an AI model to use for content generation');
 			return;
 		}
@@ -446,40 +445,29 @@
 			// Handle adapter merging if needed
 			let modelToUse = null;
 			
-			if (selectedMergedModel) {
-				// Use existing merged model
-				modelToUse = selectedMergedModel;
-				aiStage = 'stage1';
-			} else if (selectedRAGModel) {
-				// Use RAG model
-				modelToUse = selectedRAGModel;
-				aiStage = 'stage1';
-			} else if (selectedAdapter) {
-				// Merge adapter with base model
-				aiStage = 'merging';
-				console.log('Merging adapter:', selectedAdapter);
-				
-				const mergeResult = await mergeAdapter(selectedAdapter.export_id, selectedAdapter.base_model);
-				if (!mergeResult.success) {
-					throw new Error(`Failed to merge adapter: ${mergeResult.error}`);
-				}
-				
-				// Register with Ollama
-				aiStage = 'registering';
-				const registerResult = await registerMergedModelWithOllama(mergeResult.merged_model_name);
-				if (!registerResult.success) {
-					throw new Error(`Failed to register with Ollama: ${registerResult.error}`);
-				}
-				
+			if (selectedBaseModel) {
+				// Use base model with RAG (if available)
 				modelToUse = {
-					merged_model_name: mergeResult.merged_model_name,
-					adapter_name: selectedAdapter.adapter_name,
-					base_model: selectedAdapter.base_model,
-					ollama_model_name: registerResult.ollama_model_name
+					ollama_model_name: selectedBaseModel,
+					base_model: selectedBaseModel,
+					adapter_name: null,
+					is_base_model_only: true,
+					rag_model: selectedRAGModel
 				};
-				
 				aiStage = 'stage1';
-			}
+		} else if (selectedRAGModel) {
+			// Use already-merged RAG model
+			aiStage = 'stage1';
+			console.log('Using existing RAG model:', selectedRAGModel);
+			
+			modelToUse = {
+				rag_model_name: selectedRAGModel.rag_model_name,
+				ollama_model_name: selectedRAGModel.ollama_model_name,
+				adapter_name: selectedRAGModel.adapter_name,
+				base_model: selectedRAGModel.base_model,
+				rag_model: selectedRAGModel
+			};
+		}
 			
 			// Use the flight post handler to navigate to Post page with data and AI analysis
 			await navigateToPostWithFlightData(selectedFlightData, goto, (stage) => {
@@ -765,9 +753,8 @@
 					onPost={handlePost}
 					{isPosting}
 					{aiStage}
-					bind:selectedAdapter
-					bind:selectedMergedModel
 					bind:selectedRAGModel
+					bind:selectedBaseModel
 				/>
 			{:else}
 				<!-- No Results -->

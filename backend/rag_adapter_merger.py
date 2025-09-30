@@ -13,6 +13,10 @@ import tempfile
 import shutil
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+
+# Import OpenWebUI model registration functions
+sys.path.append(os.path.join(os.path.dirname(__file__), 'open_webui'))
+from models.models import Models, ModelForm
 import time
 
 # Configure logging
@@ -73,7 +77,7 @@ class RAGAdapterMerger:
             self._create_rag_modelfile(rag_model_path, rag_model_name, base_model)
             
             # Create Ollama model (using existing base model with adapter)
-            ollama_model_name = f"{rag_model_name}_ollama"
+            ollama_model_name = f"{rag_model_name}_ollama:latest"
             ollama_result = self._create_ollama_rag_model(rag_model_path, ollama_model_name)
             
             if ollama_result["success"]:
@@ -95,6 +99,13 @@ class RAGAdapterMerger:
                 info_path = os.path.join(rag_model_path, "rag_model_info.json")
                 with open(info_path, 'w', encoding='utf-8') as f:
                     json.dump(rag_info, f, indent=2, ensure_ascii=False)
+                
+                # Register the model with OpenWebUI database
+                registration_result = self._register_model_with_openwebui(ollama_model_name, rag_model_name, base_model)
+                if registration_result:
+                    logger.info(f"Successfully registered RAG model with OpenWebUI: {ollama_model_name}")
+                else:
+                    logger.warning(f"Failed to register RAG model with OpenWebUI: {ollama_model_name}")
                 
                 logger.info(f"Successfully created lightweight RAG model: {rag_model_name}")
                 
@@ -233,6 +244,46 @@ if __name__ == "__main__":
 '''
         
         return script_content
+    
+    def _register_model_with_openwebui(self, ollama_model_name: str, rag_model_name: str, base_model: str) -> bool:
+        """
+        Register the RAG model with OpenWebUI's database so it appears in the API
+        """
+        try:
+            # Create a default user ID (admin user)
+            # In a real scenario, you might want to get this from the current user context
+            default_user_id = "0afef353-767f-4e1a-a916-7fb166c29be0"  # Admin user ID from the database
+            
+            # Create model form data (register as base model, not custom model)
+            model_form = ModelForm(
+                id=ollama_model_name,
+                name=rag_model_name,
+                base_model_id=None,  # Register as base model so it appears in admin panel
+                params={},
+                meta={
+                    "description": f"RAG-enabled model based on {base_model}",
+                    "profile_image_url": None,
+                    "ollama": {"modelfile": f"FROM {base_model}"},
+                    "suggestion_prompts": [],
+                    "categories": ["rag", "fine-tuned"],
+                    "user": {"community": False},
+                },
+                is_active=True
+            )
+            
+            # Insert the model into OpenWebUI's database
+            result = Models.insert_new_model(model_form, default_user_id)
+            
+            if result:
+                logger.info(f"Successfully registered model {ollama_model_name} with OpenWebUI")
+                return True
+            else:
+                logger.error(f"Failed to register model {ollama_model_name} with OpenWebUI")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error registering model with OpenWebUI: {e}")
+            return False
     
     def _create_rag_modelfile(self, model_path: str, model_name: str, base_model: str):
         """Create Ollama Modelfile specifically for RAG usage"""
@@ -436,6 +487,16 @@ PARAMETER stop "}}"
             except Exception as e:
                 print(f"⚠️  Warning: Could not remove Ollama model {ollama_model_name}: {e}")
             
+            # Remove from OpenWebUI database
+            try:
+                result = Models.delete_model_by_id(ollama_model_name)
+                if result:
+                    print(f"✅ Removed from OpenWebUI database: {ollama_model_name}")
+                else:
+                    print(f"⚠️  Warning: Could not remove from OpenWebUI database: {ollama_model_name}")
+            except Exception as e:
+                print(f"⚠️  Warning: Could not remove from OpenWebUI database {ollama_model_name}: {e}")
+            
             # Remove RAG model directory
             import shutil
             if os.path.exists(rag_model_path):
@@ -460,6 +521,21 @@ PARAMETER stop "}}"
                         print(f"✅ Removed from registry: {rag_model_name}")
                 except Exception as e:
                     print(f"⚠️  Warning: Could not update registry: {e}")
+            
+            # Also delete the corresponding adapter export
+            adapter_id = rag_model.get('adapter_id')
+            if adapter_id:
+                adapter_export_path = os.path.join(os.getcwd(), "adapter_exports", adapter_id)
+                if os.path.exists(adapter_export_path):
+                    try:
+                        shutil.rmtree(adapter_export_path)
+                        print(f"✅ Removed adapter export directory: {adapter_export_path}")
+                    except Exception as e:
+                        print(f"⚠️  Warning: Could not remove adapter export directory {adapter_export_path}: {e}")
+                else:
+                    print(f"⚠️  Warning: Adapter export directory not found: {adapter_export_path}")
+            else:
+                print(f"⚠️  Warning: No adapter_id found for RAG model {rag_model_name}")
             
             print(f"✅ Successfully deleted RAG model: {rag_model_name}")
             return True
