@@ -1234,6 +1234,42 @@ async def generate_completion(
     if prefix_id:
         form_data.model = form_data.model.replace(f"{prefix_id}.", "")
 
+    # ADAPTER MODEL INTERCEPTION
+    # Check if this is qwen2.5:14b and user has selected an adapter
+    original_model = form_data.model
+    if original_model in ["qwen2.5:14b", "qwen2.5:14b:latest"]:
+        # Check if there's adapter selection information in the request
+        adapter_info = getattr(request.state, 'selected_adapter', None)
+        if adapter_info:
+            # User has selected an adapter - determine which model to use
+            export_id = adapter_info.get('export_id', 'unknown')
+            adapter_name = adapter_info.get('adapter_name', 'unknown')
+            
+            # Try different model naming patterns
+            possible_models = [
+                f"{export_id}:latest",                  # New: Model name matches export_id
+                f"{export_id}",                         # New: Model name matches export_id (no :latest)
+                f"{export_id}_ollama:latest",           # Merged model without RAG (legacy)
+                f"{export_id}_rag_ollama:latest",       # RAG model (existing)
+                f"{adapter_name}_ollama:latest",        # Alternative naming
+                f"{adapter_name}_rag_ollama:latest"     # Alternative RAG naming
+            ]
+            
+            log.info(f"🔄 ADAPTER INTERCEPTION ACTIVATED!")
+            log.info(f"   📥 Original model: {original_model}")
+            log.info(f"   📋 Adapter info: {adapter_info}")
+            log.info(f"   🔍 Looking for models: {possible_models}")
+            
+            # For now, use the merged model without RAG (first option)
+            # This allows RAG processing with qwen2.5:14b, then generation with merged model
+            intercepted_model = possible_models[0]  # {export_id}:latest
+            
+            log.info(f"   🔄 Intercepted model: {intercepted_model}")
+            log.info(f"   🎯 RAG context + Fine-tuned generation")
+            form_data.model = intercepted_model
+        else:
+            log.info(f"✅ No adapter selected, using original model: {original_model}")
+
     return await send_post_request(
         url=f"{url}/api/generate",
         payload=form_data.model_dump_json(exclude_none=True).encode(),

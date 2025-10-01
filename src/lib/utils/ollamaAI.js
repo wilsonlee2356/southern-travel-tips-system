@@ -89,6 +89,14 @@ export class OllamaAIClient {
 			...options.ollamaOptions
 		};
 
+		// Add adapter information to metadata if provided
+		if (options.adapterInfo) {
+			requestOptions.metadata = {
+				adapter_info: options.adapterInfo
+			};
+			console.log('🔧 Adding adapter info to metadata:', options.adapterInfo);
+		}
+
 		// Enhanced logging for debugging
 		console.log('🔍 OllamaAIClient.generateResponse() called:');
 		console.log('  📍 Base URL:', this.config.baseUrl);
@@ -410,8 +418,9 @@ function fixJsonStringValues(jsonString) {
  * Flight-specific AI prompts and utilities
  */
 export class FlightAIHelper {
-	constructor(ollamaClient) {
+	constructor(ollamaClient, adapterInfo = null) {
 		this.client = ollamaClient;
+		this.adapterInfo = adapterInfo;
 	}
 
 	/**
@@ -583,7 +592,8 @@ Use your knowledge base to provide accurate airline information and route insigh
 
 		return await this.client.generateResponse(prompt, {
 			temperature: 0.4, // Balanced creativity and accuracy
-			max_tokens: 800
+			max_tokens: 800,
+			adapterInfo: this.adapterInfo // Pass adapter info for interception
 		});
 	}
 

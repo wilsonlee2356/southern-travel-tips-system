@@ -93,9 +93,33 @@
 				onStatusChange: (status) => {
 					trainingStatus = status;
 				},
-				onComplete: (result) => {
+				onComplete: async (result) => {
 					trainingStatus = result.message;
 					isTraining = false;
+					
+					// Fetch actual training metrics from backend
+					try {
+						if (currentSessionId) {
+							const metricsResponse = await fineTuningClient.getTrainingMetrics(currentSessionId);
+							if (metricsResponse.training_metrics && metricsResponse.training_metrics.length > 0) {
+								// Replace simulated chart data with real metrics
+								lossChartData = metricsResponse.training_metrics.map(metric => ({
+									epoch: metric.x,  // This is epoch + step/100
+									trainLoss: metric.train_loss,
+									valLoss: metric.train_loss  // Use train_loss as val_loss since no validation
+								}));
+								
+								learningRateChartData = metricsResponse.training_metrics.map(metric => ({
+									epoch: metric.x,
+									lr: metric.learning_rate
+								}));
+								
+								console.log('Loaded real training metrics:', metricsResponse.training_metrics.length, 'points');
+							}
+						}
+					} catch (error) {
+						console.error('Failed to fetch training metrics:', error);
+					}
 					
 					// Add final epoch to history
 					trainingHistory = [...trainingHistory, {

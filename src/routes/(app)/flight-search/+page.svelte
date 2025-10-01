@@ -36,6 +36,7 @@
 	// Model selection state
 	let selectedRAGModel = null;
 	let selectedBaseModel = null;
+	let selectedAdapter = null;
 
 	// Initialize with all flights on page load
 	$: if (typeof window !== 'undefined') {
@@ -431,7 +432,7 @@
 			return;
 		}
 		
-		if (!selectedRAGModel && !selectedBaseModel) {
+		if (!selectedRAGModel && !selectedBaseModel && !selectedAdapter) {
 			alert('Please select an AI model to use for content generation');
 			return;
 		}
@@ -455,6 +456,23 @@
 					rag_model: selectedRAGModel
 				};
 				aiStage = 'stage1';
+		} else if (selectedAdapter) {
+			// Use adapter - create a model reference for the RAG model that should exist
+			aiStage = 'stage1';
+			console.log('Using adapter:', selectedAdapter);
+			
+			// Create the expected RAG model name based on the adapter export ID
+			const expectedRAGModelName = `${selectedAdapter.export_id}_rag_ollama:latest`;
+			console.log('Expected RAG model name:', expectedRAGModelName);
+			
+			modelToUse = {
+				rag_model_name: `${selectedAdapter.export_id}_rag`,
+				ollama_model_name: expectedRAGModelName,
+				adapter_name: selectedAdapter.adapter_name,
+				base_model: 'qwen2.5:14b',
+				export_id: selectedAdapter.export_id,
+				is_adapter_rag: true
+			};
 		} else if (selectedRAGModel) {
 			// Use already-merged RAG model
 			aiStage = 'stage1';
@@ -755,6 +773,7 @@
 					{aiStage}
 					bind:selectedRAGModel
 					bind:selectedBaseModel
+					bind:selectedAdapter
 				/>
 			{:else}
 				<!-- No Results -->

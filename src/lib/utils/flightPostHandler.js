@@ -130,6 +130,8 @@ export async function generateAIFlightAnalysis(flightData, modelToUse = null) {
 			}
 		}
 		
+		console.log('🔍 Final model name selected:', modelName);
+		
 		const client = new OllamaAIClient({ model: modelName });
 		const flightHelper = new FlightAIHelper(client);
 		
@@ -197,8 +199,9 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
  */
 export async function generateAIFlightAnalysisWithStages(flightData, onStageUpdate = null, modelToUse = null) {
 	try {
-		// Determine which model to use
+		// Determine which model to use and prepare adapter info
 		let modelName = 'qwen2.5:14b'; // Default fallback
+		let adapterInfo = null;
 		
 		if (modelToUse) {
 			if (modelToUse.ollama_model_name) {
@@ -210,13 +213,30 @@ export async function generateAIFlightAnalysisWithStages(flightData, onStageUpda
 			} else if (modelToUse.base_model) {
 				modelName = modelToUse.base_model;
 			}
+			
+			// Check if this is an adapter selection that needs interception
+			if (modelToUse.is_adapter_rag && modelToUse.export_id) {
+				// Use base model for RAG processing, but pass adapter info for interception
+				modelName = 'qwen2.5:14b';
+				adapterInfo = {
+					export_id: modelToUse.export_id,
+					adapter_name: modelToUse.adapter_name
+				};
+				console.log('🔄 Adapter interception mode: Using qwen2.5:14b with adapter info:', adapterInfo);
+			}
 		}
 		
-		console.log('Using AI model:', modelName, 'for flight analysis');
-		console.log('Model details:', modelToUse);
+		console.log('🔍 Using AI model:', modelName, 'for flight analysis');
+		console.log('🔍 Model details passed to function:', modelToUse);
+		console.log('🔍 Model selection logic:');
+		console.log('  - modelToUse.ollama_model_name:', modelToUse?.ollama_model_name);
+		console.log('  - modelToUse.rag_model_name:', modelToUse?.rag_model_name);
+		console.log('  - modelToUse.merged_model_name:', modelToUse?.merged_model_name);
+		console.log('  - modelToUse.base_model:', modelToUse?.base_model);
+		console.log('  - adapterInfo:', adapterInfo);
 		
 		const client = new OllamaAIClient({ model: modelName });
-		const flightHelper = new FlightAIHelper(client);
+		const flightHelper = new FlightAIHelper(client, adapterInfo);
 		
 		console.log('Starting two-stage AI analysis for flight data:', flightData);
 		

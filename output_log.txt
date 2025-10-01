@@ -1,147 +1,188 @@
-2025-10-01 16:48:04.585 | ERROR    | open_webui.routers.openai:get_models:547 - Unexpected error: External Error: {'code': 'unsupported_country_region_territory', 'message': 'Country, region, or territory not supported', 'param': None, 'type': 'request_forbidden'}
-Traceback (most recent call last):
-
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/__main__.py", line 4, in <module>
-    uvicorn.main()
-    │       └ <Command main>
-    └ <module 'uvicorn' from '/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/__init__.py'>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 1442, in __call__
-    return self.main(*args, **kwargs)
-           │    │     │       └ {}
-           │    │     └ ()
-           │    └ <function Command.main at 0x7fc31d595300>
-           └ <Command main>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 1363, in main
-    rv = self.invoke(ctx)
-         │    │      └ <click.core.Context object at 0x7fc31e283d90>
-         │    └ <function Command.invoke at 0x7fc31d594fe0>
-         └ <Command main>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 1226, in invoke
-    return ctx.invoke(self.callback, **ctx.params)
-           │   │      │    │           │   └ {'host': '0.0.0.0', 'port': 8080, 'forwarded_allow_ips': '*', 'workers': 1, 'app': 'open_webui.main:app', 'uds': None, 'fd': ...
-           │   │      │    │           └ <click.core.Context object at 0x7fc31e283d90>
-           │   │      │    └ <function main at 0x7fc31d39ee80>
-           │   │      └ <Command main>
-           │   └ <function Context.invoke at 0x7fc31d594220>
-           └ <click.core.Context object at 0x7fc31e283d90>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 794, in invoke
-    return callback(*args, **kwargs)
-           │         │       └ {'host': '0.0.0.0', 'port': 8080, 'forwarded_allow_ips': '*', 'workers': 1, 'app': 'open_webui.main:app', 'uds': None, 'fd': ...
-           │         └ ()
-           └ <function main at 0x7fc31d39ee80>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/main.py", line 413, in main
-    run(
-    └ <function run at 0x7fc31d59aac0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/main.py", line 580, in run
-    server.run()
-    │      └ <function Server.run at 0x7fc31d42c2c0>
-    └ <uvicorn.server.Server object at 0x7fc31d5cd3d0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/server.py", line 67, in run
-    return asyncio.run(self.serve(sockets=sockets))
-           │       │   │    │             └ None
-           │       │   │    └ <function Server.serve at 0x7fc31d42c360>
-           │       │   └ <uvicorn.server.Server object at 0x7fc31d5cd3d0>
-           │       └ <function run at 0x7fc31d96eac0>
-           └ <module 'asyncio' from '/home/sunny/anaconda3/envs/open-webui/lib/python3.11/asyncio/__init__.py'>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/asyncio/runners.py", line 190, in run
-    return runner.run(main)
-           │      │   └ <coroutine object Server.serve at 0x7fc31d332f20>
-           │      └ <function Runner.run at 0x7fc31d7ee7a0>
-           └ <asyncio.runners.Runner object at 0x7fc31d3a72d0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/asyncio/runners.py", line 118, in run
-    return self._loop.run_until_complete(task)
-           │    │     │                  └ <Task pending name='Task-1' coro=<Server.serve() running at /home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-package...
-           │    │     └ <cyfunction Loop.run_until_complete at 0x7fc31cf245f0>
-           │    └ <uvloop.Loop running=True closed=False debug=False>
-           └ <asyncio.runners.Runner object at 0x7fc31d3a72d0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
-    await self.app(scope, receive_or_disconnect, send_no_error)
-          │    │   │      │                      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7fc162550860>
-          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fc162550540>
-          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <starlette_compress.CompressMiddleware object at 0x7fc31c6c1620>
-          └ <open_webui.main.RedirectMiddleware object at 0x7fc1700cb2d0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette_compress/__init__.py", line 92, in __call__
-    return await self._zstd(scope, receive, send)
-                 │    │     │      │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7fc162550860>
-                 │    │     │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fc162550540>
-                 │    │     └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-                 │    └ <member '_zstd' of 'CompressMiddleware' objects>
-                 └ <starlette_compress.CompressMiddleware object at 0x7fc31c6c1620>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette_compress/_zstd_legacy.py", line 100, in __call__
-    await self.app(scope, receive, wrapper)
-          │    │   │      │        └ <function ZstdResponder.__call__.<locals>.wrapper at 0x7fc16259d800>
-          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fc162550540>
-          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <member 'app' of 'ZstdResponder' objects>
-          └ <starlette_compress._zstd_legacy.ZstdResponder object at 0x7fc1701ad980>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-          │                            │    │    │     │      │        └ <function ZstdResponder.__call__.<locals>.wrapper at 0x7fc16259d800>
-          │                            │    │    │     │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fc162550540>
-          │                            │    │    │     └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │                            │    │    └ <starlette.requests.Request object at 0x7fc1625bf250>
-          │                            │    └ <fastapi.routing.APIRouter object at 0x7fc1cc959e50>
-          │                            └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x7fc17033a510>
-          └ <function wrap_app_handling_exceptions at 0x7fc31a7a36a0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fc16259fe20>
-          │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fc162550540>
-          │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          └ <fastapi.routing.APIRouter object at 0x7fc1cc959e50>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
-    await self.middleware_stack(scope, receive, send)
-          │    │                │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fc16259fe20>
-          │    │                │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fc162550540>
-          │    │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <bound method Router.app of <fastapi.routing.APIRouter object at 0x7fc1cc959e50>>
-          └ <fastapi.routing.APIRouter object at 0x7fc1cc959e50>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
-    await route.handle(scope, receive, send)
-          │     │      │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fc16259fe20>
-          │     │      │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fc162550540>
-          │     │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │     └ <function Route.handle at 0x7fc31a7c8d60>
-          └ APIRoute(path='/openai/models/{url_idx}', name='get_models', methods=['GET'])
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
-    await self.app(scope, receive, send)
-          │    │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fc16259fe20>
-          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fc162550540>
-          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <function request_response.<locals>.app at 0x7fc170229c60>
-          └ APIRoute(path='/openai/models/{url_idx}', name='get_models', methods=['GET'])
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
-    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-          │                            │    │        │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fc16259fe20>
-          │                            │    │        │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fc162550540>
-          │                            │    │        └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │                            │    └ <starlette.requests.Request object at 0x7fc1625bd3d0>
-          │                            └ <function request_response.<locals>.app.<locals>.app at 0x7fc16259dee0>
-          └ <function wrap_app_handling_exceptions at 0x7fc31a7a36a0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fc16259ec00>
-          │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fc162550540>
-          │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          └ <function request_response.<locals>.app.<locals>.app at 0x7fc16259dee0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
-    response = await f(request)
-                     │ └ <starlette.requests.Request object at 0x7fc1625bd3d0>
-                     └ <function get_request_handler.<locals>.app at 0x7fc170229bc0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/routing.py", line 301, in app
-    raw_response = await run_endpoint_function(
-                         └ <function run_endpoint_function at 0x7fc31a7cab60>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/routing.py", line 212, in run_endpoint_function
-    return await dependant.call(**values)
-                 │         │      └ {'user': UserModel(id='0afef353-767f-4e1a-a916-7fb166c29be0', name='Sunny', email='sunny@gmail.com', role='admin', profile_im...
-                 │         └ <function get_models at 0x7fc1d413fe20>
-                 └ Dependant(path_params=[ModelField(field_info=Path(PydanticUndefined), name='url_idx', mode='validation')], query_params=[], h...
-
-> File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/routers/openai.py", line 516, in get_models
-    raise Exception(error_detail)
-                    └ "External Error: {'code': 'unsupported_country_region_territory', 'message': 'Country, region, or territory not supported', '...
-
-Exception: External Error: {'code': 'unsupported_country_region_territory', 'message': 'Country, region, or territory not supported', 'param': None, 'type': 'request_forbidden'}
+Starting training...
++page.svelte:117 Received session ID: training_1759322911
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'completed', progress: 100, current_epoch: 0, total_epochs: 3, …}
+fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 100, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
++page.svelte:68 Progress update received: {epoch: 0, progress: 100, trainLoss: 0, valLoss: 0, learningRate: 0.0001}

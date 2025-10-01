@@ -373,6 +373,24 @@ export class FineTuningClient {
 	}
 
 	/**
+	 * Get detailed training metrics
+	 * @param {string} sessionId - Training session ID
+	 * @returns {Promise<Object>} Training metrics array
+	 */
+	async getTrainingMetrics(sessionId) {
+		try {
+			const response = await fetch(`${this.config.apiUrl}/api/fine-tuning/metrics/${sessionId}`);
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+			}
+			return await response.json();
+		} catch (error) {
+			console.error('Error fetching training metrics:', error);
+			throw error;
+		}
+	}
+
+	/**
 	 * Export fine-tuned model
 	 * @param {string} adapterName - Name of the adapter
 	 * @returns {Promise<Object>} Export result

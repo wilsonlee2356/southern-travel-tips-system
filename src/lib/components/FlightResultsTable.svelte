@@ -109,6 +109,11 @@
 				}
 				break;
 				
+			case 'adapter':
+				// Select an adapter
+				selectedAdapter = availableAdapters.find(adapter => adapter.export_id === value) || null;
+				break;
+				
 			case 'rag':
 				// Select an already-merged RAG model
 				selectedRAGModel = availableRAGModels.find(ragModel => ragModel.rag_model_name === value) || null;
@@ -133,7 +138,7 @@
 		// This function is kept for compatibility but not used
 	}
 	
-	// Combined AI model options - only show already-merged models
+	// Combined AI model options - include base models, adapters, and RAG models
 	$: aiModelOptions = [
 		// Base model with RAG (if available)
 		{ 
@@ -143,7 +148,15 @@
 			hasRAG: availableRAGModels.length > 0
 		},
 		
-		// Only show RAG models that are already created (no on-the-fly merging)
+		// Show available adapters
+		...availableAdapters.map(adapter => ({
+			value: `adapter:${adapter.export_id}`,
+			label: `${adapter.adapter_name} (Adapter)`,
+			type: 'adapter',
+			hasRAG: false
+		})),
+		
+		// Show RAG models that are already created
 		...availableRAGModels.map(ragModel => ({
 			value: `rag:${ragModel.rag_model_name}`,
 			label: `${ragModel.adapter_name} + RAG (${new Date(ragModel.created_at).toLocaleString()})`,
@@ -154,6 +167,7 @@
 	
 	// Get current selected value for the dropdown
 	$: currentSelectedValue = selectedBaseModel ? `base:${selectedBaseModel}` :
+		selectedAdapter ? `adapter:${selectedAdapter.export_id}` :
 		selectedRAGModel ? `rag:${selectedRAGModel.rag_model_name}` : '';
 
 	// Table state
@@ -668,10 +682,11 @@
 										<br><span class="text-blue-600 dark:text-blue-400">+ RAG: <strong>{selectedRAGModel.rag_model_name}</strong></span>
 									{/if}
 								{:else if selectedAdapter}
-									<span class="text-gray-600 dark:text-gray-300">Adapter: <strong>{selectedAdapter.adapter_name}</strong></span>
-									{#if selectedRAGModel}
-										<br><span class="text-blue-600 dark:text-blue-400">+ RAG: <strong>{selectedRAGModel.rag_model_name}</strong></span>
-									{/if}
+									<span class="text-purple-600 dark:text-purple-400">Adapter: <strong>{selectedAdapter.adapter_name}</strong></span>
+									<br><span class="text-gray-500 dark:text-gray-400">Export ID: {selectedAdapter.export_id}</span>
+								{:else if selectedRAGModel}
+									<span class="text-green-600 dark:text-green-400">RAG Model: <strong>{selectedRAGModel.rag_model_name}</strong></span>
+									<br><span class="text-blue-600 dark:text-blue-400">Base: {selectedRAGModel.base_model}</span>
 								{/if}
 							</div>
 						</div>
@@ -699,7 +714,7 @@
 				<!-- Post Button -->
 				<button
 					class="bg-black hover:bg-gray-800 text-white font-medium py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-					disabled={isPosting || (!selectedRAGModel && !selectedBaseModel)}
+					disabled={isPosting || (!selectedRAGModel && !selectedBaseModel && !selectedAdapter)}
 					on:click={onPost}
 				>
 					{#if isPosting}

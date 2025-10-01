@@ -1145,6 +1145,10 @@ if ENABLE_COMPRESSION_MIDDLEWARE:
 app.add_middleware(RedirectMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
+# Add adapter interception middleware
+from open_webui.utils.adapter_middleware import AdapterInterceptionMiddleware
+app.add_middleware(AdapterInterceptionMiddleware)
+
 
 @app.middleware("http")
 async def commit_session_after_request(request: Request, call_next):
