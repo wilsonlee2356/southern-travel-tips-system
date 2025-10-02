@@ -319,7 +319,7 @@
 
 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
 	<!-- Filters Section -->
-	<div class="p-6 border-b border-gray-200 dark:border-gray-700">
+	<div class="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700">
 		<div class="flex items-center justify-between mb-4">
 			<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
 				{$i18n.t('Filters')}
@@ -332,7 +332,8 @@
 			</button>
 		</div>
 		
-		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+		<!-- First Row: Airline and Stops -->
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 md:mb-4 space-y-4 md:space-y-0">
 			<!-- Airline Filter -->
 			<div>
 				<label for="airline-filter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -347,6 +348,26 @@
 				/>
 			</div>
 
+			<!-- Stops Filter -->
+			<div>
+				<label for="stops-filter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+					{$i18n.t('Stops')}
+				</label>
+				<select
+					id="stops-filter"
+					class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 text-sm"
+					bind:value={filters.stops}
+				>
+					<option value="all">{$i18n.t('All')}</option>
+					<option value="direct">{$i18n.t('Direct')}</option>
+					<option value="1stop">{$i18n.t('1 Stop')}</option>
+					<option value="2plus">{$i18n.t('2+ Stops')}</option>
+				</select>
+			</div>
+		</div>
+
+		<!-- Second Row: Price Range and Items Per Page -->
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-4 space-y-4 md:space-y-0">
 			<!-- Price Range Filter -->
 			<div>
 				<fieldset>
@@ -370,23 +391,6 @@
 						/>
 					</div>
 				</fieldset>
-			</div>
-
-			<!-- Stops Filter -->
-			<div>
-				<label for="stops-filter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-					{$i18n.t('Stops')}
-				</label>
-				<select
-					id="stops-filter"
-					class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 text-sm"
-					bind:value={filters.stops}
-				>
-					<option value="all">{$i18n.t('All')}</option>
-					<option value="direct">{$i18n.t('Direct')}</option>
-					<option value="1stop">{$i18n.t('1 Stop')}</option>
-					<option value="2plus">{$i18n.t('2+ Stops')}</option>
-				</select>
 			</div>
 
 			<!-- Items Per Page -->
