@@ -1513,6 +1513,9 @@ export const parseJsonValue = (value: string): any => {
 	return value;
 };
 
+// Web Content Extractor exports moved to server-side only
+// (Removed client-side exports to prevent Puppeteer bundling issues)
+
 export const extractContentFromFile = async (file, pdfjsLib = null) => {
 	// Known text file extensions for extra fallback
 	const textExtensions = [

@@ -1,188 +1,221 @@
-Starting training...
-+page.svelte:117 Received session ID: training_1759322911
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 0, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 0, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'training', progress: 90, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 90, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-fineTuning.js:256 Training status received: {session_id: 'training_1759322911', status: 'completed', progress: 100, current_epoch: 0, total_epochs: 3, …}
-fineTuning.js:270 Sending progress data to callback: {epoch: 0, progress: 100, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
-+page.svelte:68 Progress update received: {epoch: 0, progress: 100, trainLoss: 0, valLoss: 0, learningRate: 0.0001}
+[
+  {
+    "prompt": "",
+    "response": {
+      "Header": "#航空短打：航空公司都真係幾大責任……😦",
+      "Content": "在2021年11月，美國一對老夫婦乘搭美國航空從邁亞密前往馬德里的航班。飛機仍未起飛前，丈夫突然短暫失去語言能力，更無法拿起手機，妻子憂慮他出現中風症狀，於是通知機組人員。
+
+根據訴訟內容，機組人員當時並未依標準程序聯絡醫療熱線或尋求機上專業協助，反而有人以玩笑語氣回應，最終航班仍如期起飛。豈料男子在大西洋上空突發中風，機組僅要求其他乘客照顧他，沒有即時通知機長或考慮改航。航班抵達西班牙後，他被送往醫院治療，病危超過三週才得以返美。現時他已無法說話或寫字，連進食、洗澡、走路等基本生活都需妻子照料。
+
+妻子其後入稟法院，指如果機組人員當時遵照正確程序處理，丈夫本可在邁阿密即時送院接受治療，未必導致如此嚴重的後果。經過六天審訊，陪審團裁定美國航空在處理上存在疏忽，需依《蒙特利爾公約》承擔責任，判賠1,106萬美元（約8,600萬港元）。
+
+美國航空在聲明中回應，強調乘客的安全和健康始終是首要任務，尊重陪審團的決定，但不同意裁決，並正評估下一步行動。",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "【外國網友熱議 台灣最伏旅遊景點🫣】",
+      "Content": "台灣近年吸引不少外國旅客到訪，不過在討論區 Reddit 上，有網友拋出問題：「台灣有哪些旅遊景點應該避開？」意外引起熱議。被點名最多的包括：
+
+🌈台中彩虹眷村：位置離市中心遠，加上園區縮水，被批評「已被開發商毀了」
+🌅台中高美濕地：交通不便，往返市區需時長，加上炎熱與人潮，體驗大打折扣
+🏮九份及十分：狹窄巷弄人流極多，尤其週末更顯擁擠
+🏬西門町：僅被視為「很多商店和很多人」的地方，過度商業化
+🏙台北101：門票昂貴、排隊時間長，有人抱怨觀景效果不如預期，甚至第 101 層的窗戶僅有一半
+
+不過，也有人持相反意見，認為這些景點仍具代表性，特別適合首次到訪的遊客。有旅客更建議避開台北及新北市，轉而探索南部，才能體驗到更真實的台灣風貌。有留言總結指，造成「失望感」的原因大致圍繞三點：價格偏高、人潮過多，以及景點過度包裝。
+
+大家又有甚麼看法呢？💁‍♂️
+
+#國際大小事",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "#航空短打：有人坐過這間航空公司嗎？😳",
+      "Content": "以北九州機場為基地的星悅航空（StarFlyer）宣布，將於2026年重新開辦國際定期航線，這將是公司自2020年停辦國際線以來，相隔六年再度重返海外市場。據日本《日經新聞》報道，首個計劃開通的航點為台灣。
+
+星悅航空社長表示，將充分利用九州鄰近東亞各地的地理優勢，藉重開國際線吸引更多訪日旅客，為北九州及周邊地區帶來更多旅遊需求。具體的航班時刻及航點安排仍在商議中，但公司強調已把國際化視為未來發展的重要一步。
+
+順帶一提，北九州機場的第二條國際航線「清州－北九州」昨日啟航，由 Aero K（可依航空）營運，每週三班。北九州市長在首航典禮上指，希望能充份發揮北九州機場的潛力，為九州、日本，甚至亞洲的發展作出貢獻。",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "【🇨🇲非洲女運動員 於東京電車上「做運動」捱轟💥】",
+      "Content": "一名到東京參加「2025年世界田徑錦標賽」的喀麥隆女子鐵餅運動員，早前在 Instagram 上傳一段影片，自稱在「東京地鐵做運動」。片段可見她在電車車廂內，以扶手為支撐，做出類似體操的動作。貼文亦標註另一名喀麥隆運動員，相信是拍攝者。
+
+影片公開後，隨即引來大量日本網民批評，認為她的行為為其他乘客帶來困擾，亦可能損害外國遊客的形象，呼籲她在日本應遵守當地規則與公共禮儀。
+
+該名運動員其後刪除影片，並在 Instagram 上以日文發文道歉，強調雖然行為並不違法，但承認自己在公共場合舉止失禮，並向公眾致歉。她解釋並無冒犯日本文化的意思，承諾日後會更加注意自己的行為。
+
+對此，涉事鐵路公司回應指，即使車廂內沒有其他乘客，也不應做出不當行為；若有人發現類似情況，應立即通知車站工作人員處理。
+
+#國際大小事",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "#航空短打：航班延誤就見得多，航班提早大半日就真係少見😂",
+      "Content": "近日有中國遊客分享指，自己預訂了9月26日由哈爾濱飛往海拉爾的航班，原定起飛時間是晚上9時55分。但其後預訂平台通知指，航班需提早15小時45分鐘起飛，把起飛時間更新至早上6時10分，令他感到驚訝，表示「經歷過不少航班延誤，第一次遇到要提前15小時起飛，感覺挺離譜的」。
+
+該名遊客表示，推前航班時間打亂了他的行程，因為他不住在哈爾濱，提早至清晨起飛意味他要早一天到哈爾濱留宿，因此他只能選擇改搭其他航班。
+
+龍江航空回應傳媒查詢確認事件，指此航線因「計劃性調整」，在9月25日至10月25日期間有航班提早出發，暫不確定10月26日起新航季的計劃，旅客可全額退票或免費更改出發日期，但就沒有賠償政策。航空公司同時對受影響的旅客致歉，表示會接受各界的意見，改善更改航班時間後的顧客服務流程。",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "【🇳🇱荷蘭風車村遊客過多 下年春季起收費冀控制人數💰】",
+      "Content": "荷蘭著名觀光勝地 Zaanse Schans 以保存完好的風車聞名，因距離阿姆斯特丹不遠，每年吸引數以百萬計旅客。不過，隨着遊客數量不斷攀升，當地居民怨聲載道，形容已經「不勝負荷」。當地議會宣布，明年春季起將向所有外來遊客收取 €17.5（約HK$160）入場費，期望能減少人流，並維護社區生活質素。
+
+官方數字顯示，該村去年錄得 260 萬遊客，而常住人口卻只有約 100 人。當地博物館館長坦言，遊客常常擅闖居民的花園及房子，甚至有人隨地便溺及用自拍杆偷看房子，居民根本沒有任何私隱。他強調小鎮空間有限，根本容納不了這麼多人，收費是「迫不得已的措施」。
+
+新的入場費將包含現時需要分開購票的兩個項目：博物館及風車內部參觀。博物館館藏包括法國印象派畫家莫奈於 1871 年所繪的當地風車畫作，而風車內部則展示了17世紀荷蘭人如何利用風車鋸木、磨顏料與穀物。
+
+當地議會預計，在收費後如果只有一半遊客到訪，當地年收入仍將達約 2,450 萬歐元。收入將會用於維護風車和新增基礎設施，如新廁所。議會強調，措施並非拒絕遊客到訪，而是要令遊覽體驗更舒適，亦讓居民與旅客可以和平共處。
+
+但當地的商店及餐廳就對此新措施表示擔憂，認為新收費會令遊客減少，令他們損失顧客；也有商家認為收費會令遊客減少其他開銷，威脅他們的生計。而遊客就對此反應兩極。有受訪遊客表示新收費偏貴，只為看幾座風車未必值得；但有遊客認為適度收費有助保護小村的魅力；也有遊客直言，收費包含到訪風車村及兩個原本收費的景點，反而更划算。
+
+#國際大小事",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "【塔斯曼尼亞遠足遇險 一名中國女遊客不治】",
+      "Content": "雖說「欺山莫欺水」，但都不要輕視山的危險性！澳洲塔斯曼尼亞搖籃山國家公園近日發生遠足悲劇。有四名中國遊客被發現因惡劣天氣被困山區，最終其中一名女子不幸身亡，其餘三人則獲救。
+
+當地警方表示，該團體當日下午其他登山者發現時，已因氣溫驟降而無法繼續行走。但由於當時天氣惡劣，無法出動直升機救援，救援人員唯有徒步進入，並與被困者在山上過夜，至翌日清晨才把他們帶下山。但不幸地其中一名女士因體溫過低而離世。
+
+當局形容這次事件是「悲劇性的結局」，指出這支隊伍裝備不足，未攜帶個人定位信標等關鍵求生器材，亦欠缺足夠禦寒裝備及應急準備，幸好他們有被其他遠足者發現，並利用有限的物資提供了寶貴的幫助，不然遇難人數可能會更多。
+
+塔斯曼尼亞當局表示，高山地區天氣變化很大且快，警方已向有意進行戶外活動的人士發出緊急警告，建議不論何時，都要確保攜帶充足的物資，例如保暖衣物、食物、緊急通訊設備、地圖、手電筒、急救包等。
+
+中國駐墨爾本領事館證實事件，表示正與相關部門協調善後事宜，並提醒中國遊客在旅遊時，要謹慎規劃和選擇適合自身狀況的旅遊項目，以免釀成安全風險甚至悲劇。
+
+#國際大小事",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "#航空短打：都真係幾大問題🧐",
+      "Content": "澳洲航空早前接收最新的A321XLR飛機，大力宣傳其提供更大的行李架、更安靜的機艙，及更舒適的座椅，並於星期四首次執飛「悉尼－墨爾本」航線，但卻被乘客批評為「全球最差」。
+
+原因是新飛機在經濟艙只配有兩個廁所，變相平均每 88 名乘客共用一個廁所，為所有機型中比例最低；相比之下，機上的商務艙只是20人共用一個廁所。澳洲航空目前已訂購48架A321XLR飛機，並計劃將用於執飛長達五小時的跨洲航線。
+
+澳洲航空承認，短期內未能改善，需待飛機幾年後送往維護檢查時才有機會增設廁所。澳航CEO接受傳媒訪問時指，機上配備三個廁所的決定是多年前做出，並強調此數量在「悉尼－墨爾本」航線上已足夠。他同時表示，已聽取乘客意見，首三架新機將會加裝額外廁所，而今年將交付的七架飛機中，已有四架在經濟艙配置三個廁所，顯示公司正積極解決問題。
+
+他同時指出，新飛機亦有多項值得讚賞之處，例如座椅更舒適、窗戶加大、行李架容量提升 60%，飛行更安靜及更環保等。",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "【🇯🇵十一假期搜尋量居首！🇨🇳中國遊客赴日旅遊熱潮持續】",
+      "Content": "日本政府觀光局（JNTO）早前公布數據，單是8月已有超過100萬中國旅客到訪日本，繼續穩居所有市場之首。臨近十一長假期，Airbnb公佈搜尋排名，中國旅客首選仍是日本，其次依次為意大利、法國、西班牙及紐西蘭。東京、大阪、京都依然位居搜尋榜前列，但福岡的搜尋量按年急增逾兩倍，伊豆亦錄得近兩倍升幅。
+
+根據《訪日外國遊客消費動向調查》，與2015年相比，中國遊客的出行模式已明顯轉向自由行，比例升至接近九成；相反，隨團旅客僅剩約一成。同時，首次訪日的比率下降至不足五成，顯示多次入境簽證帶動「回頭客」成為主流。
+
+Booking.com 早前亦發表《2025年中國人出國旅遊趨勢調查》，指日本是僅次於泰國的第二大熱門目的地。不過，泰國的綁架案令不少遊客卻步，間接令更多人轉往日本。另外，有發現指，Z世代更偏好「打卡式旅遊」，例如富士山下的Lawson便利店、富士吉田商店街等景點，從而帶動小型旅行團，以平價吸引年輕客群。
+
+此外，避開傳統熱門景點及城市的中國遊客群漸漸冒起。他們傾向選擇日本「非觀光地、日本人會去」的區域。調查顯示，65%受訪者會在小紅書搜尋資料。有用戶表示，自己分享的貼文中，最多回應及查詢的貼文竟是介紹熊本及伊豆，而非北海道、沖繩等傳統熱門地。整體來看，中國遊客的赴日熱潮仍在持續，而且變得更為廣泛。
+
+#國際大小事",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "#航空短打：下年有機會復航？👀",
+      "Content": "根據日本傳媒報導，香港航空的鹿兒島、熊本、仙台及名古屋航線，進一步延長停飛至下年3月28日，意味著整個冬季航季也暫不會復航。
+
+鹿兒島縣透露，港航方面強調並非打算永久停飛「香港－鹿兒島」航線，並正考慮復航，但是尚未落實明年3月以後的航班安排。
+
+而港航就解釋指，香港早前流傳「日本將發生大地震」謠言，導致赴日人數下滑，但亦不排除日圓走強等因素影響赴日需求。他們會繼續調整，積極考慮復航。
+
+根據鹿兒島縣統計，今年7月香港旅客在當地住宿人次較去年同期大減84.5%，對觀光業造成明顯影響。鹿兒島縣交通政策課表示會繼續努力，爭取航線復航，減低對當地旅遊業的衝擊。",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "【🇪🇺🇨🇭🇳🇴🇮🇸神根區新出入境系統 10月12日起逐步啟用】",
+      "Content": "經過多次押後，由歐盟主導、適用於神根區邊境的新出入境系統 Entry/Exit System（EES）終於確定由 10 月 12 日起分階段啟用，並會在 6 個月內逐步推行。預計最遲在 2026 年 4 月 10 日前，所有神根區成員國的邊境口岸都會全面改用新系統，取代傳統護照蓋章（喜歡儲印的各位🥹），目標加快通關速度。
+
+EES 將適用於非神根區居民（或非持長期居留文件者），旅客需掃描護照、拍照、留下指紋，並可能需回答額外問題（如確認住宿地點、是否有足夠資金等），而 12 歲以下則毋須提供指紋。系統會數碼化記錄每位旅客的進出地點與時間，以加強邊境安全。
+
+在啟用初期，如遇到系統故障、輪候時間過長或運作緩慢，當局可彈性處理，部分口岸會保留人工查驗作後備，以減少對旅客的不便。
+
+另外，已籌劃多時並一再延期的 ETIAS（類似 ETA，適用於免簽證旅客），暫時仍未有確實的實施日期。
+
+#國際大小事",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "【法國航班空中盤旋等降✈️ 原因是管制員睡著？😦 】",
+      "Content": "法國一班由巴黎飛往科西嘉島阿雅克肖的科西嘉航空航班，上週降落時竟一度聯絡不到塔台，飛機被迫在空中盤旋，甚至準備轉飛至島上另一城市。
+
+地勤人員及消防員其後嘗試進入控制塔，但塔樓門被鎖，須通過安全機制才可進入，耽誤了時間。最後他們成功進入塔台，才發現唯一值班的航空交通管制員竟然在辦公桌上睡著！職員即時將其叫醒，管制員隨後打開跑道燈並批准降落，航班最終成功安全著陸。
+
+機長事後直言，自己幾十年飛行生涯從未遇過類似情況。幸好機上人員保持冷靜，乘客亦以輕鬆心情看待，才未有引起恐慌。涉事管制員其後通過測試，證實當時無受藥物或酒精影響。
+
+法國民航局已就事件展開內部調查，該名管制員需接受職業健康醫生評估，當局亦正考慮紀律處分，同時否認事件涉及人手調配問題。法國航空交通管制員早前曾對工資及工作環境表示不滿，指長期疲勞及壓力難以負荷，工會更預告10月或再有罷工行動。
+
+#國際大小事 #航空短打",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "【🇹🇭泰國不再抵玩？強勢泰銖拉高旅遊成本📈】",
+      "Content": "泰銖自年初以來兌美元匯率已升值逾 7%，成為僅次於瑞士法郎，兌美元的第二強勢貨幣。泰國旅遊局警告，強勢泰銖令外國遊客實際到手的泰銖減少，住宿、餐飲與景點門票等消費變得更昂貴，推高赴泰旅遊成本，從而影響遊客遊泰及在泰消費意欲，可能令旅遊收入減少 15% 至 17%。
+
+相比之下，日本、中國及越南的旅遊成本更具優勢，吸引不少遊客，甚至泰國人，轉往其他國家。旅遊局已促請當局評估匯率對旅遊業的衝擊。泰國央行承認已入市干預，避免泰銖過快升值。
+
+泰國旅遊業今年前後受綁架事件及地震影響，今年 1 月 1 日 至 9 月 21 日的外國遊客人數，已按年下跌 7.44%。如今再加上泰銖升值，無疑令旅遊業雪上加霜。
+
+今年有去過泰國的你，有覺得消費比以前貴了很多嗎？
+
+#國際大小事",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "【中國河南景區「黃金蟒蛇頭」嚇壞遊客 🐍？】",
+      "Content": "真的有那麼逼真？近日有網民表示，在中國河南嵩山玉皇溝景區的河流中，驚見「巨型黃金蟒蛇」探出頭來，嚇壞不少遊客，並在網上引起熱議。
+
+景區其後解釋，所謂「蛇頭」其實是一塊億年原石，後來請人彩繪成黃金蛇頭。有網民討論指，驟眼看確實十分逼真，會嚇到人，質疑為何要畫成蛇這種嚇人的動物；也有人認為原石應該保留原貌。
+
+不過亦有網民讚賞彩繪具創意，覺得有趣，只是有人小題大作；亦有人建議景區豎立說明牌，就能避免誤會。但據悉，景區在接獲多名遊客投訴後，已暫時以綠布覆蓋「蛇頭」，未來會考慮改畫成其他樣式。
+
+#國際大小事",
+    }
+  },
+  {
+    "prompt": "",
+    "response": {
+      "Header": "【《男兒當入樽》名場面致「過度旅遊」🚃 鎌倉居民苦不堪言😵‍💫】",
+      "Content": "因日本動漫《男兒當入樽》而聞名的江之島電鐵「鎌倉高校前」平交道口，長年吸引大批遊客朝聖拍照。然而，大量人潮同時帶來亂象，令當地居民苦不堪言。
+
+有居民受訪時直言，當地本是普通住宅區，但突然因打卡熱點爆紅，基建卻未能配合，缺乏公共廁所及垃圾桶等設施，導致有時發現垃圾被棄置在私人土地或單車籃內，甚至有人在私人土地上「方便」，更誇張的是，有遊客在公園脫光用水龍頭洗澡。由於清潔工作主要由居民承擔，他形容感覺就像「不斷挨打」。
+
+另外，交通亦成問題。即使在平日也有大批遊客湧至，就算有保安不斷提醒，仍有不少人不理勸籲走到馬路拍照，危險重重；另有遊客直接乘坐縣外的士到訪，車輛停在民宅門前，令居民出行受阻。
+
+在居民請願下，鎌倉市議會早前一致通過相關動議。市政府其後於本月13日至16日，在打卡點附近公園試設「拍照區」，並派出12名人員指導遊客。短短四天內就錄得9,500人次使用，當局更發現以中英文警告效果最佳。
+
+不過，長期派員引起成本問題，有議員建議向遊客收費。鎌倉市亦計劃與縣政府及警方合作，研究更有效的對策。有居民強調，他們並非要拒絕所有遊客，而是希望創造一個「讓居民與遊客都能感到舒適」的環境。
+
+#國際大小事",
+    }
+  },
+]

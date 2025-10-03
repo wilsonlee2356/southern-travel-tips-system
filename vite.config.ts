@@ -28,5 +28,11 @@ export default defineConfig({
 	},
 	esbuild: {
 		pure: process.env.ENV === 'dev' ? [] : ['console.log', 'console.debug']
+	},
+	server: {
+		allowedHosts: [
+			'fawn-moody-nanci.ngrok-free.dev', // Your ngrok domain
+			'localhost' // Optional: include for local testing
+		]
 	}
 });
