@@ -61,104 +61,43 @@
 		}
 
 		isGenerating = true;
-		generationStatus = 'Extracting content from URLs...';
+		generationStatus = 'Analyzing content...';
 
 		try {
-			const token = localStorage.getItem('token') || '';
-			
-			// Extract content from URLs using server-side API
-			let extractedContent = '';
-			const validUrls = formData.urls.filter(url => url.trim());
-			
-			if (validUrls.length > 0) {
-				generationStatus = `Extracting content from ${validUrls.length} URL(s)...`;
-				
-				for (const url of validUrls) {
-					try {
-						console.log(`Extracting content from: ${url}`);
-						
-						// Call server-side API to extract web content
-						const response = await fetch('/api/extract-web-content', {
-							method: 'POST',
-							headers: {
-								'Content-Type': 'application/json',
-							},
-							body: JSON.stringify({
-								url: url,
-								options: {
-									includeImages: true,
-									includeLinks: true,
-									waitForTimeout: 90000, // Extended to 90 seconds
-									maxRetries: 3 // Allow 3 retry attempts
-								}
-							})
-						});
-						
-						if (response.ok) {
-							const extractionResult = await response.json();
-							console.log(`Successfully extracted content from: ${url}`);
-							console.log('Extraction result:', extractionResult);
-							
-							// Add extracted content to the combined content
-							const urlContent = `
-URL: ${url}
-Title: ${extractionResult.content?.title || 'No title'}
-Description: ${extractionResult.content?.description || 'No description'}
-Main Content: ${extractionResult.content?.textContent?.substring(0, 2000) || 'No content'}...
-Word Count: ${extractionResult.content?.wordCount || 0}
-`;
-							extractedContent += urlContent;
-						} else {
-							console.error(`Failed to extract content from ${url}:`, response.statusText);
-							extractedContent += `\nURL: ${url}\nError: Failed to extract content (${response.status})\n`;
-						}
-					} catch (extractionError) {
-						console.error(`Error extracting from ${url}:`, extractionError);
-						extractedContent += `\nURL: ${url}\nError: ${extractionError.message}\n`;
-					}
-				}
-			}
+			// Prepare the prompt for Ollama
+			const urlsText = formData.urls.filter(url => url.trim()).join('\n');
 			
 			// Add photos information
 			const photosText = formData.photos.length > 0 ? `\n\nUploaded ${formData.photos.length} photo(s): ${formData.photos.map(p => p.name).join(', ')}` : '';
 			
-			// Log the extracted content
-			console.log('=== EXTRACTED WEB CONTENT ===');
-			console.log(extractedContent);
-			console.log('=============================');
+			const prompt = `You are a social media content creator. Based on the following URLs and photos, create an engaging social media post.
+
+URLs to analyze:
+${urlsText}${photosText}
+
+Please create:
+1. A compelling caption (2-3 sentences)
+2. Relevant hashtags (5-8 hashtags)
+3. A brief description of what the post should be about
+
+Format your response as:
+CAPTION: [your caption here]
+HASHTAGS: [your hashtags here]
+DESCRIPTION: [brief description here]
+
+Make the content engaging, authentic, and suitable for travel/lifestyle social media.`;
+
+			// Call API
+			const token = localStorage.getItem('token') || '';
+			// Use the first available model or fallback to a default
+			const availableModels = $models.filter(m => m.owned_by === 'ollama');
+			const model = availableModels.length > 0 ? availableModels[0].id : 'llama3.2:3b';
 			
-			// Prepare the prompt for qwen2.5:32b model
-			const prompt = `你是一個專業的文本提取專家。請從以下網頁內容中提取最相關的原始文本內容，不要進行任何改寫、總結或解釋，只提取原始相關信息。
-
-網頁內容：
-${extractedContent}${photosText}
-
-請按照以下步驟進行：
-
-1. 識別網頁中的主要相關內容（新聞、文章等）
-2. 提取原始的標題或標頭文字
-3. 提取原始的正文內容
-4. 保持文本的原始格式和用詞，不要修改任何文字
-
-輸出格式：
-標題：[直接提取網頁中的原始標題或主要標頭，不超過30個字，保持原文不變]
-內容：[直接提取網頁中的原始正文內容，保持原文格式，提取最相關的段落，不進行任何改寫或總結]
-
-要求：
-- 只提取最相關的原始文本內容
-- 不要進行任何文字修改、改寫或總結
-- 保持原文的語言和用詞
-- 不要添加任何解釋或分析
-- 不要輸出無關的導航、廣告、版權信息等內容
-- 只輸出標題和內容兩個部分`;
-
-			// Use qwen2.5:32b model specifically
-			const model = 'qwen2.5:32b';
-			
-			console.log('Using model:', model);
+			console.log('Available models:', $models);
+			console.log('Selected model:', model);
 			console.log('Token available:', !!token);
 			
-			generationStatus = 'Generating content with qwen2.5:32b...';
+			generationStatus = 'Generating content with AI...';
 			
 			const response = await generateTextCompletion(token, model, prompt);
 			
@@ -193,28 +132,9 @@ ${extractedContent}${photosText}
 					}
 				}
 				
-				// Log the generated content from qwen2.5:32b
-				console.log('=== GENERATED CONTENT FROM qwen2.5:32b ===');
-				console.log(generatedText);
-				console.log('==========================================');
 				
-				if (generatedText) {
-					// Parse the Chinese response format for console logging
-					const titleMatch = generatedText.match(/標題：\s*(.+?)(?=內容：|$)/s);
-					const contentMatch = generatedText.match(/內容：\s*(.+?)$/s);
-					
-					if (titleMatch && contentMatch) {
-						const chineseTitle = titleMatch[1].trim();
-						const chineseContent = contentMatch[1].trim();
-						
-						// Log the Chinese output to console
-						console.log('=== CHINESE OUTPUT ===');
-						console.log('標題:', chineseTitle);
-						console.log('內容:', chineseContent);
-						console.log('=====================');
-					}
-					
-					// Parse for UI display (fallback to original format)
+				if (generatedText) { 
+
 					const captionMatch = generatedText.match(/CAPTION:\s*(.+?)(?=HASHTAGS:|$)/s);
 					const hashtagsMatch = generatedText.match(/HASHTAGS:\s*(.+?)(?=DESCRIPTION:|$)/s);
 					const descriptionMatch = generatedText.match(/DESCRIPTION:\s*(.+?)$/s);
