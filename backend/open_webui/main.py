@@ -66,6 +66,7 @@ from open_webui.routers import (
     ollama,
     openai,
     googleai,
+    pollinations,
     retrieval,
     pipelines,
     tasks,
@@ -1222,6 +1223,7 @@ app.mount("/ws", socket_app)
 app.include_router(ollama.router, prefix="/ollama", tags=["ollama"])
 app.include_router(openai.router, prefix="/openai", tags=["openai"])
 app.include_router(googleai.router, prefix="/api/v1/googleai", tags=["googleai"])
+app.include_router(pollinations.router, prefix="/api/v1/pollinations", tags=["pollinations"])
 
 
 app.include_router(pipelines.router, prefix="/api/v1/pipelines", tags=["pipelines"])

@@ -4,6 +4,7 @@
  */
 
 import { OllamaAIClient, FlightAIHelper } from './ollamaAI.js';
+import { generateScenicImage, extractDestination } from '$lib/apis/pollinations/index.js';
 
 /**
  * Formats flight data for posting to the blog
@@ -176,10 +177,44 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 	// Generate AI analysis with stage tracking
 	const aiAnalysis = await generateAIFlightAnalysisWithStages(postData, onStageUpdate, modelToUse);
 	
-	// Combine flight data with AI analysis
+	// Generate scenic image for destination
+	let scenicImageUrl = null;
+	if (onStageUpdate) onStageUpdate('generating_scenic_image');
+	
+	try {
+		// Extract destination from flight data or AI analysis
+		let destination = '';
+		if (postData.destination) {
+			destination = postData.destination;
+		} else if (aiAnalysis && aiAnalysis.content) {
+			destination = extractDestination(aiAnalysis.content) || '';
+		}
+		
+		if (destination) {
+			console.log('Generating scenic image for destination:', destination);
+			const token = localStorage.getItem('token') || '';
+			const imageResponse = await generateScenicImage(token, {
+				destination: destination,
+				style: 'realistic',
+				width: 1024,
+				height: 1024
+			});
+			
+			if (imageResponse.success) {
+				scenicImageUrl = imageResponse.image_url;
+				console.log('Scenic image generated successfully:', scenicImageUrl);
+			}
+		}
+	} catch (imageError) {
+		console.error('Error generating scenic image:', imageError);
+		// Continue without image - don't block the flow
+	}
+	
+	// Combine flight data with AI analysis and scenic image
 	const completePostData = {
 		...postData,
 		aiAnalysis: aiAnalysis,
+		scenicImage: scenicImageUrl,
 		modelInfo: modelToUse // Include model information
 	};
 

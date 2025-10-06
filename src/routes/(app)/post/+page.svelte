@@ -16,6 +16,7 @@
 	// Form content state
 	let postContent = '';
 	let postHashtags = '';
+	let scenicImage = null;
 	
 	// Website blog form fields
 	let header = '';
@@ -39,6 +40,11 @@
 			departureDate = flightData.departureDate;
 			flightTime = flightData.flightTime;
 			luggageInfo = flightData.luggageInfo;
+			
+			// Store scenic image if available
+			if (flightData.scenicImage) {
+				scenicImage = flightData.scenicImage;
+			}
 			
 			// Use AI analysis if available, otherwise fallback to defaults
 			if (flightData.aiAnalysis) {
@@ -516,9 +522,19 @@
 								
 								<p class="text-sm mt-2">【預訂網址】<span style="color: #2799d5; text-decoration: underline;">https://hk.trip.com/</span></p>
 								<p class="text-sm mt-2">（覺得抵可Whatsapp同LINE Share俾朋友）</p>
-								<div class="bg-gray-300 h-40 flex items-center justify-center">
-									<p class="text-gray-500">Image</p>
-								</div>
+								{#if scenicImage}
+									<div class="h-40 flex items-center justify-center overflow-hidden">
+										<img
+											src={scenicImage}
+											alt="Scenic destination image"
+											class="w-full h-full object-cover"
+										/>
+									</div>
+								{:else}
+									<div class="bg-gray-300 h-40 flex items-center justify-center">
+										<p class="text-gray-500">Image</p>
+									</div>
+								{/if}
 								<p class="text-sm mt-2">#以上價錢只供參考，或有浮動。如有出入，則以預訂網址為準。以上圖片只供參考。優惠受條款及細則約束，建議預訂前先行細閱</p>
 							</div>
 						</div>
