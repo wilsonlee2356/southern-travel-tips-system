@@ -6,6 +6,7 @@
 
 	import { getOllamaConfig, updateOllamaConfig } from '$lib/apis/ollama';
 	import { getOpenAIConfig, updateOpenAIConfig, getOpenAIModels } from '$lib/apis/openai';
+	import { getGoogleAIConfig, updateGoogleAIConfig, getGoogleAIModels } from '$lib/apis/googleai';
 	import { getModels as _getModels } from '$lib/apis';
 	import { getConnectionsConfig, setConnectionsConfig } from '$lib/apis/configs';
 
@@ -19,6 +20,7 @@
 	import OpenAIConnection from './Connections/OpenAIConnection.svelte';
 	import AddConnectionModal from '$lib/components/AddConnectionModal.svelte';
 	import OllamaConnection from './Connections/OllamaConnection.svelte';
+	import GoogleAIConnection from './Connections/GoogleAIConnection.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -40,14 +42,19 @@
 	let OPENAI_API_BASE_URLS = [''];
 	let OPENAI_API_CONFIGS = {};
 
+	let GOOGLEAI_API_KEYS = [''];
+	let GOOGLEAI_API_CONFIGS = {};
+
 	let ENABLE_OPENAI_API: null | boolean = null;
 	let ENABLE_OLLAMA_API: null | boolean = null;
+	let ENABLE_GOOGLEAI_API: null | boolean = null;
 
 	let connectionsConfig = null;
 
 	let pipelineUrls = {};
 	let showAddOpenAIConnectionModal = false;
 	let showAddOllamaConnectionModal = false;
+	let showAddGoogleAIConnectionModal = false;
 
 	const updateOpenAIHandler = async () => {
 		if (ENABLE_OPENAI_API !== null) {
@@ -106,6 +113,23 @@
 		}
 	};
 
+	const updateGoogleAIHandler = async () => {
+		if (ENABLE_GOOGLEAI_API !== null) {
+			const res = await updateGoogleAIConfig(localStorage.token, {
+				ENABLE_GOOGLEAI_API: ENABLE_GOOGLEAI_API,
+				GOOGLEAI_API_KEYS: GOOGLEAI_API_KEYS,
+				GOOGLEAI_API_CONFIGS: GOOGLEAI_API_CONFIGS
+			}).catch((error) => {
+				toast.error(`${error}`);
+			});
+
+			if (res) {
+				toast.success($i18n.t('Google AI API settings updated'));
+				await models.set(await getModels());
+			}
+		}
+	};
+
 	const updateConnectionsHandler = async () => {
 		const res = await setConnectionsConfig(localStorage.token, connectionsConfig).catch((error) => {
 			toast.error(`${error}`);
@@ -135,10 +159,18 @@
 		await updateOllamaHandler();
 	};
 
+	const addGoogleAIConnectionHandler = async (connection) => {
+		GOOGLEAI_API_KEYS = [...GOOGLEAI_API_KEYS, connection.key];
+		GOOGLEAI_API_CONFIGS[GOOGLEAI_API_KEYS.length - 1] = connection.config;
+
+		await updateGoogleAIHandler();
+	};
+
 	onMount(async () => {
 		if ($user?.role === 'admin') {
 			let ollamaConfig = {};
 			let openaiConfig = {};
+			let googleaiConfig = {};
 
 			await Promise.all([
 				(async () => {
@@ -148,12 +180,16 @@
 					openaiConfig = await getOpenAIConfig(localStorage.token);
 				})(),
 				(async () => {
+					googleaiConfig = await getGoogleAIConfig(localStorage.token);
+				})(),
+				(async () => {
 					connectionsConfig = await getConnectionsConfig(localStorage.token);
 				})()
 			]);
 
 			ENABLE_OPENAI_API = openaiConfig.ENABLE_OPENAI_API;
 			ENABLE_OLLAMA_API = ollamaConfig.ENABLE_OLLAMA_API;
+			ENABLE_GOOGLEAI_API = googleaiConfig.ENABLE_GOOGLEAI_API;
 
 			OPENAI_API_BASE_URLS = openaiConfig.OPENAI_API_BASE_URLS;
 			OPENAI_API_KEYS = openaiConfig.OPENAI_API_KEYS;
@@ -161,6 +197,9 @@
 
 			OLLAMA_BASE_URLS = ollamaConfig.OLLAMA_BASE_URLS;
 			OLLAMA_API_CONFIGS = ollamaConfig.OLLAMA_API_CONFIGS;
+
+			GOOGLEAI_API_KEYS = googleaiConfig.GOOGLEAI_API_KEYS;
+			GOOGLEAI_API_CONFIGS = googleaiConfig.GOOGLEAI_API_CONFIGS;
 
 			if (ENABLE_OPENAI_API) {
 				// get url and idx
@@ -190,12 +229,21 @@
 					}
 				}
 			}
+
+			if (ENABLE_GOOGLEAI_API) {
+				for (const [idx, key] of GOOGLEAI_API_KEYS.entries()) {
+					if (!GOOGLEAI_API_CONFIGS[idx]) {
+						GOOGLEAI_API_CONFIGS[idx] = {};
+					}
+				}
+			}
 		}
 	});
 
 	const submitHandler = async () => {
 		updateOpenAIHandler();
 		updateOllamaHandler();
+		updateGoogleAIHandler();
 
 		dispatch('save');
 	};
@@ -212,9 +260,15 @@
 	onSubmit={addOllamaConnectionHandler}
 />
 
+<AddConnectionModal
+	googleai
+	bind:show={showAddGoogleAIConnectionModal}
+	onSubmit={addGoogleAIConnectionHandler}
+/>
+
 <form class="flex flex-col h-full justify-between text-sm" on:submit|preventDefault={submitHandler}>
 	<div class=" overflow-y-scroll scrollbar-hidden h-full">
-		{#if ENABLE_OPENAI_API !== null && ENABLE_OLLAMA_API !== null && connectionsConfig !== null}
+		{#if ENABLE_OPENAI_API !== null && ENABLE_OLLAMA_API !== null && ENABLE_GOOGLEAI_API !== null && connectionsConfig !== null}
 			<div class="mb-3.5">
 				<div class=" mb-2.5 text-base font-medium">{$i18n.t('General')}</div>
 
@@ -352,6 +406,77 @@
 									target="_blank"
 								>
 									{$i18n.t('Click here for help.')}
+								</a>
+							</div>
+						</div>
+					{/if}
+				</div>
+
+				<div class=" my-2">
+					<div class="flex justify-between items-center text-sm mb-2">
+						<div class="  font-medium">{$i18n.t('Google AI Studio')}</div>
+
+						<div class="mt-1">
+							<Switch
+								bind:state={ENABLE_GOOGLEAI_API}
+								on:change={async () => {
+									updateGoogleAIHandler();
+								}}
+							/>
+						</div>
+					</div>
+
+					{#if ENABLE_GOOGLEAI_API}
+						<div class="">
+							<div class="flex justify-between items-center">
+								<div class="font-medium text-xs">{$i18n.t('Manage Google AI Studio Connections')}</div>
+
+								<Tooltip content={$i18n.t(`Add Connection`)}>
+									<button
+										class="px-1"
+										on:click={() => {
+											showAddGoogleAIConnectionModal = true;
+										}}
+										type="button"
+									>
+										<Plus />
+									</button>
+								</Tooltip>
+							</div>
+
+							<div class="flex w-full gap-1.5">
+								<div class="flex-1 flex flex-col gap-1.5 mt-1.5">
+									{#each GOOGLEAI_API_KEYS as key, idx}
+										<GoogleAIConnection
+											bind:key
+											bind:config={GOOGLEAI_API_CONFIGS[idx]}
+											onSubmit={() => {
+												updateGoogleAIHandler();
+											}}
+											onDelete={() => {
+												GOOGLEAI_API_KEYS = GOOGLEAI_API_KEYS.filter((k, keyIdx) => idx !== keyIdx);
+
+												let newConfig = {};
+												GOOGLEAI_API_KEYS.forEach((k, newIdx) => {
+													newConfig[newIdx] =
+														GOOGLEAI_API_CONFIGS[newIdx < idx ? newIdx : newIdx + 1];
+												});
+												GOOGLEAI_API_CONFIGS = newConfig;
+												updateGoogleAIHandler();
+											}}
+										/>
+									{/each}
+								</div>
+							</div>
+
+							<div class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+								{$i18n.t('Connect to Google AI Studio using your API key from')}
+								<a
+									class=" text-gray-300 font-medium underline"
+									href="https://makersuite.google.com/app/apikey"
+									target="_blank"
+								>
+									{$i18n.t('Google AI Studio')}
 								</a>
 							</div>
 						</div>

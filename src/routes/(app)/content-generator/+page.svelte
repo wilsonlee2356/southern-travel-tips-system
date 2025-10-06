@@ -132,7 +132,6 @@ Make the content engaging, authentic, and suitable for travel/lifestyle social m
 					}
 				}
 				
-				
 				if (generatedText) { 
 
 					const captionMatch = generatedText.match(/CAPTION:\s*(.+?)(?=HASHTAGS:|$)/s);

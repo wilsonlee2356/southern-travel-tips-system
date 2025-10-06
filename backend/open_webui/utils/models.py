@@ -3,6 +3,8 @@ import logging
 import asyncio
 import sys
 
+import aiohttp
+
 from aiocache import cached
 from fastapi import Request
 
@@ -25,7 +27,12 @@ from open_webui.config import (
     DEFAULT_ARENA_MODEL,
 )
 
-from open_webui.env import SRC_LOG_LEVELS, GLOBAL_LOG_LEVEL
+from open_webui.env import (
+    SRC_LOG_LEVELS, 
+    GLOBAL_LOG_LEVEL,
+    AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST,
+    AIOHTTP_CLIENT_SESSION_SSL
+)
 from open_webui.models.users import UserModel
 
 
@@ -56,6 +63,92 @@ async def fetch_openai_models(request: Request, user: UserModel = None):
     return openai_response["data"]
 
 
+async def fetch_googleai_models(request: Request, user: UserModel = None):
+    try:
+        if not getattr(request.app.state.config, 'ENABLE_GOOGLEAI_API', False):
+            return []
+        
+        api_keys = getattr(request.app.state.config, 'GOOGLEAI_API_KEYS', [''])
+        api_configs = getattr(request.app.state.config, 'GOOGLEAI_API_CONFIGS', {})
+        
+        models = []
+        
+        for idx, api_key in enumerate(api_keys):
+            if not api_key:
+                continue
+                
+            config = api_configs.get(str(idx), {})
+            
+            # Check if this connection is enabled
+            if not config.get('enable', True):
+                continue
+                
+            try:
+                async with aiohttp.ClientSession(
+                    trust_env=True,
+                    timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST),
+                ) as session:
+                    # Google AI Studio API uses API key as query parameter, not Bearer token
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+                    async with session.get(
+                        url,
+                        headers={
+                            "Content-Type": "application/json",
+                        },
+                        ssl=AIOHTTP_CLIENT_SESSION_SSL,
+                    ) as r:
+                        if r.status != 200:
+                            try:
+                                error_data = await r.json()
+                                log.error(f"Google AI API error {r.status}: {error_data}")
+                            except:
+                                log.error(f"Google AI API error: {r.status} - {await r.text()}")
+                            continue
+
+                        data = await r.json()
+                        
+                        # Transform Google AI models to OpenAI format
+                        if 'models' in data:
+                            log.info(f"Found {len(data['models'])} Google AI models")
+                            for model in data['models']:
+                                model_name = model.get('name', '')
+                                log.info(f"Processing Google AI model: {model_name}")
+                                # Filter out embedding models and other non-chat models
+                                if 'generateContent' in model.get('supportedGenerationMethods', []):
+                                    model_data = {
+                                        "id": model_name,
+                                        "name": model_name,
+                                        "owned_by": "googleai",
+                                        "googleai": {"id": model_name},
+                                        "urlIdx": idx,
+                                        "object": "model",
+                                        "created": int(time.time()),
+                                        "info": {
+                                            "meta": {
+                                                "description": f"Google AI model: {model_name}",
+                                                "tags": [{"name": "googleai"}, {"name": "gemini"}]
+                                            }
+                                        }
+                                    }
+                                    models.append(model_data)
+                                    
+                                    # Store in app state for chat completion routing
+                                    if not hasattr(request.app.state, 'GOOGLEAI_MODELS'):
+                                        request.app.state.GOOGLEAI_MODELS = {}
+                                    request.app.state.GOOGLEAI_MODELS[model_name] = model_data
+                                    log.info(f"Added Google AI model to state: {model_name}")
+                                else:
+                                    log.info(f"Skipping Google AI model (no generateContent): {model_name}")
+            except Exception as e:
+                log.error(f"Error fetching Google AI models for index {idx}: {e}")
+                continue
+        
+        return models
+    except Exception as e:
+        log.error(f"Error in fetch_googleai_models: {e}")
+        return []
+
+
 async def get_all_base_models(request: Request, user: UserModel = None):
     openai_task = (
         fetch_openai_models(request, user)
@@ -67,13 +160,18 @@ async def get_all_base_models(request: Request, user: UserModel = None):
         if request.app.state.config.ENABLE_OLLAMA_API
         else asyncio.sleep(0, result=[])
     )
+    googleai_task = (
+        fetch_googleai_models(request, user)
+        if getattr(request.app.state.config, 'ENABLE_GOOGLEAI_API', False)
+        else asyncio.sleep(0, result=[])
+    )
     function_task = get_function_models(request)
 
-    openai_models, ollama_models, function_models = await asyncio.gather(
-        openai_task, ollama_task, function_task
+    openai_models, ollama_models, googleai_models, function_models = await asyncio.gather(
+        openai_task, ollama_task, googleai_task, function_task
     )
 
-    return function_models + openai_models + ollama_models
+    return function_models + openai_models + ollama_models + googleai_models
 
 
 async def get_all_models(request, refresh: bool = False, user: UserModel = None):

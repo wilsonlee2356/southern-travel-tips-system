@@ -65,6 +65,7 @@ from open_webui.routers import (
     images,
     ollama,
     openai,
+    googleai,
     retrieval,
     pipelines,
     tasks,
@@ -115,6 +116,10 @@ from open_webui.config import (
     OPENAI_API_BASE_URLS,
     OPENAI_API_KEYS,
     OPENAI_API_CONFIGS,
+    # Google AI
+    ENABLE_GOOGLEAI_API,
+    GOOGLEAI_API_KEYS,
+    GOOGLEAI_API_CONFIGS,
     # Direct Connections
     ENABLE_DIRECT_CONNECTIONS,
     # Model list
@@ -637,6 +642,18 @@ app.state.config.OPENAI_API_KEYS = OPENAI_API_KEYS
 app.state.config.OPENAI_API_CONFIGS = OPENAI_API_CONFIGS
 
 app.state.OPENAI_MODELS = {}
+
+########################################
+#
+# GOOGLE AI
+#
+########################################
+
+app.state.config.ENABLE_GOOGLEAI_API = ENABLE_GOOGLEAI_API
+app.state.config.GOOGLEAI_API_KEYS = GOOGLEAI_API_KEYS
+app.state.config.GOOGLEAI_API_CONFIGS = GOOGLEAI_API_CONFIGS
+
+app.state.GOOGLEAI_MODELS = {}
 
 ########################################
 #
@@ -1204,6 +1221,7 @@ app.mount("/ws", socket_app)
 
 app.include_router(ollama.router, prefix="/ollama", tags=["ollama"])
 app.include_router(openai.router, prefix="/openai", tags=["openai"])
+app.include_router(googleai.router, prefix="/api/v1/googleai", tags=["googleai"])
 
 
 app.include_router(pipelines.router, prefix="/api/v1/pipelines", tags=["pipelines"])

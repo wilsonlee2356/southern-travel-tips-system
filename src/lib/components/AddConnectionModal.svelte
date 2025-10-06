@@ -6,6 +6,7 @@
 	import { settings } from '$lib/stores';
 	import { verifyOpenAIConnection } from '$lib/apis/openai';
 	import { verifyOllamaConnection } from '$lib/apis/ollama';
+	import { verifyGoogleAIConnection } from '$lib/apis/googleai';
 
 	import Modal from '$lib/components/common/Modal.svelte';
 	import Plus from '$lib/components/icons/Plus.svelte';
@@ -25,6 +26,7 @@
 	export let edit = false;
 
 	export let ollama = false;
+	export let googleai = false;
 	export let direct = false;
 
 	export let connection = null;
@@ -91,8 +93,31 @@
 	const verifyHandler = () => {
 		if (ollama) {
 			verifyOllamaHandler();
+		} else if (googleai) {
+			verifyGoogleAIHandler();
 		} else {
 			verifyOpenAIHandler();
+		}
+	};
+
+	const verifyGoogleAIHandler = async () => {
+		if (!key) {
+			toast.error($i18n.t('API Key is required'));
+			return;
+		}
+
+		const res = await verifyGoogleAIConnection(
+			localStorage.token,
+			{
+				url: 'https://generativelanguage.googleapis.com/v1beta',
+				key
+			}
+		).catch((error) => {
+			toast.error(`${error}`);
+		});
+
+		if (res) {
+			toast.success($i18n.t('Google AI Studio connection verified'));
 		}
 	};
 
@@ -106,9 +131,15 @@
 	const submitHandler = async () => {
 		loading = true;
 
-		if (!ollama && !url) {
+		if (!ollama && !googleai && !url) {
 			loading = false;
 			toast.error('URL is required');
+			return;
+		}
+
+		if (googleai && !key) {
+			loading = false;
+			toast.error('API Key is required for Google AI Studio');
 			return;
 		}
 
@@ -134,11 +165,13 @@
 			}
 		}
 
-		// remove trailing slash from url
-		url = url.replace(/\/$/, '');
+		// remove trailing slash from url (except for Google AI)
+		if (!googleai) {
+			url = url.replace(/\/$/, '');
+		}
 
 		const connection = {
-			url,
+			url: googleai ? 'https://generativelanguage.googleapis.com/v1beta' : url,
 			key,
 			config: {
 				enable: enable,
@@ -146,7 +179,7 @@
 				prefix_id: prefixId,
 				model_ids: modelIds,
 				connection_type: connectionType,
-				...(!ollama && azure ? { azure: true, api_version: apiVersion } : {})
+				...(!ollama && !googleai && azure ? { azure: true, api_version: apiVersion } : {})
 			}
 		};
 
@@ -172,13 +205,15 @@
 			prefixId = connection.config?.prefix_id ?? '';
 			modelIds = connection.config?.model_ids ?? [];
 
-			if (ollama) {
-				connectionType = connection.config?.connection_type ?? 'local';
-			} else {
-				connectionType = connection.config?.connection_type ?? 'external';
-				azure = connection.config?.azure ?? false;
-				apiVersion = connection.config?.api_version ?? '';
-			}
+		if (ollama) {
+			connectionType = connection.config?.connection_type ?? 'local';
+		} else if (googleai) {
+			connectionType = connection.config?.connection_type ?? 'external';
+		} else {
+			connectionType = connection.config?.connection_type ?? 'external';
+			azure = connection.config?.azure ?? false;
+			apiVersion = connection.config?.api_version ?? '';
+		}
 		}
 	};
 
@@ -222,7 +257,7 @@
 					}}
 				>
 					<div class="px-1">
-						{#if !direct}
+						{#if !direct && !googleai}
 							<div class="flex gap-2">
 								<div class="flex w-full justify-between items-center">
 									<div class=" text-xs text-gray-500">{$i18n.t('Connection Type')}</div>
@@ -256,15 +291,26 @@
 								>
 
 								<div class="flex-1">
-									<input
-										id="url-input"
-										class={`w-full text-sm bg-transparent ${($settings?.highContrastMode ?? false) ? 'placeholder:text-gray-700 dark:placeholder:text-gray-100' : 'outline-hidden placeholder:text-gray-300 dark:placeholder:text-gray-700'}`}
-										type="text"
-										bind:value={url}
-										placeholder={$i18n.t('API Base URL')}
-										autocomplete="off"
-										required
-									/>
+									{#if googleai}
+										<input
+											id="url-input"
+											class={`w-full text-sm bg-transparent ${($settings?.highContrastMode ?? false) ? 'placeholder:text-gray-700 dark:placeholder:text-gray-100' : 'outline-hidden placeholder:text-gray-300 dark:placeholder:text-gray-700'}`}
+											type="text"
+											value="https://generativelanguage.googleapis.com/v1beta"
+											disabled
+											readonly
+										/>
+									{:else}
+										<input
+											id="url-input"
+											class={`w-full text-sm bg-transparent ${($settings?.highContrastMode ?? false) ? 'placeholder:text-gray-700 dark:placeholder:text-gray-100' : 'outline-hidden placeholder:text-gray-300 dark:placeholder:text-gray-700'}`}
+											type="text"
+											bind:value={url}
+											placeholder={$i18n.t('API Base URL')}
+											autocomplete="off"
+											required
+										/>
+									{/if}
 								</div>
 							</div>
 
@@ -446,6 +492,8 @@
 										{$i18n.t('Leave empty to include all models from "{{url}}/api/tags" endpoint', {
 											url: url
 										})}
+									{:else if googleai}
+										{$i18n.t('Leave empty to include all models from Google AI Studio')}
 									{:else if azure}
 										{$i18n.t('Deployment names are required for Azure OpenAI')}
 										<!-- {$i18n.t('Leave empty to include all models from "{{url}}" endpoint', {

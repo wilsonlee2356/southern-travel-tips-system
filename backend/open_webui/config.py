@@ -982,7 +982,32 @@ OPENAI_API_CONFIGS = PersistentConfig(
     {},
 )
 
-# Get the actual OpenAI API key based on the base URL
+####################################
+# GOOGLE_AI_API
+####################################
+
+ENABLE_GOOGLEAI_API = PersistentConfig(
+    "ENABLE_GOOGLEAI_API",
+    "googleai.enable",
+    os.environ.get("ENABLE_GOOGLEAI_API", "False").lower() == "true",
+)
+
+GOOGLEAI_API_KEY = os.environ.get("GOOGLEAI_API_KEY", "")
+GOOGLEAI_API_KEYS = os.environ.get("GOOGLEAI_API_KEYS", "")
+GOOGLEAI_API_KEYS = GOOGLEAI_API_KEYS if GOOGLEAI_API_KEYS != "" else GOOGLEAI_API_KEY
+
+GOOGLEAI_API_KEYS = [url.strip() for url in GOOGLEAI_API_KEYS.split(";")]
+GOOGLEAI_API_KEYS = PersistentConfig(
+    "GOOGLEAI_API_KEYS", "googleai.api_keys", GOOGLEAI_API_KEYS
+)
+
+GOOGLEAI_API_CONFIGS = PersistentConfig(
+    "GOOGLEAI_API_CONFIGS",
+    "googleai.api_configs",
+    {},
+)
+
+# Get the actual Google AI API key based on the base URL
 OPENAI_API_KEY = ""
 try:
     OPENAI_API_KEY = OPENAI_API_KEYS.value[
