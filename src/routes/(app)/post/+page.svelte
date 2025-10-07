@@ -44,6 +44,11 @@
 			// Store scenic image if available
 			if (flightData.scenicImage) {
 				scenicImage = flightData.scenicImage;
+				console.log('Scenic image loaded in post page:', {
+					isBase64: scenicImage.startsWith('data:image'),
+					isEdited: scenicImage.startsWith('data:image'),
+					imageType: scenicImage.startsWith('data:image') ? 'Edited (base64)' : 'Original (URL)'
+				});
 			}
 			
 			// Use AI analysis if available, otherwise fallback to defaults
@@ -523,11 +528,12 @@
 								<p class="text-sm mt-2">【預訂網址】<span style="color: #2799d5; text-decoration: underline;">https://hk.trip.com/</span></p>
 								<p class="text-sm mt-2">（覺得抵可Whatsapp同LINE Share俾朋友）</p>
 								{#if scenicImage}
-									<div class="h-40 flex items-center justify-center overflow-hidden">
+									<div class="flex items-center justify-center overflow-hidden relative">
 										<img
 											src={scenicImage}
-											alt="Scenic destination image"
-											class="w-full h-full object-cover"
+											alt="Scenic destination image with promotional banner"
+											class="w-full h-auto object-contain"
+											style="max-height: 400px;"
 										/>
 									</div>
 								{:else}

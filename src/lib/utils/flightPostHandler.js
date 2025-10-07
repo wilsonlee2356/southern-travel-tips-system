@@ -193,16 +193,30 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 		if (destination) {
 			console.log('Generating scenic image for destination:', destination);
 			const token = localStorage.getItem('token') || '';
+			console.log('About to call generateScenicImage with:', {
+				destination: destination,
+				style: 'realistic',
+				width: 1024,
+				height: 1024
+			});
 			const imageResponse = await generateScenicImage(token, {
 				destination: destination,
 				style: 'realistic',
 				width: 1024,
 				height: 1024
 			});
+			console.log('Raw imageResponse received:', imageResponse);
 			
 			if (imageResponse.success) {
-				scenicImageUrl = imageResponse.image_url;
-				console.log('Scenic image generated successfully:', scenicImageUrl);
+				// Use the edited base64 image if available, otherwise fall back to URL
+				scenicImageUrl = imageResponse.image_base64 || imageResponse.image_url;
+				console.log('Scenic image generated successfully:', {
+					edited: imageResponse.edited,
+					hasBase64: !!imageResponse.image_base64,
+					hasUrl: !!imageResponse.image_url,
+					usingBase64: !!imageResponse.image_base64,
+					response: imageResponse
+				});
 			}
 		}
 	} catch (imageError) {
