@@ -284,6 +284,9 @@ async def generate_chat_completion(
                 bypass_filter=bypass_filter,
             )
         else:
+            log.info(f"🔍 Routing to OpenAI - form_data keys: {list(form_data.keys())}")
+            if "knowledge" in form_data:
+                log.warning(f"⚠️ WARNING: 'knowledge' parameter still in form_data before OpenAI call!")
             return await generate_openai_chat_completion(
                 request=request,
                 form_data=form_data,

@@ -788,8 +788,33 @@ async def process_chat_payload(request, form_data, user, metadata, model):
 
     # Model "Knowledge" handling
     user_message = get_last_user_message(form_data["messages"])
+    
+    # Check for knowledge from multiple sources:
+    # 1. Model metadata (configured in model settings)
+    # 2. Request parameter (sent from frontend with knowledge UUID)
     model_knowledge = model.get("info", {}).get("meta", {}).get("knowledge", False)
-
+    request_knowledge_uuid = form_data.pop("knowledge", None)
+    
+    log.info(f"🔍 Knowledge processing - UUID from request: {request_knowledge_uuid}")
+    log.info(f"🔍 Knowledge processing - Model knowledge: {model_knowledge}")
+    log.info(f"🔍 Form data keys after popping knowledge: {list(form_data.keys())}")
+    
+    # If frontend sends a knowledge UUID, use it
+    if request_knowledge_uuid and not model_knowledge:
+        # Convert UUID to knowledge file format
+        try:
+            from open_webui.models.knowledge import Knowledges
+            knowledge_item = Knowledges.get_knowledge_by_id(request_knowledge_uuid)
+            if knowledge_item:
+                model_knowledge = [{
+                    "id": knowledge_item.id,
+                    "name": knowledge_item.name,
+                    "collection_name": knowledge_item.id
+                }]
+                log.info(f"📚 Using knowledge from request: {knowledge_item.name} ({request_knowledge_uuid})")
+        except Exception as e:
+            log.warning(f"Failed to load knowledge from request UUID: {e}")
+    
     if model_knowledge:
         await event_emitter(
             {
@@ -995,22 +1020,48 @@ async def process_chat_payload(request, form_data, user, metadata, model):
                     f"With a 0 relevancy threshold for RAG, the context cannot be empty"
                 )
         else:
+            # Generate the RAG-enhanced prompt
+            rag_enhanced_prompt = rag_template(
+                request.app.state.config.RAG_TEMPLATE, context_string, prompt
+            )
+            
+            # ===== LOG THE COMPLETE RAG-ENHANCED PROMPT =====
+            log.info("=" * 80)
+            log.info("📚 RAG-ENHANCED PROMPT (Full prompt with knowledge context):")
+            log.info("=" * 80)
+            log.info("🔹 Original User Prompt:")
+            log.info(prompt)
+            log.info("-" * 80)
+            log.info("🔹 Knowledge Context Retrieved:")
+            log.info(context_string)
+            log.info("-" * 80)
+            log.info("🔹 FINAL COMBINED PROMPT (RAG Template Applied):")
+            log.info(rag_enhanced_prompt)
+            log.info("=" * 80)
+            
             # Workaround for Ollama 2.0+ system prompt issue
             # TODO: replace with add_or_update_system_message
             if model.get("owned_by") == "ollama":
                 form_data["messages"] = prepend_to_first_user_message_content(
-                    rag_template(
-                        request.app.state.config.RAG_TEMPLATE, context_string, prompt
-                    ),
+                    rag_enhanced_prompt,
                     form_data["messages"],
                 )
             else:
                 form_data["messages"] = add_or_update_system_message(
-                    rag_template(
-                        request.app.state.config.RAG_TEMPLATE, context_string, prompt
-                    ),
+                    rag_enhanced_prompt,
                     form_data["messages"],
                 )
+            
+            # ===== LOG THE FINAL MESSAGES ARRAY (EXACT FORMAT SENT TO AI) =====
+            log.info("🎯" + "=" * 79)
+            log.info("🎯 EXACT MESSAGES SENT TO AI MODEL (final format, no preprocessing tags):")
+            log.info("🎯" + "=" * 79)
+            for idx, msg in enumerate(form_data["messages"]):
+                log.info(f"🎯 Message {idx + 1} - Role: {msg.get('role', 'unknown')}")
+                log.info(f"🎯 Content:")
+                log.info(msg.get('content', ''))
+                log.info("🎯" + "-" * 79)
+            log.info("🎯" + "=" * 79)
 
     # If there are citations, add them to the data_items
     sources = [

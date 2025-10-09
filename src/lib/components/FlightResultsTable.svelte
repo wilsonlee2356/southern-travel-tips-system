@@ -19,6 +19,7 @@
 	export let selectedMergedModel = null;
 	export let selectedRAGModel = null;
 	export let selectedBaseModel = null;
+	export let selectedModel = null; // For any model (including external APIs)
 	
 	// Adapter selection state
 	let availableAdapters = [];
@@ -93,13 +94,21 @@
 		selectedMergedModel = null;
 		selectedRAGModel = null;
 		selectedBaseModel = null;
+		selectedModel = null;
 		
-		if (!selectedValue) return;
+		if (!selectedValue || selectedValue === 'separator') return;
 		
 		// Parse the selection type and value
-		const [type, value] = selectedValue.split(':');
+		const [type, value] = selectedValue.split(':', 2);
 		
 		switch (type) {
+			case 'model':
+				// Select any model (including external APIs like Gemini)
+				const fullModelId = selectedValue.substring(6); // Remove 'model:' prefix
+				selectedModel = ($models || []).find(m => m.id === fullModelId) || null;
+				console.log('Selected model:', selectedModel);
+				break;
+				
 			case 'base':
 				selectedBaseModel = value;
 				// Always apply RAG if available
@@ -138,12 +147,24 @@
 		// This function is kept for compatibility but not used
 	}
 	
-	// Combined AI model options - include base models, adapters, and RAG models
+	// Combined AI model options - include ALL models (Ollama, external APIs like Gemini, etc.)
 	$: aiModelOptions = [
+		// All available models from the models store (includes Ollama, OpenAI, Google AI, etc.)
+		...($models || []).map(model => ({
+			value: `model:${model.id}`,
+			label: `${model.name || model.id}${model.owned_by && model.owned_by !== 'ollama' ? ` (${model.owned_by})` : ''}`,
+			type: 'all_models',
+			modelId: model.id,
+			ownedBy: model.owned_by
+		})),
+		
+		// Separator for advanced options
+		{ value: 'separator', label: '──────────────', type: 'separator', disabled: true },
+		
 		// Base model with RAG (if available)
 		{ 
 			value: 'base:qwen2.5:14b', 
-			label: 'Qwen2.5 14B + RAG', 
+			label: '🔧 Qwen2.5 14B + RAG (Advanced)', 
 			type: 'base_with_rag',
 			hasRAG: availableRAGModels.length > 0
 		},
@@ -151,7 +172,7 @@
 		// Show available adapters
 		...availableAdapters.map(adapter => ({
 			value: `adapter:${adapter.export_id}`,
-			label: `${adapter.adapter_name} (Adapter)`,
+			label: `🔧 ${adapter.adapter_name} (Adapter)`,
 			type: 'adapter',
 			hasRAG: false
 		})),
@@ -159,14 +180,15 @@
 		// Show RAG models that are already created
 		...availableRAGModels.map(ragModel => ({
 			value: `rag:${ragModel.rag_model_name}`,
-			label: `${ragModel.adapter_name} + RAG (${new Date(ragModel.created_at).toLocaleString()})`,
+			label: `🔧 ${ragModel.adapter_name} + RAG (${new Date(ragModel.created_at).toLocaleString()})`,
 			type: 'rag_model',
 			ragModel: ragModel
 		}))
 	];
 	
 	// Get current selected value for the dropdown
-	$: currentSelectedValue = selectedBaseModel ? `base:${selectedBaseModel}` :
+	$: currentSelectedValue = selectedModel ? `model:${selectedModel.id}` :
+		selectedBaseModel ? `base:${selectedBaseModel}` :
 		selectedAdapter ? `adapter:${selectedAdapter.export_id}` :
 		selectedRAGModel ? `rag:${selectedRAGModel.rag_model_name}` : '';
 
@@ -666,10 +688,10 @@
 							disabled={isLoadingAdapters || isPosting}
 							value={currentSelectedValue}
 						>
-							<option value="">Select AI Model...</option>
-							{#each aiModelOptions as option}
-								<option value={option.value}>{option.label}</option>
-							{/each}
+						<option value="">Select AI Model...</option>
+						{#each aiModelOptions as option}
+							<option value={option.value} disabled={option.disabled || false}>{option.label}</option>
+						{/each}
 						</select>
 					</div>
 					
@@ -680,7 +702,12 @@
 								Selected Model
 							</div>
 							<div class="px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-sm">
-								{#if selectedBaseModel}
+								{#if selectedModel}
+									<span class="text-gray-600 dark:text-gray-300">Model: <strong>{selectedModel.name || selectedModel.id}</strong></span>
+									{#if selectedModel.owned_by && selectedModel.owned_by !== 'ollama'}
+										<br><span class="text-indigo-600 dark:text-indigo-400">Provider: <strong>{selectedModel.owned_by}</strong></span>
+									{/if}
+								{:else if selectedBaseModel}
 									<span class="text-gray-600 dark:text-gray-300">Base Model: <strong>{selectedBaseModel}</strong></span>
 									{#if selectedRAGModel}
 										<br><span class="text-blue-600 dark:text-blue-400">+ RAG: <strong>{selectedRAGModel.rag_model_name}</strong></span>
@@ -718,7 +745,7 @@
 				<!-- Post Button -->
 				<button
 					class="bg-black hover:bg-gray-800 text-white font-medium py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-					disabled={isPosting || (!selectedRAGModel && !selectedBaseModel && !selectedAdapter)}
+					disabled={isPosting || (!selectedRAGModel && !selectedBaseModel && !selectedAdapter && !selectedModel)}
 					on:click={onPost}
 				>
 					{#if isPosting}
@@ -745,9 +772,11 @@
 			</div>
 			
 			<!-- Selection info -->
-			{#if selectedRAGModel || selectedBaseModel}
+			{#if selectedModel || selectedRAGModel || selectedBaseModel}
 				<div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-					{#if selectedRAGModel}
+					{#if selectedModel}
+						Using model: <span class="font-medium">{selectedModel.name || selectedModel.id}</span>
+					{:else if selectedRAGModel}
 						Using RAG model: <span class="font-medium">{selectedRAGModel.adapter_name} + RAG</span>
 					{:else if selectedBaseModel}
 						Using base model: <span class="font-medium">{selectedBaseModel}</span> with RAG

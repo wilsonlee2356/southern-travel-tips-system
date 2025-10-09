@@ -37,6 +37,7 @@
 	let selectedRAGModel = null;
 	let selectedBaseModel = null;
 	let selectedAdapter = null;
+	let selectedModel = null; // For any model (including external APIs)
 
 	// Initialize with all flights on page load
 	$: if (typeof window !== 'undefined') {
@@ -432,7 +433,7 @@
 			return;
 		}
 		
-		if (!selectedRAGModel && !selectedBaseModel && !selectedAdapter) {
+		if (!selectedRAGModel && !selectedBaseModel && !selectedAdapter && !selectedModel) {
 			alert('Please select an AI model to use for content generation');
 			return;
 		}
@@ -443,10 +444,20 @@
 		try {
 			const selectedFlightData = searchResults.filter(flight => selectedFlights.has(flight.id));
 			
-			// Handle adapter merging if needed
+			// Handle model selection
 			let modelToUse = null;
 			
-			if (selectedBaseModel) {
+			if (selectedModel) {
+				// Use any selected model (including external APIs like Gemini)
+				modelToUse = {
+					id: selectedModel.id,
+					name: selectedModel.name || selectedModel.id,
+					owned_by: selectedModel.owned_by,
+					is_external_model: selectedModel.owned_by && selectedModel.owned_by !== 'ollama'
+				};
+				aiStage = 'stage1';
+				console.log('Using selected model:', modelToUse);
+			} else if (selectedBaseModel) {
 				// Use base model with RAG (if available)
 				modelToUse = {
 					ollama_model_name: selectedBaseModel,
@@ -456,36 +467,36 @@
 					rag_model: selectedRAGModel
 				};
 				aiStage = 'stage1';
-		} else if (selectedAdapter) {
-			// Use adapter - create a model reference for the RAG model that should exist
-			aiStage = 'stage1';
-			console.log('Using adapter:', selectedAdapter);
-			
-			// Create the expected RAG model name based on the adapter export ID
-			const expectedRAGModelName = `${selectedAdapter.export_id}_rag_ollama:latest`;
-			console.log('Expected RAG model name:', expectedRAGModelName);
-			
-			modelToUse = {
-				rag_model_name: `${selectedAdapter.export_id}_rag`,
-				ollama_model_name: expectedRAGModelName,
-				adapter_name: selectedAdapter.adapter_name,
-				base_model: 'qwen2.5:14b',
-				export_id: selectedAdapter.export_id,
-				is_adapter_rag: true
-			};
-		} else if (selectedRAGModel) {
-			// Use already-merged RAG model
-			aiStage = 'stage1';
-			console.log('Using existing RAG model:', selectedRAGModel);
-			
-			modelToUse = {
-				rag_model_name: selectedRAGModel.rag_model_name,
-				ollama_model_name: selectedRAGModel.ollama_model_name,
-				adapter_name: selectedRAGModel.adapter_name,
-				base_model: selectedRAGModel.base_model,
-				rag_model: selectedRAGModel
-			};
-		}
+			} else if (selectedAdapter) {
+				// Use adapter - create a model reference for the RAG model that should exist
+				aiStage = 'stage1';
+				console.log('Using adapter:', selectedAdapter);
+				
+				// Create the expected RAG model name based on the adapter export ID
+				const expectedRAGModelName = `${selectedAdapter.export_id}_rag_ollama:latest`;
+				console.log('Expected RAG model name:', expectedRAGModelName);
+				
+				modelToUse = {
+					rag_model_name: `${selectedAdapter.export_id}_rag`,
+					ollama_model_name: expectedRAGModelName,
+					adapter_name: selectedAdapter.adapter_name,
+					base_model: 'qwen2.5:14b',
+					export_id: selectedAdapter.export_id,
+					is_adapter_rag: true
+				};
+			} else if (selectedRAGModel) {
+				// Use already-merged RAG model
+				aiStage = 'stage1';
+				console.log('Using existing RAG model:', selectedRAGModel);
+				
+				modelToUse = {
+					rag_model_name: selectedRAGModel.rag_model_name,
+					ollama_model_name: selectedRAGModel.ollama_model_name,
+					adapter_name: selectedRAGModel.adapter_name,
+					base_model: selectedRAGModel.base_model,
+					rag_model: selectedRAGModel
+				};
+			}
 			
 			// Use the flight post handler to navigate to Post page with data and AI analysis
 			await navigateToPostWithFlightData(selectedFlightData, goto, (stage) => {
@@ -763,18 +774,19 @@
 
 			<!-- Search Results -->
 			{#if searchResults.length > 0}
-				<FlightResultsTable
-					flights={searchResults}
-					{selectedFlights}
-					onToggleFlight={toggleFlightSelection}
-					onToggleSelectAll={toggleSelectAll}
-					onPost={handlePost}
-					{isPosting}
-					{aiStage}
-					bind:selectedRAGModel
-					bind:selectedBaseModel
-					bind:selectedAdapter
-				/>
+			<FlightResultsTable
+				flights={searchResults}
+				{selectedFlights}
+				onToggleFlight={toggleFlightSelection}
+				onToggleSelectAll={toggleSelectAll}
+				onPost={handlePost}
+				{isPosting}
+				{aiStage}
+				bind:selectedRAGModel
+				bind:selectedBaseModel
+				bind:selectedAdapter
+				bind:selectedModel
+			/>
 			{:else}
 				<!-- No Results -->
 				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">

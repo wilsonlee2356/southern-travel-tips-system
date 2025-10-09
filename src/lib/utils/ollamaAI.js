@@ -73,6 +73,16 @@ export class OllamaAIClient {
 	 */
 	async generateResponse(prompt, options = {}) {
 		const modelToUse = options.model || this.config.model;
+		
+		// Detect if this is an external model (non-Ollama)
+		// External models like GPT-4, Gemini don't support the 'knowledge' parameter
+		// They get RAG context injected directly into the prompt by the backend middleware
+		const isExternalModel = modelToUse.startsWith('gpt-') || 
+		                        modelToUse.startsWith('models/gemini-') || 
+		                        modelToUse.includes('gemini-') ||
+		                        modelToUse.startsWith('claude-') ||
+		                        !modelToUse.includes(':'); // Ollama models usually have : like qwen2.5:14b
+		
 		const requestOptions = {
 			model: modelToUse,
 			messages: [
@@ -82,12 +92,22 @@ export class OllamaAIClient {
 				}
 			],
 			stream: false,
-			knowledge: this.config.knowledgeUUID,
 			temperature: options.temperature || 0.7,
 			top_p: options.top_p || 0.9,
 			max_tokens: options.max_tokens || 1000,
 			...options.ollamaOptions
 		};
+		
+		// Add knowledge UUID for ALL models (Ollama and external)
+		// The backend middleware will use this to inject RAG context
+		if (this.config.knowledgeUUID) {
+			requestOptions.knowledge = this.config.knowledgeUUID;
+			if (isExternalModel) {
+				console.log('🌐 External model detected - sending knowledge UUID for backend RAG injection');
+			} else {
+				console.log('📚 Adding RAG knowledge UUID for Ollama model');
+			}
+		}
 
 		// Add adapter information to metadata if provided
 		if (options.adapterInfo) {
@@ -97,6 +117,18 @@ export class OllamaAIClient {
 			console.log('🔧 Adding adapter info to metadata:', options.adapterInfo);
 		}
 
+		// ===== LOG THE COMPLETE PROMPT BEING SENT =====
+		console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+		console.log('📝 COMPLETE PROMPT BEING SENT TO AI:');
+		console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+		console.log(prompt);
+		console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+		console.log('📋 RAG Knowledge UUID:', this.config.knowledgeUUID);
+		console.log('🤖 Model:', modelToUse);
+		console.log('🌡️ Temperature:', requestOptions.temperature);
+		console.log('📊 Max Tokens:', requestOptions.max_tokens);
+		console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
 		// Enhanced logging for debugging
 		console.log('🔍 OllamaAIClient.generateResponse() called:');
 		console.log('  📍 Base URL:', this.config.baseUrl);
@@ -104,6 +136,7 @@ export class OllamaAIClient {
 		console.log('  🔧 Options passed:', options);
 		console.log('  📋 Full request options:', requestOptions);
 		console.log('  🌐 Full URL:', `${this.config.baseUrl}/api/v1/chat/completions`);
+		console.log('  📦 Request body:', JSON.stringify(requestOptions, null, 2));
 
 		// Test if the model exists first
 		try {
@@ -572,7 +605,7 @@ Use your knowledge base to provide accurate airline information and route insigh
 	 * @returns {Promise<string>} Initial AI analysis JSON
 	 */
 	async generateInitialFlightAnalysis(flightData) {
-		const prompt = `根據已選機票資料和指引的格式,並根據指引分別生成目的地,標題,評論和總結,任何日期必須以中文形式年月日.重要!評論只能在三十字以內,而總結能夠長約一百字.這些都必須是繁體中文廣東話語氣.你的輸出必須只能有Json,絕對不能有任何文字,符號或回應在前後.Json格式內只能有"destination","header","short_comment"和"summary".Json內不能有任何換行,以下是Json例子
+		const prompt = `根據機票資料和flyagainla tone guide, 生成destination,header,short_comment和summary.重要!評論只能在三十字以內,而總結能夠長約一百字.這些都必須是繁體中文廣東話語氣.你的輸出必須只能有Json,絕對不能有任何文字,符號或回應在前後.Json格式內只能有"destination","header","short_comment"和"summary".Json內不能有任何換行,以下是Json例子
 						{
 							"destination": "美國",
 							"header": "創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
@@ -589,6 +622,13 @@ Use your knowledge base to provide accurate airline information and route insigh
 						出發日期：${flightData.departureDate}
 						出發時間：${flightData.flightTime}
 						行李資訊：${flightData.luggageInfo}]`;
+
+		// ===== LOG THE CONSTRUCTED PROMPT BEFORE SENDING =====
+		console.log('🎯 ═══════════════════════════════════════════════════════════');
+		console.log('🎯 FLIGHT ANALYSIS PROMPT (with flight data filled in):');
+		console.log('🎯 ═══════════════════════════════════════════════════════════');
+		console.log(prompt);
+		console.log('🎯 ═══════════════════════════════════════════════════════════');
 
 		return await this.client.generateResponse(prompt, {
 			temperature: 0.4, // Balanced creativity and accuracy

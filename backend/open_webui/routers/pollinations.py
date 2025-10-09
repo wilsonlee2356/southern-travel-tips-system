@@ -233,11 +233,37 @@ async def generate_scenic_image(
                         log.warning("PIL not available, using original image")
                         edited_image_data = image_data
                     
-                    # Return the edited image as base64
+                    # Load flight info image from file
+                    flight_info_image_base64 = None
+                    try:
+                        # Go up from backend/open_webui/routers/pollinations.py to project root
+                        flight_info_path = Path(__file__).parent.parent.parent.parent / "flight_info_screenshot.png"
+                        if flight_info_path.exists():
+                            with open(flight_info_path, "rb") as f:
+                                flight_info_data = f.read()
+                                
+                                # Add text overlay to flight info image
+                                if PIL_AVAILABLE:
+                                    try:
+                                        flight_info_data = _add_text_to_flight_info(flight_info_data)
+                                        log.info("Successfully added text to flight info image")
+                                    except Exception as e:
+                                        log.error(f"Failed to add text to flight info image: {e}")
+                                        # Continue with original image if text addition fails
+                                
+                                flight_info_image_base64 = f"data:image/png;base64,{base64.b64encode(flight_info_data).decode()}"
+                                log.info(f"Loaded flight info image: {flight_info_path}")
+                        else:
+                            log.warning(f"Flight info image not found: {flight_info_path}")
+                    except Exception as e:
+                        log.error(f"Failed to load flight info image: {e}")
+                    
+                    # Return both images as base64
                     return JSONResponse(content={
                         "success": True,
                         "image_url": full_url,
                         "image_base64": f"data:image/jpeg;base64,{base64.b64encode(edited_image_data).decode()}",
+                        "flight_info_image_base64": flight_info_image_base64,
                         "destination": original_destination,
                         "destination_en": destination_en,
                         "prompt": scenic_prompt,
@@ -611,6 +637,193 @@ async def edit_image(
             status_code=500,
             detail=f"Error editing image: {str(e)}"
         )
+
+def _load_chinese_font(font_size: int):
+    """
+    Load a Chinese-compatible font with the specified size
+    Returns the font object or default font if none found
+    """
+    font_paths = [
+        # Windows fonts
+        "C:/Windows/Fonts/msyh.ttc",  # Microsoft YaHei
+        "C:/Windows/Fonts/msyhbd.ttc",  # Microsoft YaHei Bold
+        "C:/Windows/Fonts/simsun.ttc",  # SimSun
+        "C:/Windows/Fonts/simhei.ttf",  # SimHei
+        "C:/Windows/Fonts/msjh.ttc",  # Microsoft JhengHei
+        # Linux fonts
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        "/usr/share/fonts/truetype/arphic/uming.ttc",
+        # WSL Windows fonts access
+        "/mnt/c/Windows/Fonts/msyh.ttc",
+        "/mnt/c/Windows/Fonts/msyhbd.ttc",
+        "/mnt/c/Windows/Fonts/simsun.ttc",
+        "/mnt/c/Windows/Fonts/simhei.ttf",
+    ]
+    
+    for font_path in font_paths:
+        try:
+            font = ImageFont.truetype(font_path, font_size)
+            log.info(f"Successfully loaded font: {font_path} (size: {font_size})")
+            return font
+        except Exception as e:
+            log.debug(f"Could not load font {font_path}: {e}")
+            continue
+    
+    # Fallback to default font
+    log.warning("Could not load any Chinese font, using default")
+    return ImageFont.load_default()
+
+def _draw_text_on_image(draw, text: str, x: int, y: int, font, color=(0, 0, 0)):
+    """
+    Helper function to draw text on an image
+    
+    Args:
+        draw: ImageDraw object
+        text: Text to draw
+        x: X coordinate
+        y: Y coordinate
+        font: Font object
+        color: RGB color tuple (default: black)
+    """
+    draw.text((x, y), text, font=font, fill=color)
+    log.info(f"Drew text '{text}' at position ({x}, {y}) with color {color}, font size: {getattr(font, 'size', 'default')}")
+
+def _draw_multipart_text(draw, parts: list, x: int, y: int, align_baseline: bool = True):
+    """
+    Draw text with multiple parts, each with different font size and color
+    
+    Args:
+        draw: ImageDraw object
+        parts: List of dicts with {"text": str, "font_size": int, "color": tuple}
+        x: Starting X coordinate
+        y: Starting Y coordinate (baseline for alignment)
+        align_baseline: If True, align all parts by their baseline
+    
+    Example:
+        parts = [
+            {"text": "HK$ ", "font_size": 30, "color": (49, 98, 210)},
+            {"text": "3,500", "font_size": 50, "color": (49, 98, 210)},
+            {"text": " /人", "font_size": 30, "color": (128, 128, 128)},
+        ]
+    """
+    # Find the largest font size for baseline alignment
+    max_font_size = max(part["font_size"] for part in parts)
+    
+    current_x = x
+    for part in parts:
+        text = part["text"]
+        font_size = part["font_size"]
+        color = part.get("color", (0, 0, 0))
+        
+        # Load font for this part
+        font = _load_chinese_font(font_size)
+        
+        # Calculate y offset for baseline alignment
+        if align_baseline:
+            # Adjust y position so larger text sits on the same baseline as smaller text
+            # Larger fonts need to be moved up to align their baseline
+            y_offset = (max_font_size - font_size) * 0.8  # 0.8 is an approximation for baseline ratio
+            adjusted_y = y + y_offset
+        else:
+            adjusted_y = y
+        
+        # Draw this part
+        draw.text((current_x, adjusted_y), text, font=font, fill=color)
+        
+        # Calculate width of this text to position next part
+        bbox = draw.textbbox((current_x, adjusted_y), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        current_x += text_width
+        
+        log.info(f"Drew multipart text '{text}' at ({current_x - text_width}, {adjusted_y}), size: {font_size}, color: {color}")
+
+def _add_text_to_flight_info(image_data: bytes) -> bytes:
+    """
+    Add text overlays to the flight info image
+    Adds "出發" and "回程" texts
+    """
+    log.info(f"Adding text overlays to flight info image")
+    
+    default_font_size = 30
+ 
+    # Load image from bytes
+    image = Image.open(io.BytesIO(image_data))
+    log.info(f"Loaded flight info image: size {image.size}, mode: {image.mode}")
+    
+    # Convert to RGB if needed
+    if image.mode != 'RGB':
+        image = image.convert('RGB')
+    
+    # Create a drawing context
+    draw = ImageDraw.Draw(image)
+    
+    # Define text configurations (text, x, y, color, font_size)
+    # font_size is optional, defaults to default_font_size if not specified
+    texts_to_add = [
+        {"text": "出發", "x": 60, "y": 20, "color": (0, 0, 0), "font_size": 30},
+        {"text": "2026年2月18日", "x": 150, "y": 20, "color": (0, 0, 0), "font_size": 30},
+        {"text": "回程", "x": 60, "y": 270, "color": (0, 0, 0), "font_size": 30},
+        {"text": "2026年2月18日", "x": 150, "y": 270, "color": (0, 0, 0), "font_size": 30},
+        {"text": "09:30", "x": 60, "y": 70, "color": (0, 0, 0), "font_size": 30},
+        {"text": "香港", "x": 160, "y": 70, "color": (0, 0, 0), "font_size": 30},
+        {"text": "12:50", "x": 60, "y": 190, "color": (0, 0, 0), "font_size": 30},
+        {"text": "東京", "x": 160, "y": 190, "color": (0, 0, 0), "font_size": 30},
+
+        {"text": "09:30", "x": 60, "y": 330, "color": (0, 0, 0), "font_size": 30},
+        {"text": "香港", "x": 160, "y": 330, "color": (0, 0, 0), "font_size": 30},
+        {"text": "12:50", "x": 60, "y": 445, "color": (0, 0, 0), "font_size": 30},
+        {"text": "東京", "x": 160, "y": 445, "color": (0, 0, 0), "font_size": 30},
+
+        {"text": "1", "x": 190, "y": 592, "color": (0, 0, 0), "font_size": 25},
+    ]
+    
+    # Define multipart text configurations (for text with different sizes/colors in one line)
+    multipart_texts = [
+        {
+            "x": 40, 
+            "y": 510, 
+            "parts": [
+                {"text": "HK$ ", "font_size": 30, "color": (49, 98, 210)},
+                {"text": "3,500", "font_size": 50, "color": (49, 98, 210)},
+                {"text": " /人", "font_size": 30, "color": (128, 128, 128)},  # Gray
+            ]
+        },
+    ]
+    
+    # Draw all regular texts
+    for text_config in texts_to_add:
+        # Get font size for this text (use default if not specified)
+        font_size = text_config.get("font_size", default_font_size)
+        # Load font with the specified size
+        font = _load_chinese_font(font_size)
+        
+        _draw_text_on_image(
+            draw, 
+            text_config["text"], 
+            text_config["x"], 
+            text_config["y"], 
+            font, 
+            text_config["color"]
+        )
+    
+    # Draw all multipart texts
+    for multipart_config in multipart_texts:
+        _draw_multipart_text(
+            draw,
+            multipart_config["parts"],
+            multipart_config["x"],
+            multipart_config["y"]
+        )
+    
+    # Convert back to bytes
+    result = io.BytesIO()
+    image.save(result, format='PNG')
+    result_bytes = result.getvalue()
+    
+    log.info(f"Flight info image with text: {len(result_bytes)} bytes")
+    return result_bytes
 
 def _add_bottom_banner(image_data: bytes, width: int, height: int) -> bytes:
     """

@@ -175,10 +175,19 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 	}
 
 	// Generate AI analysis with stage tracking
-	const aiAnalysis = await generateAIFlightAnalysisWithStages(postData, onStageUpdate, modelToUse);
+	// COMMENTED OUT FOR IMAGE TESTING - UNCOMMENT WHEN READY TO USE AI
+	// const aiAnalysis = await generateAIFlightAnalysisWithStages(postData, onStageUpdate, modelToUse);
+	
+	// Temporary mock data for testing images without AI token usage
+	const aiAnalysis = {
+		header: "Test Header - AI Generation Disabled",
+		content: "This is test content. AI generation is currently commented out to save tokens during image testing. Destination: 首爾",
+		summary: "Test summary for image testing"
+	};
 	
 	// Generate scenic image for destination
 	let scenicImageUrl = null;
+	let imageResponse = null;
 	if (onStageUpdate) onStageUpdate('generating_scenic_image');
 	
 	try {
@@ -199,7 +208,7 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 				width: 1024,
 				height: 1024
 			});
-			const imageResponse = await generateScenicImage(token, {
+			imageResponse = await generateScenicImage(token, {
 				destination: destination,
 				style: 'realistic',
 				width: 1024,
@@ -215,6 +224,7 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 					hasBase64: !!imageResponse.image_base64,
 					hasUrl: !!imageResponse.image_url,
 					usingBase64: !!imageResponse.image_base64,
+					hasFlightInfoImage: !!imageResponse.flight_info_image_base64,
 					response: imageResponse
 				});
 			}
@@ -229,6 +239,7 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 		...postData,
 		aiAnalysis: aiAnalysis,
 		scenicImage: scenicImageUrl,
+		flightInfoImage: imageResponse?.flight_info_image_base64 || null,
 		modelInfo: modelToUse // Include model information
 	};
 
@@ -253,7 +264,15 @@ export async function generateAIFlightAnalysisWithStages(flightData, onStageUpda
 		let adapterInfo = null;
 		
 		if (modelToUse) {
-			if (modelToUse.ollama_model_name) {
+			// Check for external model (like Gemini, GPT, etc.)
+			if (modelToUse.is_external_model && modelToUse.id) {
+				modelName = modelToUse.id;
+				console.log('🌐 Using external model:', modelName, 'from provider:', modelToUse.owned_by);
+			} else if (modelToUse.id && !modelToUse.ollama_model_name && !modelToUse.rag_model_name) {
+				// Generic model ID (could be any model from the list)
+				modelName = modelToUse.id;
+				console.log('🤖 Using model:', modelName);
+			} else if (modelToUse.ollama_model_name) {
 				modelName = modelToUse.ollama_model_name;
 			} else if (modelToUse.rag_model_name) {
 				modelName = modelToUse.rag_model_name;
@@ -278,6 +297,9 @@ export async function generateAIFlightAnalysisWithStages(flightData, onStageUpda
 		console.log('🔍 Using AI model:', modelName, 'for flight analysis');
 		console.log('🔍 Model details passed to function:', modelToUse);
 		console.log('🔍 Model selection logic:');
+		console.log('  - modelToUse.id:', modelToUse?.id);
+		console.log('  - modelToUse.is_external_model:', modelToUse?.is_external_model);
+		console.log('  - modelToUse.owned_by:', modelToUse?.owned_by);
 		console.log('  - modelToUse.ollama_model_name:', modelToUse?.ollama_model_name);
 		console.log('  - modelToUse.rag_model_name:', modelToUse?.rag_model_name);
 		console.log('  - modelToUse.merged_model_name:', modelToUse?.merged_model_name);

@@ -17,6 +17,7 @@
 	let postContent = '';
 	let postHashtags = '';
 	let scenicImage = null;
+	let flightInfoImage = null;
 	
 	// Website blog form fields
 	let header = '';
@@ -48,6 +49,15 @@
 					isBase64: scenicImage.startsWith('data:image'),
 					isEdited: scenicImage.startsWith('data:image'),
 					imageType: scenicImage.startsWith('data:image') ? 'Edited (base64)' : 'Original (URL)'
+				});
+			}
+			
+			// Store flight info image if available
+			if (flightData.flightInfoImage) {
+				flightInfoImage = flightData.flightInfoImage;
+				console.log('Flight info image loaded in post page:', {
+					isBase64: flightInfoImage.startsWith('data:image'),
+					imageType: flightInfoImage.startsWith('data:image') ? 'Flight Info (base64)' : 'Flight Info (URL)'
 				});
 			}
 			
@@ -504,9 +514,20 @@
 								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">航空公司：<span style="color: black;">{airlineName}</span></p>
 								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">來回連稅價錢：<span style="color: black;">HK${returnPrice}起</span></p>
 								<p class="text-sm mb-2 font-bold text-black">{extraComment}</p>
-								<div class="bg-gray-300 h-40 flex items-center justify-center">
-									<p class="text-gray-500">Image</p>
-								</div>
+								{#if flightInfoImage}
+									<div class="flex items-center justify-center overflow-hidden relative">
+										<img
+											src={flightInfoImage}
+											alt="Flight information card"
+											class="w-full h-auto object-contain"
+											style="max-height: 160px;"
+										/>
+									</div>
+								{:else}
+									<div class="bg-gray-300 h-40 flex items-center justify-center">
+										<p class="text-gray-500">Image</p>
+									</div>
+								{/if}
 								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">參考出發日期（視乎供應）：</p>
 								{#if departureDate}
 									<p class="text-sm mt-2">{departureDate}</p>
