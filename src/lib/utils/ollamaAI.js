@@ -601,32 +601,99 @@ Use your knowledge base to provide accurate airline information and route insigh
 
 	/**
 	 * Stage 1: Generate initial flight analysis using selected model
-	 * @param {Object} flightData - Flight data object
+	 * @param {Object|Array} flightData - Flight data object or array of flight objects
 	 * @returns {Promise<string>} Initial AI analysis JSON
 	 */
 	async generateInitialFlightAnalysis(flightData) {
-		const prompt = `根據機票資料和flyagainla tone guide, 生成destination,header,short_comment和summary.重要!評論只能在三十字以內,而總結能夠長約一百字.這些都必須是繁體中文廣東話語氣.你的輸出必須只能有Json,絕對不能有任何文字,符號或回應在前後.Json格式內只能有"destination","header","short_comment"和"summary".Json內不能有任何換行,以下是Json例子
-						{
-							"destination": "美國",
-							"header": "創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
-							"short_comment": "好多平飛！去美國嘅人真係少咗？",
-							"summary": "國泰直航一減再減，不斷創疫後新低價，直迫轉機價！直航慳時間就算貴幾厝，都值得俾啦！優惠仲可以 open jaw，可以唔走回頭路玩晒加州兩大城市，連復活節都有平，正呀～"
-						}
-						已選機票資料:
-						[
-						航空公司：${flightData.airline}
-						出發地點：${flightData.startingPlace}
-						目的地：${flightData.destination}
-						來回價錢：$${flightData.returnPrice}
-						艙等：${flightData.seatClass}
-						出發日期：${flightData.departureDate}
-						出發時間：${flightData.flightTime}
-						行李資訊：${flightData.luggageInfo}]`;
+		// Handle both single flight and multiple flights
+		const flights = Array.isArray(flightData) ? flightData : [flightData];
+		
+		// Remove duplicates based on unique combination of airline, route, date, and time
+		const uniqueFlights = [];
+		const seen = new Set();
+		
+		flights.forEach(flight => {
+			// Create a unique key based on flight details
+			const uniqueKey = `${flight.airline}|${flight.startingPlace}|${flight.destination}|${flight.departureDate}|${flight.departureTime || flight.flightTime || ''}|${flight.cost || flight.returnPrice}`;
+			
+			if (!seen.has(uniqueKey)) {
+				seen.add(uniqueKey);
+				uniqueFlights.push(flight);
+			} else {
+				console.log('🎯 Duplicate flight detected and removed:', uniqueKey);
+			}
+		});
+		
+		console.log(`🎯 Deduplicated: ${flights.length} flights -> ${uniqueFlights.length} unique flights`);
+		
+		// Group flights by route (starting place → destination)
+		const routeGroups = {};
+		
+		uniqueFlights.forEach(flight => {
+			const routeKey = `${flight.startingPlace}->${flight.destination}`;
+			
+			if (!routeGroups[routeKey]) {
+				routeGroups[routeKey] = {
+					airlines: [],
+					startingPlace: flight.startingPlace,
+					destination: flight.destination,
+					prices: [],
+					seatClasses: [],
+					departureDates: [],
+					departureTimes: [],
+					luggageInfos: []
+				};
+			}
+			
+			// Collect data from each flight in this route
+			routeGroups[routeKey].airlines.push(flight.airline);
+			routeGroups[routeKey].prices.push(flight.cost || flight.returnPrice);
+			routeGroups[routeKey].seatClasses.push(flight.seatClass);
+			routeGroups[routeKey].departureDates.push(flight.departureDate);
+			routeGroups[routeKey].departureTimes.push(flight.departureTime || flight.flightTime || '待定');
+			routeGroups[routeKey].luggageInfos.push(flight.luggageInfo || '查詢航空公司');
+		});
+		
+		// Build flight data string with each route group separated by comma
+		const flightDataString = Object.values(routeGroups).map(group => {
+			// Combine airlines with comma
+			const airlines = [...new Set(group.airlines)].join(', ');
+			
+			// Calculate total price or use first price if only one
+			const totalPrice = group.prices.reduce((sum, p) => sum + p, 0);
+			
+			// Use first values for other fields, or "Mixed" if multiple different values
+			const seatClass = new Set(group.seatClasses).size > 1 ? 'Mixed' : group.seatClasses[0];
+			const departureDate = group.departureDates[0]; // Use earliest date
+			const departureTime = group.departureTimes[0]; // Use first time
+			const luggage = new Set(group.luggageInfos).size > 1 ? 'Varies by airline and class - check individual bookings' : group.luggageInfos[0];
+			
+			return `[航空公司：${airlines} 出發地點：${group.startingPlace} 目的地：${group.destination} 來回價錢：$${totalPrice} 艙等：${seatClass} 出發日期：${departureDate} 出發時間：${departureTime} 行李資訊：${luggage}]`;
+		}).join(', ');
+		
+		const prompt = `依flyagain_rag.txt，輸JSON，唯含destination,header,short_comment,summary。短評限三十字，總結約八十字，繁體廣東話，標題短評用超前部署、平、抵、減。僅JSON，無文符斷行。例：{"destination":"美國","header":"超前部署！平到喊！國泰來回洛杉磯連稅$5,328起！2026年6月前出發","short_comment":"真係平到傻抵到爆！","summary":"國泰直航減價，迫近轉機價！open jaw玩加州，復活節都平，搶啦～"} 資料：${flightDataString}`;
 
 		// ===== LOG THE CONSTRUCTED PROMPT BEFORE SENDING =====
 		console.log('🎯 ═══════════════════════════════════════════════════════════');
 		console.log('🎯 FLIGHT ANALYSIS PROMPT (with flight data filled in):');
+		console.log('🎯 Original flights received:', flights.length);
+		console.log('🎯 After deduplication:', uniqueFlights.length);
+		console.log('🎯 UNIQUE FLIGHT OBJECTS:');
+		uniqueFlights.forEach((flight, idx) => {
+			console.log(`🎯 Flight ${idx + 1}:`, {
+				id: flight.id,
+				airline: flight.airline,
+				startingPlace: flight.startingPlace,
+				destination: flight.destination,
+				cost: flight.cost,
+				departureDate: flight.departureDate,
+				departureTime: flight.departureTime
+			});
+		});
+		console.log('🎯 Number of route groups:', Object.keys(routeGroups).length);
+		console.log('🎯 Route groups:', routeGroups);
 		console.log('🎯 ═══════════════════════════════════════════════════════════');
+		console.log('🎯 FINAL PROMPT:');
 		console.log(prompt);
 		console.log('🎯 ═══════════════════════════════════════════════════════════');
 
@@ -679,13 +746,14 @@ Use your knowledge base to provide accurate airline information and route insigh
 
 	/**
 	 * Two-stage flight analysis: Large model + Current model refinement
-	 * @param {Object} flightData - Flight data object
+	 * @param {Object|Array} flightData - Flight data object or array of flight objects
 	 * @param {Function} onStageUpdate - Optional callback for stage updates
 	 * @returns {Promise<Object>} Final refined analysis
 	 */
 	async twoStageFlightAnalysis(flightData, onStageUpdate = null) {
 		try {
-			console.log('Stage 1: Generating initial analysis with large model...');
+			const flights = Array.isArray(flightData) ? flightData : [flightData];
+			console.log(`Stage 1: Generating initial analysis for ${flights.length} flight(s) with large model...`);
 			if (onStageUpdate) onStageUpdate('stage1');
 			
 			// Stage 1: Generate initial content with larger model
@@ -717,7 +785,9 @@ Use your knowledge base to provide accurate airline information and route insigh
 			
 			// Fallback to single-stage analysis
 			console.log('Falling back to single-stage analysis...');
-			const fallbackResponse = await this.analyzeFlightDeal(flightData);
+			// Use first flight for fallback if array
+			const singleFlight = Array.isArray(flightData) ? flightData[0] : flightData;
+			const fallbackResponse = await this.analyzeFlightDeal(singleFlight);
 			// Remove markdown formatting if present
 			const cleanedFallbackResponse = cleanJsonResponse(fallbackResponse);
 			return JSON.parse(cleanedFallbackResponse);

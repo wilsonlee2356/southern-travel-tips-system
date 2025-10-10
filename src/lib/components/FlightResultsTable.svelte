@@ -8,6 +8,7 @@
 	// Props
 	export let flights = [];
 	export let selectedFlights = new Set();
+	export let selectedFlightObjects = []; // Actual flight objects for display
 	export let onToggleFlight = () => {};
 	export let onToggleSelectAll = () => {};
 	export let onPost = () => {};
@@ -466,7 +467,7 @@
 						<input
 							type="checkbox"
 							class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-							checked={selectedFlights.size === paginatedFlights.length && paginatedFlights.length > 0}
+							checked={paginatedFlights.length > 0 && paginatedFlights.every(flight => selectedFlights.has(flight.id))}
 							on:change={onToggleSelectAll}
 						/>
 					</th>
@@ -670,20 +671,79 @@
 		</div>
 	{/if}
 
-	<!-- Post Button -->
-	{#if selectedFlights.size > 0}
+</div>
+
+<!-- Selected Flights Section -->
+{#if selectedFlights.size > 0}
+	<div class="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+		<div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+			<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+				{$i18n.t('Selected Flights')} ({selectedFlights.size})
+			</h3>
+		</div>
+		
+		<div class="p-6 space-y-4">
+			{#each selectedFlightObjects as flight (flight.id)}
+				<div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+					<div class="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
+						<div>
+							<div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Airline')}</div>
+							<div class="font-medium text-gray-900 dark:text-gray-100">{flight.airline}</div>
+							{#if flight.airlineCode}
+								<div class="text-xs text-gray-500 dark:text-gray-400">{flight.airlineCode}</div>
+							{/if}
+						</div>
+						<div>
+							<div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Route')}</div>
+							<div class="text-sm text-gray-900 dark:text-gray-100">
+								{flight.startingPlace} → {flight.destination}
+							</div>
+						</div>
+						<div>
+							<div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Price')}</div>
+							<div class="font-semibold text-green-600 dark:text-green-400">
+								{flight.currency || '$'}{flight.cost}
+							</div>
+						</div>
+						<div>
+							<div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Departure')}</div>
+							<div class="text-sm text-gray-900 dark:text-gray-100">
+								{new Date(flight.departureDate).toLocaleDateString()}
+							</div>
+						</div>
+						<div>
+							<div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Duration')}</div>
+							<div class="text-sm text-gray-900 dark:text-gray-100">
+								{flight.duration || 'N/A'}
+							</div>
+						</div>
+					</div>
+					<button
+						class="ml-4 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+						on:click={() => onToggleFlight(flight.id)}
+						aria-label="Remove flight"
+					>
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+						</svg>
+					</button>
+				</div>
+			{/each}
+		</div>
+		
+		<!-- AI Model Selection and Post Button -->
 		<div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-			<div class="flex items-center justify-between gap-4">
+			<div class="flex flex-col gap-4">
 				<!-- AI Model Selection -->
-				<div class="flex items-center gap-4">
+				<div class="flex items-center gap-4 flex-wrap">
 					<!-- Combined AI Model Dropdown -->
-					<div class="flex flex-col">
+					<div class="flex flex-col flex-1 min-w-[250px]">
 						<label for="ai-model-select" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 							AI Model
 						</label>
 						<select
 							id="ai-model-select"
-							class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[300px]"
+							class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 							on:change={handleAIModelChange}
 							disabled={isLoadingAdapters || isPosting}
 							value={currentSelectedValue}
@@ -697,7 +757,7 @@
 					
 					<!-- Selected Model Info -->
 					{#if currentSelectedValue}
-						<div class="flex flex-col">
+						<div class="flex flex-col flex-1 min-w-[250px]">
 							<div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 								Selected Model
 							</div>
@@ -743,46 +803,48 @@
 				</div>
 				
 				<!-- Post Button -->
-				<button
-					class="bg-black hover:bg-gray-800 text-white font-medium py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-					disabled={isPosting || (!selectedRAGModel && !selectedBaseModel && !selectedAdapter && !selectedModel)}
-					on:click={onPost}
-				>
-					{#if isPosting}
-						<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-						</svg>
-						{#if aiStage === 'initializing'}
-							Initializing AI Analysis...
-						{:else if aiStage === 'stage1'}
-							Stage 1: Large Model Analysis...
-						{:else if aiStage === 'generating_scenic_image'}
-							Generating Scenic Image...
+				<div class="flex justify-end">
+					<button
+						class="bg-black hover:bg-gray-800 text-white font-medium py-3 px-8 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+						disabled={isPosting || (!selectedRAGModel && !selectedBaseModel && !selectedAdapter && !selectedModel)}
+						on:click={onPost}
+					>
+						{#if isPosting}
+							<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+							</svg>
+							{#if aiStage === 'initializing'}
+								Initializing AI Analysis...
+							{:else if aiStage === 'stage1'}
+								Stage 1: Large Model Analysis...
+							{:else if aiStage === 'generating_scenic_image'}
+								Generating Scenic Image...
+							{:else}
+								Stage 2: Content Refinement...
+							{/if}
 						{:else}
-							Stage 2: Content Refinement...
+							<svg class="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18v18h-18z M8 8h8v8h-8z M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M16 7a1 1 0 1 0 0-2a1 1 0 1 0 0 2"></path>
+							</svg>
+							{$i18n.t('Post')} ({selectedFlights.size})
 						{/if}
-					{:else}
-						<svg class="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18v18h-18z M8 8h8v8h-8z M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M16 7a1 1 0 1 0 0-2a1 1 0 1 0 0 2"></path>
-						</svg>
-						{$i18n.t('Post')} ({selectedFlights.size})
-					{/if}
-				</button>
-			</div>
-			
-			<!-- Selection info -->
-			{#if selectedModel || selectedRAGModel || selectedBaseModel}
-				<div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-					{#if selectedModel}
-						Using model: <span class="font-medium">{selectedModel.name || selectedModel.id}</span>
-					{:else if selectedRAGModel}
-						Using RAG model: <span class="font-medium">{selectedRAGModel.adapter_name} + RAG</span>
-					{:else if selectedBaseModel}
-						Using base model: <span class="font-medium">{selectedBaseModel}</span> with RAG
-					{/if}
+					</button>
 				</div>
-			{/if}
+				
+				<!-- Selection info -->
+				{#if selectedModel || selectedRAGModel || selectedBaseModel}
+					<div class="text-sm text-gray-600 dark:text-gray-400">
+						{#if selectedModel}
+							Using model: <span class="font-medium">{selectedModel.name || selectedModel.id}</span>
+						{:else if selectedRAGModel}
+							Using RAG model: <span class="font-medium">{selectedRAGModel.adapter_name} + RAG</span>
+						{:else if selectedBaseModel}
+							Using base model: <span class="font-medium">{selectedBaseModel}</span> with RAG
+						{/if}
+					</div>
+				{/if}
+			</div>
 		</div>
-	{/if}
-</div>
+	</div>
+{/if}

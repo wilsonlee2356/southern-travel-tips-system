@@ -28,10 +28,12 @@
 	let isSearching = false;
 	let hasSearched = false;
 	let selectedFlights = new Set();
+	let selectedFlightObjects = []; // Store actual flight objects for display
 	let isPosting = false;
 	let aiStage = ''; // Track which AI stage is running
 	let searchError = ''; // Track search errors
 	let useAmadeusApi = true; // Toggle between mock and real API
+	let searchCounter = 0; // Counter to create unique IDs across searches
 	
 	// Model selection state
 	let selectedRAGModel = null;
@@ -42,7 +44,11 @@
 	// Initialize with all flights on page load
 	$: if (typeof window !== 'undefined') {
 		if (searchResults.length === 0 && !hasSearched) {
-			searchResults = [...sampleFlights];
+			// Give initial flights unique IDs
+			searchResults = sampleFlights.map((flight, index) => ({
+				...flight,
+				id: `0_${index + 1}`
+			}));
 		}
 	}
 
@@ -285,8 +291,9 @@
 		hasSearched = true;
 		searchError = '';
 		
-		// Clear selected flights when starting new search
-		selectedFlights.clear();
+		// Keep selected flights when starting new search (don't clear)
+		// Increment search counter to create unique IDs
+		searchCounter++;
 
 		try {
 			if (useAmadeusApi) {
@@ -361,6 +368,12 @@
 					transformedResults = transformedResults.filter(flight => flight.cost <= maxCost);
 				}
 
+				// Make IDs unique across searches by prefixing with search counter
+				transformedResults = transformedResults.map((flight, index) => ({
+					...flight,
+					id: `${searchCounter}_${index + 1}`
+				}));
+
 				searchResults = transformedResults;
 			} else {
 				// Use mock data (fallback)
@@ -378,6 +391,12 @@
 
 					return matchesStartingPlace && matchesDestination && matchesSeatClass && matchesCost;
 				});
+
+				// Make IDs unique across searches by prefixing with search counter
+				filteredResults = filteredResults.map((flight, index) => ({
+					...flight,
+					id: `${searchCounter}_${index + 1}`
+				}));
 
 				searchResults = filteredResults;
 			}
@@ -400,9 +419,14 @@
 			departureDate: '',
 			returnDate: ''
 		};
-		searchResults = [...sampleFlights];
+		searchCounter = 0;
+		searchResults = sampleFlights.map((flight, index) => ({
+			...flight,
+			id: `0_${index + 1}`
+		}));
 		hasSearched = false;
 		selectedFlights.clear();
+		selectedFlightObjects = [];
 		searchError = '';
 	};
 
@@ -410,18 +434,40 @@
 	const toggleFlightSelection = (flightId) => {
 		if (selectedFlights.has(flightId)) {
 			selectedFlights.delete(flightId);
+			// Remove from selected flight objects
+			selectedFlightObjects = selectedFlightObjects.filter(f => f.id !== flightId);
 		} else {
 			selectedFlights.add(flightId);
+			// Add to selected flight objects
+			const flight = searchResults.find(f => f.id === flightId);
+			if (flight && !selectedFlightObjects.find(f => f.id === flightId)) {
+				selectedFlightObjects = [...selectedFlightObjects, flight];
+			}
 		}
 		selectedFlights = selectedFlights; // Trigger reactivity
 	};
 
 	// Handle select all checkbox
 	const toggleSelectAll = () => {
-		if (selectedFlights.size === searchResults.length) {
-			selectedFlights.clear();
+		// Check if all current search results are selected
+		const allCurrentSelected = searchResults.every(flight => selectedFlights.has(flight.id));
+		
+		if (allCurrentSelected) {
+			// Deselect all current search results (but keep others)
+			searchResults.forEach(flight => selectedFlights.delete(flight.id));
+			// Remove from selected flight objects
+			selectedFlightObjects = selectedFlightObjects.filter(
+				f => !searchResults.find(sr => sr.id === f.id)
+			);
 		} else {
-			selectedFlights = new Set(searchResults.map(flight => flight.id));
+			// Select all current search results (add to existing selections)
+			searchResults.forEach(flight => {
+				selectedFlights.add(flight.id);
+				// Add to selected flight objects if not already there
+				if (!selectedFlightObjects.find(f => f.id === flight.id)) {
+					selectedFlightObjects = [...selectedFlightObjects, flight];
+				}
+			});
 		}
 		selectedFlights = selectedFlights; // Trigger reactivity
 	};
@@ -442,7 +488,8 @@
 		aiStage = 'initializing';
 		
 		try {
-			const selectedFlightData = searchResults.filter(flight => selectedFlights.has(flight.id));
+			// Use selectedFlightObjects instead of filtering searchResults
+			const selectedFlightData = selectedFlightObjects;
 			
 			// Handle model selection
 			let modelToUse = null;
@@ -777,6 +824,7 @@
 			<FlightResultsTable
 				flights={searchResults}
 				{selectedFlights}
+				{selectedFlightObjects}
 				onToggleFlight={toggleFlightSelection}
 				onToggleSelectAll={toggleSelectAll}
 				onPost={handlePost}

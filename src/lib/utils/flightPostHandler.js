@@ -167,23 +167,25 @@ export async function generateAIFlightAnalysis(flightData, modelToUse = null) {
  * @param {Object} modelToUse - The AI model to use for analysis
  */
 export async function navigateToPostWithFlightData(selectedFlights, goto, onStageUpdate = null, modelToUse = null) {
-	const postData = formatFlightDataForPost(selectedFlights);
-	
-	if (!postData) {
+	if (!selectedFlights || selectedFlights.length === 0) {
 		console.error('No flight data to post');
 		return;
 	}
 
-	// Generate AI analysis with stage tracking
-	// COMMENTED OUT FOR IMAGE TESTING - UNCOMMENT WHEN READY TO USE AI
-	// const aiAnalysis = await generateAIFlightAnalysisWithStages(postData, onStageUpdate, modelToUse);
+	// Generate AI analysis with stage tracking - pass original array of flights
+	console.log('Passing flights to AI analysis:', selectedFlights.length, 'flight(s)');
+	const aiAnalysis = await generateAIFlightAnalysisWithStages(selectedFlights, onStageUpdate, modelToUse);
+	
+	// Format the flight data for display after AI analysis
+	const postData = formatFlightDataForPost(selectedFlights);
 	
 	// Temporary mock data for testing images without AI token usage
-	const aiAnalysis = {
-		header: "Test Header - AI Generation Disabled",
-		content: "This is test content. AI generation is currently commented out to save tokens during image testing. Destination: 首爾",
-		summary: "Test summary for image testing"
-	};
+	// Uncomment the line above and comment out the lines below to use AI
+	// const aiAnalysis = {
+	// 	header: "Test Header - AI Generation Disabled",
+	// 	content: "This is test content. AI generation is currently commented out to save tokens during image testing. Destination: 首爾",
+	// 	summary: "Test summary for image testing"
+	// };
 	
 	// Generate scenic image for destination
 	let scenicImageUrl = null;
@@ -252,7 +254,7 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 
 /**
  * Generates AI analysis with stage tracking
- * @param {Object} flightData - Formatted flight data object
+ * @param {Object|Array} flightData - Formatted flight data object or array of flight objects
  * @param {Function} onStageUpdate - Optional callback for stage updates
  * @param {Object} modelToUse - The AI model to use for analysis
  * @returns {Promise<Object>} AI analysis with header, content, and summary
@@ -320,21 +322,27 @@ export async function generateAIFlightAnalysisWithStages(flightData, onStageUpda
 		// Combine destination and header if both exist, otherwise use fallback
 		const combinedHeader = analysis.destination && analysis.header 
 			? `【${analysis.destination}】${analysis.header}` 
-			: (analysis.header || `Flight Deal: ${flightData.airline}`);
+			: (analysis.header || 'Flight Deal');
+		
+		// Get first flight for fallback values
+		const firstFlight = Array.isArray(flightData) ? flightData[0] : flightData;
 		
 		return {
 			header: combinedHeader,
-			content: analysis.short_comment || `Great flight deal found! ${flightData.airline} from ${flightData.startingPlace} to ${flightData.destination}`,
-			summary: analysis.summary || `Excellent flight deal with ${flightData.airline}! Price: $${flightData.returnPrice} for ${flightData.startingPlace} → ${flightData.destination}`
+			content: analysis.short_comment || `Great flight deal found! ${firstFlight.airline} from ${firstFlight.startingPlace} to ${firstFlight.destination}`,
+			summary: analysis.summary || `Excellent flight deal with ${firstFlight.airline}! Price: $${firstFlight.cost} for ${firstFlight.startingPlace} → ${firstFlight.destination}`
 		};
 	} catch (error) {
 		console.error('Error generating two-stage AI analysis:', error);
 		
+		// Get first flight for fallback values
+		const firstFlight = Array.isArray(flightData) ? flightData[0] : flightData;
+		
 		// Fallback to default values if AI fails
 		return {
-			header: `Flight Deal: ${flightData.airline}`,
-			content: `Great flight deal found! ${flightData.airline} from ${flightData.startingPlace} to ${flightData.destination}`,
-			summary: `Excellent flight deal with ${flightData.airline}! Price: $${flightData.returnPrice} for ${flightData.startingPlace} → ${flightData.destination}`
+			header: `Flight Deal: ${firstFlight.airline}`,
+			content: `Great flight deal found! ${firstFlight.airline} from ${firstFlight.startingPlace} to ${firstFlight.destination}`,
+			summary: `Excellent flight deal with ${firstFlight.airline}! Price: $${firstFlight.cost} for ${firstFlight.startingPlace} → ${firstFlight.destination}`
 		};
 	}
 }
