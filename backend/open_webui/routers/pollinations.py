@@ -63,6 +63,84 @@ DESTINATION_MAPPER = {
     "芭堤雅": "Pattaya",
     "濟州島": "Jeju Island",
     
+    # Japanese cities and regions
+    "名古屋": "Nagoya",
+    "橫濱": "Yokohama",
+    "福岡": "Fukuoka",
+    "札幌": "Sapporo",
+    "仙台": "Sendai",
+    "廣島": "Hiroshima",
+    "神戶": "Kobe",
+    "沖繩": "Okinawa",
+    "北海道": "Hokkaido",
+    "箱根": "Hakone",
+    "奈良": "Nara",
+    "鎌倉": "Kamakura",
+    "日光": "Nikko",
+    "輕井澤": "Karuizawa",
+    "河口湖": "Kawaguchiko",
+    "金澤": "Kanazawa",
+    "松本": "Matsumoto",
+    "長崎": "Nagasaki",
+    "熊本": "Kumamoto",
+    "鹿兒島": "Kagoshima",
+    "青森": "Aomori",
+    "秋田": "Akita",
+    "山形": "Yamagata",
+    "福島": "Fukushima",
+    "茨城": "Ibaraki",
+    "栃木": "Tochigi",
+    "群馬": "Gunma",
+    "埼玉": "Saitama",
+    "千葉": "Chiba",
+    "神奈川": "Kanagawa",
+    "新潟": "Niigata",
+    "富山": "Toyama",
+    "石川": "Ishikawa",
+    "福井": "Fukui",
+    "山梨": "Yamanashi",
+    "長野": "Nagano",
+    "岐阜": "Gifu",
+    "靜岡": "Shizuoka",
+    "愛知": "Aichi",
+    "三重": "Mie",
+    "滋賀": "Shiga",
+    "和歌山": "Wakayama",
+    "鳥取": "Tottori",
+    "島根": "Shimane",
+    "岡山": "Okayama",
+    "廣島": "Hiroshima",
+    "山口": "Yamaguchi",
+    "德島": "Tokushima",
+    "香川": "Kagawa",
+    "愛媛": "Ehime",
+    "高知": "Kochi",
+    "佐賀": "Saga",
+    "大分": "Oita",
+    "宮崎": "Miyazaki",
+    "高知": "Kochi",
+    
+    # Taiwanese cities and regions
+    "高雄": "Kaohsiung",
+    "台中": "Taichung",
+    "台南": "Tainan",
+    "新竹": "Hsinchu",
+    "桃園": "Taoyuan",
+    "基隆": "Keelung",
+    "嘉義": "Chiayi",
+    "彰化": "Changhua",
+    "屏東": "Pingtung",
+    "宜蘭": "Yilan",
+    "花蓮": "Hualien",
+    "台東": "Taitung",
+    "澎湖": "Penghu",
+    "金門": "Kinmen",
+    "馬祖": "Matsu",
+    "南投": "Nantou",
+    "雲林": "Yunlin",
+    "苗栗": "Miaoli",
+    "新北": "New Taipei",
+    
     # European cities
     "巴黎": "Paris",
     "倫敦": "London",
@@ -638,29 +716,47 @@ async def edit_image(
             detail=f"Error editing image: {str(e)}"
         )
 
-def _load_chinese_font(font_size: int):
+def _load_chinese_font(font_size: int, bold: bool = False):
     """
     Load a Chinese-compatible font with the specified size
     Returns the font object or default font if none found
     """
-    font_paths = [
-        # Windows fonts
-        "C:/Windows/Fonts/msyh.ttc",  # Microsoft YaHei
-        "C:/Windows/Fonts/msyhbd.ttc",  # Microsoft YaHei Bold
-        "C:/Windows/Fonts/simsun.ttc",  # SimSun
-        "C:/Windows/Fonts/simhei.ttf",  # SimHei
-        "C:/Windows/Fonts/msjh.ttc",  # Microsoft JhengHei
-        # Linux fonts
-        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
-        "/usr/share/fonts/truetype/arphic/uming.ttc",
-        # WSL Windows fonts access
-        "/mnt/c/Windows/Fonts/msyh.ttc",
-        "/mnt/c/Windows/Fonts/msyhbd.ttc",
-        "/mnt/c/Windows/Fonts/simsun.ttc",
-        "/mnt/c/Windows/Fonts/simhei.ttf",
-    ]
+    if bold:
+        # Prioritize bold fonts when bold is requested
+        font_paths = [
+            # Windows bold fonts
+            "C:/Windows/Fonts/msyhbd.ttc",  # Microsoft YaHei Bold
+            "C:/Windows/Fonts/simhei.ttf",  # SimHei (bold by default)
+            "C:/Windows/Fonts/msjh.ttc",  # Microsoft JhengHei (can appear bold)
+            # Linux bold fonts
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",  # Bold appearance
+            # WSL Windows bold fonts access
+            "/mnt/c/Windows/Fonts/msyhbd.ttc",
+            "/mnt/c/Windows/Fonts/simhei.ttf",
+            # Fallback to regular fonts if bold not available
+            "C:/Windows/Fonts/msyh.ttc",
+            "C:/Windows/Fonts/msjh.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        ]
+    else:
+        # Regular fonts
+        font_paths = [
+            # Windows fonts
+            "C:/Windows/Fonts/msyh.ttc",  # Microsoft YaHei
+            "C:/Windows/Fonts/msjh.ttc",  # Microsoft JhengHei
+            "C:/Windows/Fonts/simsun.ttc",  # SimSun
+            "C:/Windows/Fonts/simhei.ttf",  # SimHei
+            # Linux fonts
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+            "/usr/share/fonts/truetype/arphic/uming.ttc",
+            # WSL Windows fonts access
+            "/mnt/c/Windows/Fonts/msyh.ttc",
+            "/mnt/c/Windows/Fonts/simsun.ttc",
+            "/mnt/c/Windows/Fonts/simhei.ttf",
+        ]
     
     for font_path in font_paths:
         try:
@@ -690,6 +786,151 @@ def _draw_text_on_image(draw, text: str, x: int, y: int, font, color=(0, 0, 0)):
     draw.text((x, y), text, font=font, fill=color)
     log.info(f"Drew text '{text}' at position ({x}, {y}) with color {color}, font size: {getattr(font, 'size', 'default')}")
 
+def _draw_text_with_border(draw, text: str, x: int, y: int, font, text_color=(0, 0, 0), border_color=(255, 255, 255), border_width=2, rotation_angle=0):
+    """
+    Draw text with a white border (outline effect) and optional rotation
+    
+    Args:
+        draw: ImageDraw object
+        text: Text to draw
+        x: X coordinate
+        y: Y coordinate
+        font: Font object
+        text_color: RGB color tuple for the text (default: black)
+        border_color: RGB color tuple for the border (default: white)
+        border_width: Width of the border in pixels (default: 2)
+        rotation_angle: Rotation angle in degrees (default: 0, positive = clockwise)
+    """
+    if rotation_angle != 0:
+        # Create a temporary image to draw the text with rotation
+        # Calculate text size first
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # Create a larger temporary image to accommodate rotation
+        temp_size = max(text_width, text_height) + border_width * 2 + 20
+        temp_image = Image.new('RGBA', (temp_size, temp_size), (0, 0, 0, 0))
+        temp_draw = ImageDraw.Draw(temp_image)
+        
+        # Center the text in the temporary image
+        temp_x = (temp_size - text_width) // 2
+        temp_y = (temp_size - text_height) // 2
+        
+        # Draw border on temporary image
+        for dx in range(-border_width, border_width + 1):
+            for dy in range(-border_width, border_width + 1):
+                if dx != 0 or dy != 0:  # Skip the center position
+                    temp_draw.text((temp_x + dx, temp_y + dy), text, font=font, fill=border_color)
+        
+        # Draw main text on temporary image
+        temp_draw.text((temp_x, temp_y), text, font=font, fill=text_color)
+        
+        # Rotate the temporary image (negative angle for counter-clockwise)
+        rotated_image = temp_image.rotate(-rotation_angle, expand=True)
+        
+        # Paste the rotated text onto the main image
+        # Calculate the position to center the rotated text
+        rot_width, rot_height = rotated_image.size
+        paste_x = x - rot_width // 2
+        paste_y = y - rot_height // 2
+        
+        draw._image.paste(rotated_image, (paste_x, paste_y), rotated_image)
+        log.info(f"Drew rotated text with border '{text}' at position ({x}, {y}) with rotation {rotation_angle}°")
+    else:
+        # Draw border by drawing the text multiple times in different positions
+        for dx in range(-border_width, border_width + 1):
+            for dy in range(-border_width, border_width + 1):
+                if dx != 0 or dy != 0:  # Skip the center position
+                    draw.text((x + dx, y + dy), text, font=font, fill=border_color)
+        
+        # Draw the main text on top
+        draw.text((x, y), text, font=font, fill=text_color)
+        log.info(f"Drew text with border '{text}' at position ({x}, {y}) with text color {text_color}, border color {border_color}, border width: {border_width}")
+
+def _add_special_text_to_image(image: Image.Image, text_config: dict) -> Image.Image:
+    """
+    Add special text with customizable color and white border to an image
+    
+    Args:
+        image: PIL Image object
+        text_config: Dictionary containing text configuration
+            {
+                "text": "Your text here",
+                "x": 100,  # X position
+                "y": 100,  # Y position
+                "font_size": 50,
+                "text_color": (255, 0, 0),  # RGB color for text
+                "border_color": (255, 255, 255),  # RGB color for border (default: white)
+                "border_width": 3,  # Border width in pixels (default: 2)
+                "center": True,  # Whether to center the text at x,y coordinates
+                "bold": True  # Whether to use bold font
+            }
+    
+    Returns:
+        PIL Image object with text added
+    """
+    if not PIL_AVAILABLE:
+        log.warning("PIL not available, cannot add special text")
+        return image
+    
+    draw = ImageDraw.Draw(image)
+    
+    # Extract configuration with defaults
+    text = text_config.get("text", "")
+    x = text_config.get("x", 0)
+    y = text_config.get("y", 0)
+    font_size = text_config.get("font_size", 50)
+    text_color = tuple(text_config.get("text_color", (0, 0, 0)))
+    border_color = tuple(text_config.get("border_color", (255, 255, 255)))
+    border_width = text_config.get("border_width", 2)
+    center = text_config.get("center", True)
+    bold = text_config.get("bold", True)
+    rotation_angle = text_config.get("rotation_angle", 0)
+    
+    # Load font
+    font = _load_chinese_font(font_size, bold=bold)
+    
+    # Calculate text dimensions first (needed for boundary checking)
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    
+    # Calculate position if centering is requested
+    if center:
+        x = x - (text_width // 2)
+        y = y - (text_height // 2)
+    
+    # Ensure text stays within image boundaries (account for rotation and border)
+    image_width, image_height = image.size
+    rotation_angle = text_config.get("rotation_angle", 0)
+    border_width = text_config.get("border_width", 2)
+    
+    # Calculate extra space needed for rotation (approximate)
+    if rotation_angle != 0:
+        # For rotation, we need extra space around the text
+        rotation_margin = max(text_width, text_height) * 0.3  # 30% extra margin for rotation
+        min_x = rotation_margin + border_width
+        min_y = rotation_margin + border_width
+        max_x = image_width - rotation_margin - border_width
+        max_y = image_height - rotation_margin - border_width
+    else:
+        # For non-rotated text, smaller margin
+        min_x = border_width
+        min_y = border_width
+        max_x = image_width - border_width
+        max_y = image_height - border_width
+    
+    # Clamp coordinates to stay within bounds
+    x = max(min_x, min(x, max_x))
+    y = max(min_y, min(y, max_y))
+    
+    # Draw text with border
+    _draw_text_with_border(draw, text, x, y, font, text_color, border_color, border_width, rotation_angle)
+    
+    log.info(f"Added special text: '{text}' at ({x}, {y}) with color {text_color}, border {border_color}")
+    return image
+
 def _draw_multipart_text(draw, parts: list, x: int, y: int, align_baseline: bool = True):
     """
     Draw text with multiple parts, each with different font size and color
@@ -718,7 +959,7 @@ def _draw_multipart_text(draw, parts: list, x: int, y: int, align_baseline: bool
         color = part.get("color", (0, 0, 0))
         
         # Load font for this part
-        font = _load_chinese_font(font_size)
+        font = _load_chinese_font(font_size, bold=True)
         
         # Calculate y offset for baseline alignment
         if align_baseline:
@@ -825,7 +1066,7 @@ def _add_text_to_flight_info(image_data: bytes) -> bytes:
     log.info(f"Flight info image with text: {len(result_bytes)} bytes")
     return result_bytes
 
-def _add_bottom_banner(image_data: bytes, width: int, height: int) -> bytes:
+def _add_bottom_banner(image_data: bytes, width: int, height: int, special_text_config: dict = None) -> bytes:
     """
     Add a light blue rectangle at the bottom of the image (1/4 height, 100% width)
     Similar to the Mongolia travel advertisement example
@@ -866,6 +1107,196 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int) -> bytes:
     final_image.paste(scenic_area, (0, 0))
     final_image.paste(banner_area, (0, banner_y))
     log.info(f"Combined final image: {final_image.size}")
+    
+    # Add a small purple rectangle on top of the blue banner
+    draw = ImageDraw.Draw(final_image)
+    
+    # Purple rectangle dimensions (top-right of banner, about 25% width, 60% height)
+    purple_width = int(banner_width * 0.35)
+    purple_height = int(banner_height * 0.45)
+    purple_x = actual_width - purple_width - 25  # Right edge of banner
+    purple_y = banner_y - 35  # Small padding from top of banner
+    
+    purple = (128, 0, 128)  # Purple RGB
+    draw.rectangle(
+        [(purple_x, purple_y), (purple_x + purple_width, purple_y + purple_height)],
+        fill=purple
+    )
+    log.info(f"Added purple rectangle at ({purple_x}, {purple_y}) size {purple_width}x{purple_height}")
+    
+    # Define texts to add (reusable configuration)
+    texts_to_add = [
+        {
+            "text": "中華航空",
+            "x": purple_x + (purple_width // 2),  # Center horizontally in purple rectangle
+            "y": purple_y + (purple_height // 2) - 15,  # Center vertically in purple rectangle, moved up 10px
+            "color": (255, 255, 255),  # White
+            "font_size": 60
+        }
+    ]
+    
+    # Define multipart texts (for text with different sizes in one line)
+    multipart_texts = [
+        {
+            "x": actual_width // 2,  # Center of entire image width
+            "y": banner_y + (banner_height // 2) - 60,  # Center vertically in blue banner, moved down 10px
+            "parts": [
+                {"text": "來回連稅$", "font_size": 70, "color": (255, 255, 255)},
+                {"text": "3,222", "font_size": 105, "color": (255, 255, 255)},  # 1/3 bigger: 70 * 1.33 ≈ 93
+                {"text": "起", "font_size": 70, "color": (255, 255, 255)},
+            ]
+        }
+    ]
+    
+    # Add all regular texts using the helper function with bold fonts
+    for text_config in texts_to_add:
+        font = _load_chinese_font(text_config['font_size'], bold=True)
+        
+        # Calculate text dimensions to center properly
+        text = text_config['text']
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # Adjust coordinates to center the text
+        centered_x = text_config['x'] - (text_width // 2)
+        centered_y = text_config['y'] - (text_height // 2)
+        
+        _draw_text_on_image(draw, text, centered_x, centered_y, font, text_config['color'])
+        log.info(f"Added text: '{text}' at ({centered_x}, {centered_y}) - centered from ({text_config['x']}, {text_config['y']})")
+    
+    # Add multipart texts using the helper function
+    for multipart_config in multipart_texts:
+        # Calculate total width to center the entire multipart text
+        total_width = 0
+        for part in multipart_config["parts"]:
+            font = _load_chinese_font(part["font_size"], bold=True)
+            bbox = draw.textbbox((0, 0), part["text"], font=font)
+            total_width += bbox[2] - bbox[0]
+        
+        # Center the multipart text
+        start_x = multipart_config["x"] - (total_width // 2)
+        
+        _draw_multipart_text(
+            draw,
+            multipart_config["parts"],
+            start_x,
+            multipart_config["y"],
+            align_baseline=True
+        )
+        log.info(f"Added multipart text at ({start_x}, {multipart_config['y']}) - centered from ({multipart_config['x']}, {multipart_config['y']})")
+    
+    # Add flyagainla_icon.png to the banner
+    try:
+        icon_path = Path(__file__).parent.parent.parent.parent / "flyagainla_icon.png"
+        if icon_path.exists():
+            icon = Image.open(icon_path).convert("RGBA")  # Convert to RGBA to handle transparency
+            
+            # Resize icon to be appropriately sized for the scenic area (about 8% of image height)
+            icon_height = int(actual_height * 0.08)
+            icon_width = int(icon.width * (icon_height / icon.height))
+            icon = icon.resize((icon_width, icon_height), Image.Resampling.LANCZOS)
+            
+            # Position icon in the top-right corner of the entire image with padding
+            padding = 15
+            icon_x = actual_width - icon_width - padding - 10
+            icon_y = padding + 15  # Top of the entire image, not just banner
+            
+            # Paste the icon onto the final image, using its alpha channel for transparency
+            final_image.paste(icon, (icon_x, icon_y), icon)
+            log.info(f"Added flyagainla_icon.png at ({icon_x}, {icon_y}) with size {icon.size}")
+        else:
+            log.warning(f"flyagainla_icon.png not found at {icon_path}")
+    except Exception as e:
+        log.error(f"Failed to add flyagainla_icon.png: {e}")
+    
+    # Add special text "東京" with border and rotation
+    # Calculate safe positioning to ensure text stays within image bounds
+    # Account for larger font size (120) and rotation
+    safe_margin = 100  # Extra margin to account for rotation and border
+    special_text_config = {
+        "text": "東京",
+        "x": (actual_width // 2) - 80,  # Move to center horizontally for more distance from left edge
+        "y": actual_height // 5,  # Move higher up in the image (was // 3, now // 5)
+        "font_size": 120,
+        "text_color": (122, 40, 156),  # #7a289c color
+        "border_color": (255, 255, 255),  # White border
+        "border_width": 6,
+        "center": True,
+        "bold": True,
+        "rotation_angle": -7  # 10 degrees counter-clockwise (positive value)
+    }
+    
+    try:
+        final_image = _add_special_text_to_image(final_image, special_text_config)
+        log.info("Successfully added special text '東京' with border")
+    except Exception as e:
+        log.error(f"Failed to add special text: {e}")
+    
+    # Add second special text "Brah brah 1" under "東京"
+    special_text_config_2 = {
+        "text": "Brah brah 1",
+        "x": (actual_width // 2) - 155,  # Move further left to align first character with "東京"
+        "y": (actual_height // 5) + 60,  # Under "東京" with spacing
+        "font_size": 50,
+        "text_color": (79, 201, 226),  # #4fc9e2 color
+        "border_color": (255, 255, 255),  # White border
+        "border_width": 4,
+        "center": False,  # Don't center, use exact positioning
+        "bold": True,
+        "rotation_angle": -7  # Same rotation as "東京"
+    }
+    
+    try:
+        final_image = _add_special_text_to_image(final_image, special_text_config_2)
+        log.info("Successfully added special text 'Brah brah 1' with border")
+    except Exception as e:
+        log.error(f"Failed to add special text 'Brah brah 1': {e}")
+    
+    # Add third special text "brah brah 2" under "Brah brah 1"
+    special_text_config_3 = {
+        "text": "brah brah 2",
+        "x": (actual_width // 2) - 150,  # Same horizontal position as "Brah brah 1"
+        "y": (actual_height // 5) + 140,  # Under "Brah brah 1" with spacing
+        "font_size": 50,
+        "text_color": (79, 201, 226),  # #4fc9e2 color
+        "border_color": (255, 255, 255),  # White border
+        "border_width": 4,
+        "center": False,  # Don't center, use exact positioning
+        "bold": True,
+        "rotation_angle": -7  # Same rotation as others
+    }
+    
+    try:
+        final_image = _add_special_text_to_image(final_image, special_text_config_3)
+        log.info("Successfully added special text 'brah brah 2' with border")
+    except Exception as e:
+        log.error(f"Failed to add special text 'brah brah 2': {e}")
+    
+    # Add thin white rectangular border around the content
+    # Create a new draw object to ensure we're working with the latest image
+    draw = ImageDraw.Draw(final_image)
+    
+    # Define border properties
+    border_width = 8  # Thin border (3 pixels)
+    border_margin = 15  # Small space between image edge and border
+    border_color = (255, 255, 255)  # White
+    
+    # Calculate border coordinates (inset from edges by margin)
+    border_x1 = border_margin
+    border_y1 = border_margin
+    border_x2 = actual_width - border_margin
+    border_y2 = actual_height - border_margin
+    
+    # Draw the border rectangle (outline only, no fill)
+    for i in range(border_width):
+        draw.rectangle(
+            [(border_x1 + i, border_y1 + i), (border_x2 - i, border_y2 - i)],
+            outline=border_color,
+            width=1
+        )
+    
+    log.info(f"Added white border: margin={border_margin}px, width={border_width}px")
     
     # Save to bytes
     output = io.BytesIO()
