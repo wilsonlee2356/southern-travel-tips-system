@@ -317,7 +317,49 @@ async def generate_scenic_image(
                     if PIL_AVAILABLE:
                         try:
                             log.info("Starting image editing process...")
-                            edited_image_data = _add_bottom_banner(image_data, width, height)
+                            
+                            # Extract airline and price from flight_data
+                            airline_name = None
+                            flight_price = None
+                            
+                            if flight_data:
+                                # Check if it's a single flight or multiple flights
+                                flights_list = flight_data.get("flights", [])
+                                if flights_list:
+                                    # Multiple flights - get airline from first flight and total price
+                                    first_flight = flights_list[0]
+                                    airline_name = first_flight.get("airline")
+                                    # Calculate total price for 2-place trips, first flight price for 3+ places
+                                    all_places = set()
+                                    for flight in flights_list:
+                                        all_places.add(flight.get("startingPlace"))
+                                        all_places.add(flight.get("destination"))
+                                    
+                                    if len(all_places) == 2:
+                                        # Total price for round trip with 2 places
+                                        total_cost = sum(f.get("cost", 0) for f in flights_list)
+                                        flight_price = f"{total_cost:,}" if total_cost else None
+                                    else:
+                                        # First flight price for 3+ places
+                                        cost = first_flight.get("cost")
+                                        flight_price = f"{cost:,}" if cost else None
+                                else:
+                                    # Single flight
+                                    airline_name = flight_data.get("airline")
+                                    cost = flight_data.get("cost")
+                                    flight_price = f"{cost:,}" if cost else None
+                            
+                            log.info(f"Extracted airline: {airline_name}, price: {flight_price}")
+                            
+                            # Pass original Chinese destination, airline, and price for display on image
+                            edited_image_data = _add_bottom_banner(
+                                image_data, 
+                                width, 
+                                height, 
+                                destination=original_destination,
+                                airline=airline_name,
+                                price=flight_price
+                            )
                             log.info(f"Successfully added bottom banner to generated image. Edited size: {len(edited_image_data)} bytes")
                         except Exception as e:
                             log.error(f"Failed to edit image, using original: {e}")
@@ -389,8 +431,9 @@ async def generate_scenic_image(
 def create_scenic_prompt(destination: str, style: str) -> str:
     """Create a detailed scenic prompt for the destination based on style"""
     
-    # Use the detailed photorealistic prompt template in Chinese
-    prompt = f"Generate a photorealistic daytime scene of a prominent tourist spot in {destination}, emphasizing its most iconic and distinct feature and authentic surroundings. Capture the full view of the landmark from its most famous vantage point, showcasing its unique architectural or natural details against a clear blue sky with a few scattered, fluffy white clouds. The foreground includes the actual surrounding environment—specific vegetation, pathways, water features, or nearby buildings as they exist around the landmark—populated with diverse tourists taking photos, walking, or relaxing. Integrate authentic local elements, such as street vendors selling regional food, local signage, or culturally relevant items like bicycles or vehicles parked naturally. The lighting is natural, with soft sunlight casting accurate shadows that highlight the textures of the landmark’s distinct feature and its surroundings, evoking a vivid springtime atmosphere. Ensure every element, from the landmark’s unique materials to the crowd’s clothing, accurately reflects the real-world setting of {destination} for maximum realism."
+    # Use the detailed photorealistic prompt template
+    # Important: The bottom 1/4 of the image will be covered by a banner, so the main subject should be in the upper portion
+    prompt = f"Generate a photorealistic daytime scene of the most iconic landmark or natural scenery in {destination}, emphasizing its most distinctive features and authentic surroundings. If {destination} is famous for natural landscapes (mountains, beaches, forests, lakes, valleys), capture the breathtaking natural scenery with its unique geological formations, vegetation, and natural beauty positioned in the upper and middle portion of the frame. If {destination} is famous for architectural landmarks, capture the full view of the landmark from its most famous vantage point in the upper and middle portion of the composition, showcasing its unique architectural details. The main subject should be centered vertically in the upper 75% of the image. Show a clear blue sky with a few scattered, fluffy white clouds in the top portion. The scene should be serene and peaceful without any people, focusing purely on the beauty of the location. Include the actual surrounding environment—specific vegetation, pathways, water features, natural elements, or nearby structures as they exist. The bottom portion can show foreground elements like grass, road, or ground. The lighting is natural, with soft sunlight casting accurate shadows that highlight the textures and details, evoking a vivid springtime atmosphere. Ensure every element accurately reflects the real-world setting of {destination} for maximum realism, whether it's natural scenery or architectural beauty."
     
     return prompt
 
@@ -446,7 +489,7 @@ async def test_image_editing():
         test_image_bytes = output.getvalue()
         
         # Test the banner function
-        edited_bytes = _add_bottom_banner(test_image_bytes, 400, 300)
+        edited_bytes = _add_bottom_banner(test_image_bytes, 400, 300, destination="Test Destination", airline="Test Airline", price="1,234")
         
         # Convert to base64
         base64_data = base64.b64encode(edited_bytes).decode()
@@ -929,7 +972,7 @@ def _add_special_text_to_image(image: Image.Image, text_config: dict) -> Image.I
     # Calculate extra space needed for rotation (approximate)
     if rotation_angle != 0:
         # For rotation, we need extra space around the text
-        rotation_margin = max(text_width, text_height) * 0.3  # 30% extra margin for rotation
+        rotation_margin = int(max(text_width, text_height) * 0.3)  # 30% extra margin for rotation
         min_x = rotation_margin + border_width
         min_y = rotation_margin + border_width
         max_x = image_width - rotation_margin - border_width
@@ -941,9 +984,9 @@ def _add_special_text_to_image(image: Image.Image, text_config: dict) -> Image.I
         max_x = image_width - border_width
         max_y = image_height - border_width
     
-    # Clamp coordinates to stay within bounds
-    x = max(min_x, min(x, max_x))
-    y = max(min_y, min(y, max_y))
+    # Clamp coordinates to stay within bounds (ensure they are integers)
+    x = int(max(min_x, min(x, max_x)))
+    y = int(max(min_y, min(y, max_y)))
     
     # Draw text with border
     _draw_text_with_border(draw, text, x, y, font, text_color, border_color, border_width, rotation_angle)
@@ -1184,12 +1227,23 @@ def _add_text_to_flight_info(image_data: bytes, flight_data: dict = None, ai_ana
     log.info(f"Flight info image with text: {len(result_bytes)} bytes")
     return result_bytes
 
-def _add_bottom_banner(image_data: bytes, width: int, height: int, special_text_config: dict = None) -> bytes:
+def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: str = None, airline: str = None, price: str = None, special_text_config: dict = None) -> bytes:
     """
     Add a light blue rectangle at the bottom of the image (1/4 height, 100% width)
     Similar to the Mongolia travel advertisement example
+    
+    Args:
+        image_data: Image bytes
+        width: Requested image width
+        height: Requested image height
+        destination: Destination name to display in special text
+        airline: Airline name to display in purple rectangle
+        price: Flight price to display in blue banner
+        special_text_config: Optional custom text configuration
     """
     log.info(f"Adding bottom banner: requested {width}x{height} image")
+    log.info(f"Destination for special text: {destination}")
+    log.info(f"Airline: {airline}, Price: {price}")
     
     # Load image from bytes
     image = Image.open(io.BytesIO(image_data))
@@ -1242,10 +1296,16 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, special_text_
     )
     log.info(f"Added purple rectangle at ({purple_x}, {purple_y}) size {purple_width}x{purple_height}")
     
+    # Use provided airline or fallback to "中華航空"
+    display_airline = airline if airline else "中華航空"
+    
+    # Use provided price or fallback to "3,222"
+    display_price = price if price else "3,222"
+    
     # Define texts to add (reusable configuration)
     texts_to_add = [
         {
-            "text": "中華航空",
+            "text": display_airline, #change this airline name
             "x": purple_x + (purple_width // 2),  # Center horizontally in purple rectangle
             "y": purple_y + (purple_height // 2) - 15,  # Center vertically in purple rectangle, moved up 10px
             "color": (255, 255, 255),  # White
@@ -1260,7 +1320,7 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, special_text_
             "y": banner_y + (banner_height // 2) - 60,  # Center vertically in blue banner, moved down 10px
             "parts": [
                 {"text": "來回連稅$", "font_size": 70, "color": (255, 255, 255)},
-                {"text": "3,222", "font_size": 105, "color": (255, 255, 255)},  # 1/3 bigger: 70 * 1.33 ≈ 93
+                {"text": display_price, "font_size": 105, "color": (255, 255, 255)},  #change this to the price
                 {"text": "起", "font_size": 70, "color": (255, 255, 255)},
             ]
         }
@@ -1328,13 +1388,17 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, special_text_
     except Exception as e:
         log.error(f"Failed to add flyagainla_icon.png: {e}")
     
-    # Add special text "東京" with border and rotation
+    # Add special text with destination name, with border and rotation
     # Calculate safe positioning to ensure text stays within image bounds
     # Account for larger font size (120) and rotation
     safe_margin = 100  # Extra margin to account for rotation and border
+    
+    # Use provided destination or fallback to "東京"
+    display_destination = destination if destination else "東京"
+    
     special_text_config = {
-        "text": "東京",
-        "x": (actual_width // 2) - 80,  # Move to center horizontally for more distance from left edge
+        "text": display_destination, #destination change here
+        "x": (actual_width // 2) - 100,  # Move to center horizontally for more distance from left edge
         "y": actual_height // 5,  # Move higher up in the image (was // 3, now // 5)
         "font_size": 120,
         "text_color": (122, 40, 156),  # #7a289c color
@@ -1347,16 +1411,16 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, special_text_
     
     try:
         final_image = _add_special_text_to_image(final_image, special_text_config)
-        log.info("Successfully added special text '東京' with border")
+        log.info(f"Successfully added special text '{display_destination}' with border")
     except Exception as e:
-        log.error(f"Failed to add special text: {e}")
+        log.error(f"Failed to add special text '{display_destination}': {e}")
     
     # Add second special text "Brah brah 1" under "東京"
     special_text_config_2 = {
-        "text": "Brah brah 1",
-        "x": (actual_width // 2) - 155,  # Move further left to align first character with "東京"
+        "text": "多航班及日子選擇！",
+        "x": (actual_width // 2) - 145,  # Move further left to align first character with "東京"
         "y": (actual_height // 5) + 60,  # Under "東京" with spacing
-        "font_size": 50,
+        "font_size": 45,
         "text_color": (79, 201, 226),  # #4fc9e2 color
         "border_color": (255, 255, 255),  # White border
         "border_width": 4,
@@ -1373,10 +1437,10 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, special_text_
     
     # Add third special text "brah brah 2" under "Brah brah 1"
     special_text_config_3 = {
-        "text": "brah brah 2",
+        "text": "凌晨去晚返都有！",
         "x": (actual_width // 2) - 150,  # Same horizontal position as "Brah brah 1"
         "y": (actual_height // 5) + 140,  # Under "Brah brah 1" with spacing
-        "font_size": 50,
+        "font_size": 45,
         "text_color": (79, 201, 226),  # #4fc9e2 color
         "border_color": (255, 255, 255),  # White border
         "border_width": 4,

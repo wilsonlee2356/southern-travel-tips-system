@@ -255,7 +255,7 @@
 		},
 		{
 			id: 3,
-			airline: '全日空航空公司',
+			airline: '全日空航空',
 			startingPlace: '香港',
 			destination: '大阪',
 			cost: 2900,
@@ -275,7 +275,7 @@
 		},
 		{
 			id: 5,
-			airline: '英國航空公司',
+			airline: '英國航空',
 			startingPlace: '香港',
 			destination: '倫敦',
 			cost: 18000,

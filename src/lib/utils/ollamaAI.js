@@ -671,7 +671,17 @@ Use your knowledge base to provide accurate airline information and route insigh
 			return `[航空公司：${airlines} 出發地點：${group.startingPlace} 目的地：${group.destination} 來回價錢：$${totalPrice} 艙等：${seatClass} 出發日期：${departureDate} 出發時間：${departureTime} 行李資訊：${luggage}]`;
 		}).join(', ');
 		
-		const prompt = `依flyagain_rag.txt，輸JSON，唯含destination,header,short_comment,summary。短評限三十字，總結約八十字，繁體廣東話，標題短評用超前部署、平、抵、減。僅JSON，無文符斷行。例：{"destination":"美國","header":"超前部署！平到喊！國泰來回洛杉磯連稅$5,328起！2026年6月前出發","short_comment":"真係平到傻抵到爆！","summary":"國泰直航減價，迫近轉機價！open jaw玩加州，復活節都平，搶啦～"} 資料：${flightDataString}`;
+		const prompt = `仿又飛啦廣東俚語，輸JSON，每來回一對象，含destination、header、short_comment、summary。destination取非香港地。header用超前部署、平、抵、減，含航司、價、期，勿含destination。short_comment限三十字，嘆價（如嘩！平到喊）。summary約八十字，述價、地景、促行，依資料，勿增詞。語繁體廣東話，價港幣，出發地香港，假設連稅、2025/2026。
+
+## 例
+### 東京
+{"destination":"東京","header":"超前部署！平到震！ANA來回連稅$2,323起！2025年9月出發","short_comment":"嘩！抵到傻～","summary":"東京$2,323來回，超筍！食壽司，逛新宿，啱晒秋遊，搶飛啦～"}
+### 福岡
+{"destination":"福岡","header":"平到喊！德威航空來回連稅$1,885起！2025年10月出發","short_comment":"真係CLS大減！","summary":"福岡$1,885來回，平到爆！食博多拉麵，逛運河城，無得輸，入手啦～"}
+### 曼谷
+{"destination":"曼谷","header":"抵到爆！泰航來回連稅$1,500起！2026年1月出發","short_comment":"嘩！平到唔信～","summary":"曼谷$1,500來回，超值！食冬陰功，遊大皇宮，啱晒冬遊，book啦～"}
+
+##資料：${flightDataString}`;
 
 		// ===== LOG THE CONSTRUCTED PROMPT BEFORE SENDING =====
 		console.log('🎯 ═══════════════════════════════════════════════════════════');
