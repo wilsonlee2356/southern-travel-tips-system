@@ -249,7 +249,21 @@ async def generate_scenic_image(
         "destination": "Santorini, Greece",
         "style": "realistic",  # realistic, artistic, cinematic, vintage
         "width": 1024,
-        "height": 1024
+        "height": 1024,
+        "flight_data": {  # Optional flight information
+            "airline": "China Airlines",
+            "startingPlace": "Hong Kong",
+            "destination": "Tokyo",
+            "departureDate": "2026-02-18",
+            "returnDate": "2026-02-25",
+            "cost": 3500,
+            ...
+        },
+        "ai_analysis": {  # Optional AI-generated content
+            "header": "【東京】春季賞櫻特惠",
+            "content": "...",
+            "summary": "..."
+        }
     }
     """
     try:
@@ -257,6 +271,8 @@ async def generate_scenic_image(
         style = payload.get("style", DEFAULT_STYLE)
         width = payload.get("width", 1024)
         height = payload.get("height", 1024)
+        flight_data = payload.get("flight_data", {})
+        ai_analysis = payload.get("ai_analysis", {})
         
         if not destination:
             raise HTTPException(status_code=400, detail="Destination is required")
@@ -320,10 +336,14 @@ async def generate_scenic_image(
                             with open(flight_info_path, "rb") as f:
                                 flight_info_data = f.read()
                                 
-                                # Add text overlay to flight info image
+                                # Add text overlay to flight info image with flight data and AI analysis
                                 if PIL_AVAILABLE:
                                     try:
-                                        flight_info_data = _add_text_to_flight_info(flight_info_data)
+                                        flight_info_data = _add_text_to_flight_info(
+                                            flight_info_data, 
+                                            flight_data=flight_data, 
+                                            ai_analysis=ai_analysis
+                                        )
                                         log.info("Successfully added text to flight info image")
                                     except Exception as e:
                                         log.error(f"Failed to add text to flight info image: {e}")
@@ -980,15 +1000,27 @@ def _draw_multipart_text(draw, parts: list, x: int, y: int, align_baseline: bool
         
         log.info(f"Drew multipart text '{text}' at ({current_x - text_width}, {adjusted_y}), size: {font_size}, color: {color}")
 
-def _add_text_to_flight_info(image_data: bytes) -> bytes:
+def _add_text_to_flight_info(image_data: bytes, flight_data: dict = None, ai_analysis: dict = None) -> bytes:
     """
     Add text overlays to the flight info image
-    Adds "出發" and "回程" texts
+    Adds flight details from flight_data and ai_analysis
+    
+    Args:
+        image_data: Image bytes
+        flight_data: Dictionary containing flight information (can be single flight or list of flights)
+        ai_analysis: Dictionary containing AI-generated analysis
+        
+    Flight data processing logic:
+    - Single flight: Treat as round trip
+    - Multiple flights with 2 places: Treat as round trip (outbound + return)
+    - Multiple flights with 3+ places: Use only first flight as round trip
     """
     log.info(f"Adding text overlays to flight info image")
+    log.info(f"Flight data received: {flight_data}")
+    log.info(f"AI analysis received: {ai_analysis}")
     
     default_font_size = 30
- 
+
     # Load image from bytes
     image = Image.open(io.BytesIO(image_data))
     log.info(f"Loaded flight info image: size {image.size}, mode: {image.mode}")
@@ -1000,24 +1032,110 @@ def _add_text_to_flight_info(image_data: bytes) -> bytes:
     # Create a drawing context
     draw = ImageDraw.Draw(image)
     
+    # Extract data from flight_data and ai_analysis with fallbacks
+    if not flight_data:
+        flight_data = {}
+    if not ai_analysis:
+        ai_analysis = {}
+    
+    # Check if flight_data contains multiple flights (as a list/array indicator)
+    flights_list = flight_data.get("flights", [])
+    is_multiple_flights = len(flights_list) > 0
+    
+    if is_multiple_flights:
+        # Multiple flights scenario
+        log.info(f"Processing multiple flights: {len(flights_list)} flights")
+        
+        # Get all unique places involved
+        all_places = set()
+        for flight in flights_list:
+            all_places.add(flight.get("startingPlace"))
+            all_places.add(flight.get("destination"))
+        
+        log.info(f"Unique places involved: {all_places}")
+        
+        if len(all_places) == 2:
+            # Two places: treat as round trip (first flight = outbound, second flight = return)
+            log.info("Two places detected - treating as round trip")
+            first_flight = flights_list[0]
+            second_flight = flights_list[1] if len(flights_list) > 1 else flights_list[0]
+            
+            # Outbound trip (first flight)
+            start_date = first_flight.get("departureDate", "2026年2月18日")
+            start_time = first_flight.get("departureTime", "09:30")
+            start_place = first_flight.get("startingPlace", "香港")
+            start_arrival_time = first_flight.get("arrivalTime", "12:50")
+            destination = first_flight.get("destination", "東京")
+            
+            # Return trip (second flight)
+            return_date = second_flight.get("departureDate", start_date)
+            return_time = second_flight.get("departureTime", "15:30")
+            return_start_place = second_flight.get("startingPlace", destination)
+            return_arrival_time = second_flight.get("arrivalTime", "19:45")
+            return_destination = second_flight.get("destination", start_place)
+            
+            # Total cost
+            flight_price = str(sum(f.get("cost", 0) for f in flights_list))
+            
+        else:
+            # 3+ places: use only first flight and treat as round trip
+            log.info(f"3+ places detected ({len(all_places)} places) - using first flight only")
+            first_flight = flights_list[0]
+            
+            # Outbound trip
+            start_date = first_flight.get("departureDate", "2026年2月18日")
+            start_time = first_flight.get("departureTime", "09:30")
+            start_place = first_flight.get("startingPlace", "香港")
+            start_arrival_time = first_flight.get("arrivalTime", "12:50")
+            destination = first_flight.get("destination", "東京")
+            
+            # Return trip (reverse of first flight)
+            return_date = first_flight.get("returnDate", start_date)
+            return_time = first_flight.get("returnDepartureTime", "15:30")
+            return_start_place = destination
+            return_arrival_time = first_flight.get("returnArrivalTime", "19:45")
+            return_destination = start_place
+            
+            # Use first flight cost
+            flight_price = str(first_flight.get("cost", 3500))
+    else:
+        # Single flight scenario - treat as round trip
+        log.info("Processing single flight as round trip")
+        
+        # Outbound trip
+        start_date = flight_data.get("departureDate", "2026年2月18日")
+        start_time = flight_data.get("departureTime", "09:30")
+        start_place = flight_data.get("startingPlace", "香港")
+        start_arrival_time = flight_data.get("arrivalTime", "12:50")
+        destination = flight_data.get("destination", "東京")
+        
+        # Return trip
+        return_date = flight_data.get("returnDate", start_date)
+        return_time = flight_data.get("returnDepartureTime", "15:30")
+        return_start_place = destination  # Return starts from the destination
+        return_arrival_time = flight_data.get("returnArrivalTime", "19:45")
+        return_destination = start_place  # Return ends at starting place
+        
+        flight_price = str(flight_data.get("cost", 3500))
+    
     # Define text configurations (text, x, y, color, font_size)
     # font_size is optional, defaults to default_font_size if not specified
     texts_to_add = [
-        {"text": "出發", "x": 60, "y": 20, "color": (0, 0, 0), "font_size": 30},
-        {"text": "2026年2月18日", "x": 150, "y": 20, "color": (0, 0, 0), "font_size": 30},
-        {"text": "回程", "x": 60, "y": 270, "color": (0, 0, 0), "font_size": 30},
-        {"text": "2026年2月18日", "x": 150, "y": 270, "color": (0, 0, 0), "font_size": 30},
-        {"text": "09:30", "x": 60, "y": 70, "color": (0, 0, 0), "font_size": 30},
-        {"text": "香港", "x": 160, "y": 70, "color": (0, 0, 0), "font_size": 30},
-        {"text": "12:50", "x": 60, "y": 190, "color": (0, 0, 0), "font_size": 30},
-        {"text": "東京", "x": 160, "y": 190, "color": (0, 0, 0), "font_size": 30},
+        {"text": "出發", "x": 60, "y": 20, "color": (0, 0, 0), "font_size": 30}, #do not change this text
+        {"text": start_date, "x": 150, "y": 20, "color": (0, 0, 0), "font_size": 30}, #start date
+        {"text": "回程", "x": 60, "y": 270, "color": (0, 0, 0), "font_size": 30}, #do not change this text
+        {"text": return_date, "x": 150, "y": 270, "color": (0, 0, 0), "font_size": 30},#return date
+        {"text": start_time, "x": 60, "y": 70, "color": (0, 0, 0), "font_size": 30},#start time
+        {"text": start_place, "x": 160, "y": 70, "color": (0, 0, 0), "font_size": 30},#start place
+        {"text": start_arrival_time, "x": 60, "y": 190, "color": (0, 0, 0), "font_size": 30},#start arrival time
+        {"text": destination, "x": 160, "y": 190, "color": (0, 0, 0), "font_size": 30},#start destination place
 
-        {"text": "09:30", "x": 60, "y": 330, "color": (0, 0, 0), "font_size": 30},
-        {"text": "香港", "x": 160, "y": 330, "color": (0, 0, 0), "font_size": 30},
-        {"text": "12:50", "x": 60, "y": 445, "color": (0, 0, 0), "font_size": 30},
-        {"text": "東京", "x": 160, "y": 445, "color": (0, 0, 0), "font_size": 30},
+        {"text": return_time, "x": 60, "y": 330, "color": (0, 0, 0), "font_size": 30},#return time
+        {"text": return_start_place, "x": 160, "y": 330, "color": (0, 0, 0), "font_size": 30},#return start place
+        {"text": return_arrival_time, "x": 60, "y": 445, "color": (0, 0, 0), "font_size": 30},#return arrival time
+        {"text": return_destination, "x": 160, "y": 445, "color": (0, 0, 0), "font_size": 30},#return destination place
 
-        {"text": "1", "x": 190, "y": 592, "color": (0, 0, 0), "font_size": 25},
+        {"text": "1", "x": 190, "y": 592, "color": (0, 0, 0), "font_size": 25},#do not change this text
     ]
     
     # Define multipart text configurations (for text with different sizes/colors in one line)
@@ -1026,9 +1144,9 @@ def _add_text_to_flight_info(image_data: bytes) -> bytes:
             "x": 40, 
             "y": 510, 
             "parts": [
-                {"text": "HK$ ", "font_size": 30, "color": (49, 98, 210)},
-                {"text": "3,500", "font_size": 50, "color": (49, 98, 210)},
-                {"text": " /人", "font_size": 30, "color": (128, 128, 128)},  # Gray
+                {"text": "HK$ ", "font_size": 30, "color": (49, 98, 210)}, #do not change this text
+                {"text": flight_price, "font_size": 50, "color": (49, 98, 210)}, #flight price
+                {"text": " /人", "font_size": 30, "color": (128, 128, 128)}, #do not change this text
             ]
         },
     ]

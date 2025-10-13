@@ -204,17 +204,60 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 		if (destination) {
 			console.log('Generating scenic image for destination:', destination);
 			const token = localStorage.getItem('token') || '';
+			
+			// Prepare flight data to send to backend
+			let flightDataForBackend;
+			
+			if (selectedFlights.length === 1) {
+				// Single flight - send as single object
+				const flight = selectedFlights[0];
+				flightDataForBackend = {
+					airline: flight.airline,
+					startingPlace: flight.startingPlace,
+					destination: flight.destination,
+					departureDate: flight.departureDate,
+					returnDate: flight.returnDate || flight.departureDate,
+					departureTime: flight.departureTime || "09:30",
+					arrivalTime: flight.arrivalTime || "12:50",
+					returnDepartureTime: flight.returnDepartureTime || "15:30",
+					returnArrivalTime: flight.returnArrivalTime || "19:45",
+					cost: flight.cost || 3500,
+					seatClass: flight.seatClass
+				};
+			} else {
+				// Multiple flights - send as array
+				flightDataForBackend = {
+					flights: selectedFlights.map(flight => ({
+						airline: flight.airline,
+						startingPlace: flight.startingPlace,
+						destination: flight.destination,
+						departureDate: flight.departureDate,
+						returnDate: flight.returnDate || flight.departureDate,
+						departureTime: flight.departureTime || "09:30",
+						arrivalTime: flight.arrivalTime || "12:50",
+						returnDepartureTime: flight.returnDepartureTime || "15:30",
+						returnArrivalTime: flight.returnArrivalTime || "19:45",
+						cost: flight.cost || 3500,
+						seatClass: flight.seatClass
+					}))
+				};
+			}
+			
 			console.log('About to call generateScenicImage with:', {
 				destination: destination,
 				style: 'realistic',
 				width: 1024,
-				height: 1024
+				height: 1024,
+				flight_data: flightDataForBackend,
+				ai_analysis: aiAnalysis
 			});
 			imageResponse = await generateScenicImage(token, {
 				destination: destination,
 				style: 'realistic',
 				width: 1024,
-				height: 1024
+				height: 1024,
+				flight_data: flightDataForBackend,
+				ai_analysis: aiAnalysis
 			});
 			console.log('Raw imageResponse received:', imageResponse);
 			
