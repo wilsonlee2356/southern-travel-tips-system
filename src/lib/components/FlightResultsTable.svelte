@@ -1,6 +1,5 @@
 <script>
 	import { getContext } from 'svelte';
-	import { fetchAdapters, fetchMergedModels } from '$lib/utils/adapterApi.js';
 	import { models } from '$lib/stores';
 	
 	const i18n = getContext('i18n');
@@ -15,78 +14,14 @@
 	export let isPosting = false;
 	export let aiStage = '';
 	
-	// Binding props for adapter selection
+	// Binding props for model selection
 	export let selectedAdapter = null;
 	export let selectedMergedModel = null;
 	export let selectedRAGModel = null;
 	export let selectedBaseModel = null;
 	export let selectedModel = null; // For any model (including external APIs)
 	
-	// Adapter selection state
-	let availableAdapters = [];
-	let availableMergedModels = [];
-	let availableRAGModels = [];
-	let isLoadingAdapters = false;
-	let adapterError = '';
-	
-	// Load adapters and merged models when models store is available
-	$: if ($models && typeof window !== 'undefined') {
-		loadAdapters();
-	}
-	
-	async function loadAdapters() {
-		isLoadingAdapters = true;
-		adapterError = '';
-		
-		try {
-			// Load adapters, merged models, and standard OpenWebUI models (which now include RAG models)
-			const [adaptersResult, mergedModelsResult] = await Promise.all([
-				fetchAdapters(),
-				fetchMergedModels()
-			]);
-			
-			if (adaptersResult.success) {
-				availableAdapters = adaptersResult.adapters;
-			} else {
-				console.warn('Failed to load adapters:', adaptersResult.error);
-			}
-			
-			if (mergedModelsResult.success) {
-				availableMergedModels = mergedModelsResult.mergedModels;
-			} else {
-				console.warn('Failed to load merged models:', mergedModelsResult.error);
-			}
-			
-			// Load RAG models from standard OpenWebUI models (filter for RAG models)
-			// RAG models are now registered as base models in OpenWebUI
-			console.log('Available OpenWebUI models:', $models);
-			const ragModelsFromOpenWebUI = $models?.filter(model => 
-				model.id.includes('rag') && model.id.includes('ollama')
-			) || [];
-			
-			console.log('Filtered RAG models from OpenWebUI:', ragModelsFromOpenWebUI);
-			
-			// Convert OpenWebUI model format to RAG model format
-			availableRAGModels = ragModelsFromOpenWebUI.map(model => ({
-				rag_model_name: model.id.replace('_ollama:latest', ''),
-				adapter_name: model.name,
-				ollama_model_name: model.id,
-				base_model: 'qwen2.5:14b', // Default base model
-				created_at: new Date().toISOString(), // Use current time as fallback
-				status: 'ready_for_rag'
-			}));
-			
-			console.log('Final availableRAGModels:', availableRAGModels);
-			
-		} catch (error) {
-			console.error('Error loading AI models:', error);
-			adapterError = 'Failed to load AI models';
-		} finally {
-			isLoadingAdapters = false;
-		}
-	}
-	
-	// Handle combined AI model selection change
+	// Handle AI model selection change
 	function handleAIModelChange(event) {
 		const selectedValue = event.target.value;
 		
@@ -97,58 +32,15 @@
 		selectedBaseModel = null;
 		selectedModel = null;
 		
-		if (!selectedValue || selectedValue === 'separator') return;
+		if (!selectedValue) return;
 		
-		// Parse the selection type and value
-		const [type, value] = selectedValue.split(':', 2);
-		
-		switch (type) {
-			case 'model':
-				// Select any model (including external APIs like Gemini)
-				const fullModelId = selectedValue.substring(6); // Remove 'model:' prefix
-				selectedModel = ($models || []).find(m => m.id === fullModelId) || null;
-				console.log('Selected model:', selectedModel);
-				break;
-				
-			case 'base':
-				selectedBaseModel = value;
-				// Always apply RAG if available
-				if (availableRAGModels.length > 0) {
-					// Use the first available RAG model for base model
-					selectedRAGModel = availableRAGModels[0];
-				}
-				break;
-				
-			case 'adapter':
-				// Select an adapter
-				selectedAdapter = availableAdapters.find(adapter => adapter.export_id === value) || null;
-				break;
-				
-			case 'rag':
-				// Select an already-merged RAG model
-				selectedRAGModel = availableRAGModels.find(ragModel => ragModel.rag_model_name === value) || null;
-				break;
-		}
+		// Select the model from the models store
+		const fullModelId = selectedValue.substring(6); // Remove 'model:' prefix
+		selectedModel = ($models || []).find(m => m.id === fullModelId) || null;
+		console.log('Selected model:', selectedModel);
 	}
 	
-	// Legacy handlers (kept for compatibility but not used in UI)
-	function handleBaseModelChange(event) {
-		// This function is kept for compatibility but not used
-	}
-	
-	function handleAdapterChange(event) {
-		// This function is kept for compatibility but not used
-	}
-	
-	function handleMergedModelChange(event) {
-		// This function is kept for compatibility but not used
-	}
-	
-	function handleRAGModelChange(event) {
-		// This function is kept for compatibility but not used
-	}
-	
-	// Combined AI model options - include ALL models (Ollama, external APIs like Gemini, etc.)
+	// AI model options - include ALL models (Ollama, OpenAI, Google AI, etc.)
 	$: aiModelOptions = [
 		// All available models from the models store (includes Ollama, OpenAI, Google AI, etc.)
 		...($models || []).map(model => ({
@@ -157,41 +49,11 @@
 			type: 'all_models',
 			modelId: model.id,
 			ownedBy: model.owned_by
-		})),
-		
-		// Separator for advanced options
-		{ value: 'separator', label: '──────────────', type: 'separator', disabled: true },
-		
-		// Base model with RAG (if available)
-		{ 
-			value: 'base:qwen2.5:14b', 
-			label: '🔧 Qwen2.5 14B + RAG (Advanced)', 
-			type: 'base_with_rag',
-			hasRAG: availableRAGModels.length > 0
-		},
-		
-		// Show available adapters
-		...availableAdapters.map(adapter => ({
-			value: `adapter:${adapter.export_id}`,
-			label: `🔧 ${adapter.adapter_name} (Adapter)`,
-			type: 'adapter',
-			hasRAG: false
-		})),
-		
-		// Show RAG models that are already created
-		...availableRAGModels.map(ragModel => ({
-			value: `rag:${ragModel.rag_model_name}`,
-			label: `🔧 ${ragModel.adapter_name} + RAG (${new Date(ragModel.created_at).toLocaleString()})`,
-			type: 'rag_model',
-			ragModel: ragModel
 		}))
 	];
 	
 	// Get current selected value for the dropdown
-	$: currentSelectedValue = selectedModel ? `model:${selectedModel.id}` :
-		selectedBaseModel ? `base:${selectedBaseModel}` :
-		selectedAdapter ? `adapter:${selectedAdapter.export_id}` :
-		selectedRAGModel ? `rag:${selectedRAGModel.rag_model_name}` : '';
+	$: currentSelectedValue = selectedModel ? `model:${selectedModel.id}` : '';
 
 	// Table state
 	let currentPage = 1;
@@ -745,59 +607,28 @@
 							id="ai-model-select"
 							class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 							on:change={handleAIModelChange}
-							disabled={isLoadingAdapters || isPosting}
+							disabled={isPosting}
 							value={currentSelectedValue}
 						>
 						<option value="">Select AI Model...</option>
 						{#each aiModelOptions as option}
-							<option value={option.value} disabled={option.disabled || false}>{option.label}</option>
+							<option value={option.value}>{option.label}</option>
 						{/each}
 						</select>
 					</div>
 					
 					<!-- Selected Model Info -->
-					{#if currentSelectedValue}
+					{#if selectedModel}
 						<div class="flex flex-col flex-1 min-w-[250px]">
 							<div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 								Selected Model
 							</div>
 							<div class="px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-sm">
-								{#if selectedModel}
-									<span class="text-gray-600 dark:text-gray-300">Model: <strong>{selectedModel.name || selectedModel.id}</strong></span>
-									{#if selectedModel.owned_by && selectedModel.owned_by !== 'ollama'}
-										<br><span class="text-indigo-600 dark:text-indigo-400">Provider: <strong>{selectedModel.owned_by}</strong></span>
-									{/if}
-								{:else if selectedBaseModel}
-									<span class="text-gray-600 dark:text-gray-300">Base Model: <strong>{selectedBaseModel}</strong></span>
-									{#if selectedRAGModel}
-										<br><span class="text-blue-600 dark:text-blue-400">+ RAG: <strong>{selectedRAGModel.rag_model_name}</strong></span>
-									{/if}
-								{:else if selectedAdapter}
-									<span class="text-purple-600 dark:text-purple-400">Adapter: <strong>{selectedAdapter.adapter_name}</strong></span>
-									<br><span class="text-gray-500 dark:text-gray-400">Export ID: {selectedAdapter.export_id}</span>
-								{:else if selectedRAGModel}
-									<span class="text-green-600 dark:text-green-400">RAG Model: <strong>{selectedRAGModel.rag_model_name}</strong></span>
-									<br><span class="text-blue-600 dark:text-blue-400">Base: {selectedRAGModel.base_model}</span>
+								<span class="text-gray-600 dark:text-gray-300">Model: <strong>{selectedModel.name || selectedModel.id}</strong></span>
+								{#if selectedModel.owned_by && selectedModel.owned_by !== 'ollama'}
+									<br><span class="text-indigo-600 dark:text-indigo-400">Provider: <strong>{selectedModel.owned_by}</strong></span>
 								{/if}
 							</div>
-						</div>
-					{/if}
-					
-					<!-- Loading indicator -->
-					{#if isLoadingAdapters}
-						<div class="flex items-center text-sm text-gray-500 dark:text-gray-400">
-							<svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-							</svg>
-							{$i18n.t('Loading models...')}
-						</div>
-					{/if}
-					
-					<!-- Error message -->
-					{#if adapterError}
-						<div class="text-sm text-red-600 dark:text-red-400">
-							{adapterError}
 						</div>
 					{/if}
 				</div>
@@ -806,7 +637,7 @@
 				<div class="flex justify-end">
 					<button
 						class="bg-black hover:bg-gray-800 text-white font-medium py-3 px-8 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-						disabled={isPosting || (!selectedRAGModel && !selectedBaseModel && !selectedAdapter && !selectedModel)}
+						disabled={isPosting || !selectedModel}
 						on:click={onPost}
 					>
 						{#if isPosting}
@@ -833,15 +664,9 @@
 				</div>
 				
 				<!-- Selection info -->
-				{#if selectedModel || selectedRAGModel || selectedBaseModel}
+				{#if selectedModel}
 					<div class="text-sm text-gray-600 dark:text-gray-400">
-						{#if selectedModel}
-							Using model: <span class="font-medium">{selectedModel.name || selectedModel.id}</span>
-						{:else if selectedRAGModel}
-							Using RAG model: <span class="font-medium">{selectedRAGModel.adapter_name} + RAG</span>
-						{:else if selectedBaseModel}
-							Using base model: <span class="font-medium">{selectedBaseModel}</span> with RAG
-						{/if}
+						Using model: <span class="font-medium">{selectedModel.name || selectedModel.id}</span>
 					</div>
 				{/if}
 			</div>

@@ -2,7 +2,7 @@
 	import { mobile, showSidebar, user, showArchivedChats, models } from '$lib/stores';
 	import { getContext } from 'svelte';
 	import { onMount } from 'svelte';
-	import { generateTextCompletion } from '$lib/apis/ollama/index';
+	import { chatCompletion } from '$lib/apis/openai/index';
 	// Note: Web content extraction moved to server-side API
 
 	const i18n = getContext('i18n');
@@ -29,6 +29,38 @@
 	let isGenerating = false;
 	let generationStatus = '';
 	let uploadedImages = [];
+	
+	// Model selection
+	let selectedModel = null;
+	
+	// AI model options - include ALL models (Ollama, OpenAI, Google AI, etc.)
+	$: aiModelOptions = [
+		// All available models from the models store
+		...($models || []).map(model => ({
+			value: `model:${model.id}`,
+			label: `${model.name || model.id}${model.owned_by && model.owned_by !== 'ollama' ? ` (${model.owned_by})` : ''}`,
+			type: 'all_models',
+			modelId: model.id,
+			ownedBy: model.owned_by
+		}))
+	];
+	
+	// Get current selected value for the dropdown
+	$: currentSelectedValue = selectedModel ? `model:${selectedModel.id}` : '';
+	
+	// Handle AI model selection change
+	function handleAIModelChange(event) {
+		const selectedValue = event.target.value;
+		
+		selectedModel = null;
+		
+		if (!selectedValue) return;
+		
+		// Select the model from the models store
+		const fullModelId = selectedValue.substring(6); // Remove 'model:' prefix
+		selectedModel = ($models || []).find(m => m.id === fullModelId) || null;
+		console.log('Selected model:', selectedModel);
+	}
 
 	// Add URL field
 	const addUrlField = () => {
@@ -53,8 +85,13 @@
 		formData.photos = uploadedImages;
 	};
 
-	// Generate post content using Ollama
+	// Generate post content using selected AI model
 	const generatePost = async () => {
+		if (!selectedModel) {
+			alert('Please select an AI model first');
+			return;
+		}
+		
 		if (formData.urls.every(url => !url.trim()) && formData.photos.length === 0) {
 			alert('Please provide at least one URL or upload at least one photo');
 			return;
@@ -64,42 +101,46 @@
 		generationStatus = 'Analyzing content...';
 
 		try {
-			// Prepare the prompt for Ollama
+			// Prepare the prompt
 			const urlsText = formData.urls.filter(url => url.trim()).join('\n');
 			
 			// Add photos information
 			const photosText = formData.photos.length > 0 ? `\n\nUploaded ${formData.photos.length} photo(s): ${formData.photos.map(p => p.name).join(', ')}` : '';
 			
-			const prompt = `You are a social media content creator. Based on the following URLs and photos, create an engaging social media post.
+			const prompt = `You are a content creator for the Instagram account @flyagainla, a Hong Kong-based travel page sharing aviation news, international travel stories, safety alerts, and tourism updates. You have been provided with the following news article links: [${urlsText}${photosText}]. Analyze the content of these articles (headlines, events, quotes, timelines, statistics) to extract factual information and determine the main subject of the post. Do not adopt the tone or style of the articles, and avoid adding speculative or unverified details not explicitly stated in the articles. Instead, generate an Instagram post caption in the exact style of @flyagainla, using Traditional Chinese with casual Cantonese elements (e.g., "真係", "既", "呀", emojis like 😰 or 🫣).
 
-URLs to analyze:
-${urlsText}${photosText}
+Follow this @flyagainla structure and style:
+- Header: For aviation news, start with "#航空短打：" followed by a dramatic teaser phrase with an emoji (e.g., "#航空短打：真係好驚險呀😰"). For broader travel/international news or stories, use 【 】 brackets with a bold, descriptive title and emojis (e.g., "【超離譜！某地事件🫣】").
+- First paragraph: Introduce the main event or hook factually but with dramatic flair, using key details directly from the articles to set the scene.
+- Middle paragraphs: Provide in-depth facts, timelines, quotes from involved parties (e.g., airlines, officials), statistics, or analyses directly drawn from the articles. Use simple lists for schedules if relevant. Keep paragraphs logical, concise, and broken for readability. Do not invent or exaggerate details.
+- Closing: Wrap with reactions, implications, or an engaging question (e.g., "大家覺得呢？💁") based on the article’s content. Use "#國際大小事" for non-aviation topics. Include a source link to one of the provided articles if relevant (e.g., "原po：https://...").
+Tone: Informative with sensational, attention-grabbing teasers; neutral reporting in the body with balanced views; casual and dramatic like sharing exciting news with friends, per @flyagainla’s style.
+Wording: Traditional Chinese with Cantonese flair (e.g., "真係", "呀", "惹爭議"), concise sentences (200-500 characters total). Integrate 2-4 emojis (e.g., ✈, 😰, 🫣) naturally for emphasis, and use 2-4 hashtags (e.g., #國際大小事, #flyagainla) sparingly for categorization.
 
-Please create:
-1. A compelling caption (2-3 sentences)
-2. Relevant hashtags (5-8 hashtags)
-3. A brief description of what the post should be about
+Output your response as a JSON object with a single key "post" containing the generated caption, and nothing else. For example: {"post": "Your generated caption here"}
+`;
 
-Format your response as:
-CAPTION: [your caption here]
-HASHTAGS: [your hashtags here]
-DESCRIPTION: [brief description here]
-
-Make the content engaging, authentic, and suitable for travel/lifestyle social media.`;
-
-			// Call API
+			// Call API with selected model using chat completions (supports all providers)
 			const token = localStorage.getItem('token') || '';
-			// Use the first available model or fallback to a default
-			const availableModels = $models.filter(m => m.owned_by === 'ollama');
-			const model = availableModels.length > 0 ? availableModels[0].id : 'llama3.2:3b';
 			
-			console.log('Available models:', $models);
-			console.log('Selected model:', model);
+			console.log('Using model:', selectedModel.name || selectedModel.id);
 			console.log('Token available:', !!token);
+			console.log('URLs being sent to AI:', urlsText);
+			console.log('Full prompt being sent:', prompt);
 			
 			generationStatus = 'Generating content with AI...';
 			
-			const response = await generateTextCompletion(token, model, prompt);
+			// Use chat completions API which supports Ollama, OpenAI, Google AI, etc.
+			const [response, controller] = await chatCompletion(token, {
+				model: selectedModel.id,
+				messages: [
+					{
+						role: 'user',
+						content: prompt
+					}
+				],
+				stream: true
+			});
 			
 			console.log('Response received:', response);
 			
@@ -119,12 +160,39 @@ Make the content engaging, authentic, and suitable for travel/lifestyle social m
 						
 						for (const line of lines) {
 							if (line.trim()) {
+								console.log('Raw line received:', line);
 								try {
-									const data = JSON.parse(line);
-									if (data.response) {
-										generatedText += data.response;
+									// Try parsing as SSE format (data: ...)
+									let jsonStr = line;
+									if (line.startsWith('data: ')) {
+										jsonStr = line.substring(6);
+									}
+									
+									// Skip [DONE] marker
+									if (jsonStr.trim() === '[DONE]') {
+										console.log('Stream completed with [DONE] marker');
+										continue;
+									}
+									
+									const data = JSON.parse(jsonStr);
+									console.log('Parsed data:', data);
+									
+									// Try different response formats
+									const content = data.choices?.[0]?.delta?.content 
+										|| data.choices?.[0]?.message?.content
+										|| data.response
+										|| '';
+									
+									if (content) {
+										console.log('Content chunk:', content);
+										generatedText += content;
+										// Update status to show progress
+										generationStatus = `Generating... (${generatedText.length} characters)`;
+									} else {
+										console.log('No content found in data object');
 									}
 								} catch (e) {
+									console.log('Error parsing line:', line, 'Error:', e);
 									// Skip invalid JSON lines
 								}
 							}
@@ -132,17 +200,47 @@ Make the content engaging, authentic, and suitable for travel/lifestyle social m
 					}
 				}
 				
-				if (generatedText) { 
-
-					const captionMatch = generatedText.match(/CAPTION:\s*(.+?)(?=HASHTAGS:|$)/s);
-					const hashtagsMatch = generatedText.match(/HASHTAGS:\s*(.+?)(?=DESCRIPTION:|$)/s);
-					const descriptionMatch = generatedText.match(/DESCRIPTION:\s*(.+?)$/s);
+				console.log('Generated text length:', generatedText.length);
+				console.log('Full generated text:', generatedText);
+				
+				if (generatedText && generatedText.trim()) {
+					// Try to extract JSON from the response
+					let finalContent = generatedText;
 					
+					try {
+						// Remove markdown code blocks if present (```json ... ```)
+						let cleanText = generatedText.trim();
+						if (cleanText.startsWith('```json')) {
+							cleanText = cleanText.replace(/^```json\s*/, '').replace(/```\s*$/, '');
+						} else if (cleanText.startsWith('```')) {
+							cleanText = cleanText.replace(/^```\s*/, '').replace(/```\s*$/, '');
+						}
+						
+						console.log('Cleaned text for JSON parsing:', cleanText);
+						
+						// Try to parse as JSON
+						const jsonData = JSON.parse(cleanText);
+						console.log('Parsed JSON data:', jsonData);
+						
+						// Extract the post content
+						if (jsonData.post) {
+							// Replace \n escape sequences with actual newlines
+							finalContent = jsonData.post.replace(/\\n/g, '\n');
+							console.log('Extracted post content:', finalContent);
+						} else {
+							console.log('No "post" key found in JSON, using full response');
+						}
+					} catch (e) {
+						console.log('Not JSON format or parsing failed, using raw text:', e);
+						// If it's not JSON, just use the raw text
+					}
+					
+					// The generated text should already be in the desired format
 					generatedPost = {
-						content: captionMatch ? captionMatch[1].trim() : generatedText,
-						caption: captionMatch ? captionMatch[1].trim() : generatedText,
-						hashtags: hashtagsMatch ? hashtagsMatch[1].trim() : '#travel #lifestyle #adventure',
-						description: descriptionMatch ? descriptionMatch[1].trim() : 'AI-generated travel content'
+						content: finalContent,
+						caption: finalContent,
+						hashtags: '',
+						description: 'AI-generated content'
 					};
 					
 					// Use the first uploaded image if available
@@ -152,10 +250,10 @@ Make the content engaging, authentic, and suitable for travel/lifestyle social m
 					
 					generationStatus = 'Content generated successfully!';
 				} else {
-					throw new Error('No content generated');
+					throw new Error('No content generated - empty response');
 				}
 			} else {
-				throw new Error('Failed to generate content');
+				throw new Error('Failed to generate content - invalid response');
 			}
 		} catch (error) {
 			console.error('Error generating post:', error);
@@ -384,11 +482,48 @@ Make the content engaging, authentic, and suitable for travel/lifestyle social m
 						{/if}
 					</div>
 
+					<!-- AI Model Selection -->
+					<div class="mb-8">
+						<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+							Select AI Model
+						</h2>
+						
+						<div class="space-y-3">
+							<div>
+								<label for="ai-model-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+									AI Model
+								</label>
+								<select
+									id="ai-model-select"
+									class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-gray-100"
+									on:change={handleAIModelChange}
+									disabled={isGenerating}
+									value={currentSelectedValue}
+								>
+									<option value="">Select AI Model...</option>
+									{#each aiModelOptions as option}
+										<option value={option.value}>{option.label}</option>
+									{/each}
+								</select>
+							</div>
+							
+							<!-- Selected Model Info -->
+							{#if selectedModel}
+								<div class="px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
+									<span class="text-gray-700 dark:text-gray-300">Selected: <strong>{selectedModel.name || selectedModel.id}</strong></span>
+									{#if selectedModel.owned_by && selectedModel.owned_by !== 'ollama'}
+										<br><span class="text-indigo-600 dark:text-indigo-400">Provider: <strong>{selectedModel.owned_by}</strong></span>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					</div>
+
 					<!-- Generate Button -->
 					<div class="space-y-4">
 						<button
 							class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-							disabled={isGenerating || (formData.urls.every(url => !url.trim()) && formData.photos.length === 0)}
+							disabled={isGenerating || !selectedModel || (formData.urls.every(url => !url.trim()) && formData.photos.length === 0)}
 							on:click={generatePost}
 						>
 							{#if isGenerating}
@@ -522,34 +657,13 @@ Make the content engaging, authentic, and suitable for travel/lifestyle social m
 								<!-- Post Content -->
 								<div class="text-sm text-gray-900 dark:text-gray-100">
 									<p class="font-semibold mb-1">{$user?.username || 'username'}</p>
-									<p class="text-gray-700 dark:text-gray-300 mb-2">
+									<p class="text-gray-700 dark:text-gray-300 mb-2 whitespace-pre-wrap">
 										{generatedPost.caption}
 									</p>
 									{#if generatedPost.hashtags}
 										<p class="text-blue-600 dark:text-blue-400">{generatedPost.hashtags}</p>
 									{/if}
 								</div>
-							</div>
-						</div>
-
-						<!-- Post Details -->
-						<div class="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-							<h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Post Details</h3>
-							<div class="space-y-2 text-sm">
-								<div>
-									<span class="font-medium text-gray-700 dark:text-gray-300">Caption:</span>
-									<p class="text-gray-600 dark:text-gray-400">{generatedPost.caption}</p>
-								</div>
-								<div>
-									<span class="font-medium text-gray-700 dark:text-gray-300">Hashtags:</span>
-									<p class="text-gray-600 dark:text-gray-400">{generatedPost.hashtags}</p>
-								</div>
-								{#if generatedPost.description}
-									<div>
-										<span class="font-medium text-gray-700 dark:text-gray-300">Description:</span>
-										<p class="text-gray-600 dark:text-gray-400">{generatedPost.description}</p>
-									</div>
-								{/if}
 							</div>
 						</div>
 					{:else}
