@@ -1283,10 +1283,33 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
     # Add a small purple rectangle on top of the blue banner
     draw = ImageDraw.Draw(final_image)
     
-    # Purple rectangle dimensions (top-right of banner, about 25% width, 60% height)
-    purple_width = int(banner_width * 0.35)
+    # Use provided airline or fallback to "中華航空"
+    display_airline = airline if airline else "中華航空"
+    
+    # Use provided price or fallback to "3,222"
+    display_price = price if price else "3,222"
+    
+    # Calculate purple rectangle width dynamically based on airline text length
+    # Load font first to measure text width
+    airline_font_size = 60
+    airline_font = _load_chinese_font(airline_font_size, bold=True)
+    
+    # Measure airline text width
+    temp_bbox = draw.textbbox((0, 0), display_airline, font=airline_font)
+    airline_text_width = temp_bbox[2] - temp_bbox[0]
+    
+    # Add padding to the text width (20px on each side)
+    text_padding = 40
+    purple_width = airline_text_width + text_padding
+    
+    # Ensure minimum width (at least 35% of banner width)
+    min_purple_width = int(banner_width * 0.35)
+    purple_width = max(purple_width, min_purple_width)
+    
+    # Purple rectangle dimensions
     purple_height = int(banner_height * 0.45)
-    purple_x = actual_width - purple_width - 25  # Right edge of banner
+    right_padding = 25  # Fixed distance from right edge
+    purple_x = actual_width - purple_width - right_padding  # Extends left based on text width
     purple_y = banner_y - 35  # Small padding from top of banner
     
     purple = (128, 0, 128)  # Purple RGB
@@ -1294,13 +1317,7 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
         [(purple_x, purple_y), (purple_x + purple_width, purple_y + purple_height)],
         fill=purple
     )
-    log.info(f"Added purple rectangle at ({purple_x}, {purple_y}) size {purple_width}x{purple_height}")
-    
-    # Use provided airline or fallback to "中華航空"
-    display_airline = airline if airline else "中華航空"
-    
-    # Use provided price or fallback to "3,222"
-    display_price = price if price else "3,222"
+    log.info(f"Added purple rectangle at ({purple_x}, {purple_y}) size {purple_width}x{purple_height} for airline '{display_airline}' (text width: {airline_text_width})")
     
     # Define texts to add (reusable configuration)
     texts_to_add = [
@@ -1313,15 +1330,30 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
         }
     ]
     
+    # Calculate dynamic font size for prefix/suffix based on price length
+    # Longer prices need smaller prefix/suffix to prevent touching border
+    price_length = len(display_price)
+    
+    if price_length <= 5:  # e.g., "3,222" or "12,345"
+        prefix_suffix_font_size = 70
+    elif price_length <= 6:  # e.g., "123,456"
+        prefix_suffix_font_size = 60
+    elif price_length <= 7:  # e.g., "1,234,567"
+        prefix_suffix_font_size = 55
+    else:  # Very long prices
+        prefix_suffix_font_size = 50
+    
+    log.info(f"Price length: {price_length}, using prefix/suffix font size: {prefix_suffix_font_size}")
+    
     # Define multipart texts (for text with different sizes in one line)
     multipart_texts = [
         {
             "x": actual_width // 2,  # Center of entire image width
             "y": banner_y + (banner_height // 2) - 60,  # Center vertically in blue banner, moved down 10px
             "parts": [
-                {"text": "來回連稅$", "font_size": 70, "color": (255, 255, 255)},
-                {"text": display_price, "font_size": 105, "color": (255, 255, 255)},  #change this to the price
-                {"text": "起", "font_size": 70, "color": (255, 255, 255)},
+                {"text": "來回連稅$", "font_size": prefix_suffix_font_size, "color": (255, 255, 255)}, #smaller this size if display_price is longer
+                {"text": display_price, "font_size": 105, "color": (255, 255, 255)}, #keep this the same
+                {"text": "起", "font_size": prefix_suffix_font_size, "color": (255, 255, 255)}, #smaller this size if display_price is longer
             ]
         }
     ]

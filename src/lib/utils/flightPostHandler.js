@@ -174,18 +174,18 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 
 	// Generate AI analysis with stage tracking - pass original array of flights
 	// console.log('Passing flights to AI analysis:', selectedFlights.length, 'flight(s)');
-	const aiAnalysis = await generateAIFlightAnalysisWithStages(selectedFlights, onStageUpdate, modelToUse);
+	// const aiAnalysis = await generateAIFlightAnalysisWithStages(selectedFlights, onStageUpdate, modelToUse);
 	
 	// Format the flight data for display after AI analysis
 	const postData = formatFlightDataForPost(selectedFlights);
 	
 	// Temporary mock data for testing images without AI token usage
 	// Uncomment the line above and comment out the lines below to use AI
-	// const aiAnalysis = {
-	// 	header: "Test Header - AI Generation Disabled",
-	// 	content: "This is test content. AI generation is currently commented out to save tokens during image testing. Destination: 首爾",
-	// 	summary: "Test summary for image testing"
-	// };
+	const aiAnalysis = {
+		header: "Test Header - AI Generation Disabled",
+		content: "This is test content. AI generation is currently commented out to save tokens during image testing. Destination: 首爾",
+		summary: "Test summary for image testing"
+	};
 	
 	// Generate scenic image for destination
 	let scenicImageUrl = null;
@@ -243,36 +243,36 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 				};
 			}
 			
-			console.log('About to call generateScenicImage with:', {
-				destination: destination,
-				style: 'realistic',
-				width: 1024,
-				height: 1024,
-				flight_data: flightDataForBackend,
-				ai_analysis: aiAnalysis
+		console.log('About to call generateScenicImage with:', {
+			destination: destination,
+			style: 'realistic',
+			width: 1024,
+			height: 1024,
+			flight_data: flightDataForBackend,
+			ai_analysis: aiAnalysis
+		});
+		imageResponse = await generateScenicImage(token, {
+			destination: destination,
+			style: 'realistic',
+			width: 1024,
+			height: 1024,
+			flight_data: flightDataForBackend,
+			ai_analysis: aiAnalysis
+		});
+		console.log('Raw imageResponse received:', imageResponse);
+		
+		if (imageResponse.success) {
+			// Use the edited base64 image if available, otherwise fall back to URL
+			scenicImageUrl = imageResponse.image_base64 || imageResponse.image_url;
+			console.log('Scenic image generated successfully:', {
+				edited: imageResponse.edited,
+				hasBase64: !!imageResponse.image_base64,
+				hasUrl: !!imageResponse.image_url,
+				usingBase64: !!imageResponse.image_base64,
+				hasFlightInfoImage: !!imageResponse.flight_info_image_base64,
+				response: imageResponse
 			});
-			imageResponse = await generateScenicImage(token, {
-				destination: destination,
-				style: 'realistic',
-				width: 1024,
-				height: 1024,
-				flight_data: flightDataForBackend,
-				ai_analysis: aiAnalysis
-			});
-			console.log('Raw imageResponse received:', imageResponse);
-			
-			if (imageResponse.success) {
-				// Use the edited base64 image if available, otherwise fall back to URL
-				scenicImageUrl = imageResponse.image_base64 || imageResponse.image_url;
-				console.log('Scenic image generated successfully:', {
-					edited: imageResponse.edited,
-					hasBase64: !!imageResponse.image_base64,
-					hasUrl: !!imageResponse.image_url,
-					usingBase64: !!imageResponse.image_base64,
-					hasFlightInfoImage: !!imageResponse.flight_info_image_base64,
-					response: imageResponse
-				});
-			}
+		}
 		}
 	} catch (imageError) {
 		console.error('Error generating scenic image:', imageError);
