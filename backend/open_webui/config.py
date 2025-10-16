@@ -17,6 +17,7 @@ from authlib.integrations.starlette_client import OAuth
 
 
 from open_webui.env import (
+    BASE_DIR,
     DATA_DIR,
     DATABASE_URL,
     ENV,
@@ -754,20 +755,34 @@ for file_path in (FRONTEND_BUILD_DIR / "static").glob("**/*"):
             logging.error(f"An error occurred: {e}")
 
 frontend_favicon = FRONTEND_BUILD_DIR / "static" / "favicon.png"
+project_root_favicon = BASE_DIR / "static" / "favicon.png"
 
 if frontend_favicon.exists():
     try:
         shutil.copyfile(frontend_favicon, STATIC_DIR / "favicon.png")
+        logging.info(f"Copied favicon from frontend build")
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        logging.error(f"An error occurred copying favicon: {e}")
+elif project_root_favicon.exists():
+    try:
+        shutil.copyfile(project_root_favicon, STATIC_DIR / "favicon.png")
+        logging.info(f"Copied favicon from project root static directory")
+    except Exception as e:
+        logging.error(f"An error occurred copying favicon: {e}")
 
 frontend_splash = FRONTEND_BUILD_DIR / "static" / "splash.png"
+project_root_splash = BASE_DIR / "static" / "splash.png"
 
 if frontend_splash.exists():
     try:
         shutil.copyfile(frontend_splash, STATIC_DIR / "splash.png")
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        logging.error(f"An error occurred copying splash: {e}")
+elif project_root_splash.exists():
+    try:
+        shutil.copyfile(project_root_splash, STATIC_DIR / "splash.png")
+    except Exception as e:
+        logging.error(f"An error occurred copying splash: {e}")
 
 frontend_loader = FRONTEND_BUILD_DIR / "static" / "loader.js"
 
@@ -775,7 +790,18 @@ if frontend_loader.exists():
     try:
         shutil.copyfile(frontend_loader, STATIC_DIR / "loader.js")
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        logging.error(f"An error occurred copying loader: {e}")
+
+# Copy additional static files from project root (user.png, doge.png, etc.)
+additional_static_files = ["user.png", "doge.png"]
+for filename in additional_static_files:
+    project_root_file = BASE_DIR / "static" / filename
+    if project_root_file.exists():
+        try:
+            shutil.copyfile(project_root_file, STATIC_DIR / filename)
+            logging.info(f"Copied {filename} from project root")
+        except Exception as e:
+            logging.error(f"An error occurred copying {filename}: {e}")
 
 
 ####################################

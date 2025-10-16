@@ -174,18 +174,18 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 
 	// Generate AI analysis with stage tracking - pass original array of flights
 	// console.log('Passing flights to AI analysis:', selectedFlights.length, 'flight(s)');
-	// const aiAnalysis = await generateAIFlightAnalysisWithStages(selectedFlights, onStageUpdate, modelToUse);
+	const aiAnalysis = await generateAIFlightAnalysisWithStages(selectedFlights, onStageUpdate, modelToUse);
 	
 	// Format the flight data for display after AI analysis
 	const postData = formatFlightDataForPost(selectedFlights);
 	
 	// Temporary mock data for testing images without AI token usage
 	// Uncomment the line above and comment out the lines below to use AI
-	const aiAnalysis = {
-		header: "Test Header - AI Generation Disabled",
-		content: "This is test content. AI generation is currently commented out to save tokens during image testing. Destination: 首爾",
-		summary: "Test summary for image testing"
-	};
+	// const aiAnalysis = {
+	// 	header: "Test Header - AI Generation Disabled",
+	// 	content: "This is test content. AI generation is currently commented out to save tokens during image testing. Destination: 首爾",
+	// 	summary: "Test summary for image testing"
+	// };
 	
 	// Generate scenic image for destination
 	let scenicImageUrl = null;
