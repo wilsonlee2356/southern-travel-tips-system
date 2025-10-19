@@ -671,17 +671,17 @@ Use your knowledge base to provide accurate airline information and route insigh
 			return `[航空公司：${airlines} 出發地點：${group.startingPlace} 目的地：${group.destination} 來回價錢：$${totalPrice} 艙等：${seatClass} 出發日期：${departureDate} 出發時間：${departureTime} 行李資訊：${luggage}]`;
 		}).join(', ');
 		
-		const prompt = `仿又飛啦廣東俚語，輸JSON，每來回一對象，含destination、header、short_comment、summary。destination取非香港地。header用超前部署、平、抵、減，含航司、價、期，勿含destination。short_comment限三十字，嘆價（如嘩！平到喊）。summary約八十字，述價、地景、促行，依資料，勿增詞。語繁體廣東話，價港幣，出發地香港，假設連稅、2025/2026。
+		const prompt = `仿又飛啦廣東俚語，輸JSON，每來回一對象，含destination、header、short_comment、summary、tourist_spot。destination取非香港地。header用超前部署、平、抵、減，含航司、價、期，勿含destination。short_comment限三十字，嘆價（如嘩！平到喊）。summary約八十字，句以逗點斷，每句宜長，約二三十字，述價、地景、促行，依資料，勿增詞。destination、header、short_comment、summary用繁體廣東話，tourist_spot用英文，隨選目的地名勝。價港幣，出發地香港，假設連稅。
 
 ## 例
-### 東京
-{"destination":"東京","header":"超前部署！平到震！ANA來回連稅$2,323起！2025年9月出發","short_comment":"嘩！抵到傻～","summary":"東京$2,323來回，超筍！食壽司，逛新宿，啱晒秋遊，搶飛啦～"}
-### 福岡
-{"destination":"福岡","header":"平到喊！德威航空來回連稅$1,885起！2025年10月出發","short_comment":"真係CLS大減！","summary":"福岡$1,885來回，平到爆！食博多拉麵，逛運河城，無得輸，入手啦～"}
-### 曼谷
-{"destination":"曼谷","header":"抵到爆！泰航來回連稅$1,500起！2026年1月出發","short_comment":"嘩！平到唔信～","summary":"曼谷$1,500來回，超值！食冬陰功，遊大皇宮，啱晒冬遊，book啦～"}
+### 冰島
+{"destination":"冰島","header":"超前部署睇極光！芬蘭航空來回冰島雷克雅未克連稅$4,939起！12月指定日子出發","short_comment":"冰島一生人必去一次，提早plan定有著數！","summary":"最平五千六左右就包埋行李，呢口價真係抵玩！最正係極光季都有（9至4月初），想last minute去追光，定plan定今年冬天去都得！難得有平，立即book飛去圓夢啦！","tourist_spot":"Gullfoss"}
+### 大阪
+{"destination":"大阪","header":"樂桃航空抵飛！10月指定日子出發連稅一千有找、紅葉季連稅HK$1,217起！10月頭出發","short_comment":"想平飛大阪，真係非樂桃莫屬！例牌又再有優惠啦！","summary":"今次平飛都好多好易搵，10月指定日子出發連一千蚊都唔使，激抵！想睇紅葉季啱用，想去就可以book定！玩盡你嘅假期，抵玩～","tourist_spot":"Universal Studios Japan"}
+### 多倫多
+{"destination":"多倫多","header":"抵！減到八千二有找！大韓航空來回多倫多連稅$8,143起！10月指定日子出發","short_comment":"想去地球嘅另一邊探親，呢個優惠就啱啦！","summary":"多倫多長期五位數以上，今次八千二有找真係幾抵飛！轉機可以落機行下鬆一鬆再上機～優惠出發期仲去到下年5月，可以提早plan定去探親兼旅遊！","tourist_spot":"CN Tower"}
 
-##資料：${flightDataString}`;
+## 資料：${flightDataString}`;
 
 		// ===== LOG THE CONSTRUCTED PROMPT BEFORE SENDING =====
 		console.log('🎯 ═══════════════════════════════════════════════════════════');
@@ -766,13 +766,17 @@ Use your knowledge base to provide accurate airline information and route insigh
 			console.log(`Stage 1: Generating initial analysis for ${flights.length} flight(s) with large model...`);
 			if (onStageUpdate) onStageUpdate('stage1');
 			
-			// Stage 1: Generate initial content with larger model
-			const initialResponse = await this.generateInitialFlightAnalysis(flightData);
-			console.log('Initial response:', initialResponse);
-			
-			// Remove markdown formatting if present
-			const cleanedResponse = cleanJsonResponse(initialResponse);
-			const initialContent = JSON.parse(cleanedResponse);
+		// Stage 1: Generate initial content with larger model
+		const initialResponse = await this.generateInitialFlightAnalysis(flightData);
+		console.log('🎯 RAW AI RESPONSE:', initialResponse);
+		
+		// Remove markdown formatting if present
+		const cleanedResponse = cleanJsonResponse(initialResponse);
+		console.log('🎯 CLEANED JSON RESPONSE:', cleanedResponse);
+		
+		const initialContent = JSON.parse(cleanedResponse);
+		console.log('🎯 PARSED AI CONTENT:', initialContent);
+		console.log('🎯 Has tourist_spot?', 'tourist_spot' in initialContent, '| Value:', initialContent.tourist_spot);
 			
 		// TODO: Uncomment Stage 2 later
 		// console.log('Stage 2: Refining content with current model...');

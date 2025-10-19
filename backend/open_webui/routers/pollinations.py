@@ -268,6 +268,7 @@ async def generate_scenic_image(
     """
     try:
         destination = payload.get("destination", "")
+        tourist_spot = payload.get("tourist_spot", "")
         style = payload.get("style", DEFAULT_STYLE)
         width = payload.get("width", 1024)
         height = payload.get("height", 1024)
@@ -281,8 +282,8 @@ async def generate_scenic_image(
         original_destination = destination
         destination_en = translate_destination(destination)
         
-        # Create a scenic prompt based on destination and style (use English destination)
-        scenic_prompt = create_scenic_prompt(destination_en, style)
+        # Create a scenic prompt based on destination, tourist_spot and style (use English destination)
+        scenic_prompt = create_scenic_prompt(destination_en, style, tourist_spot)
         
         # Construct Pollinations.ai URL with correct format
         # Pollinations.ai uses: https://image.pollinations.ai/prompt/{prompt}?seed={seed}&width={width}&height={height}&nologo=true
@@ -294,6 +295,7 @@ async def generate_scenic_image(
         full_url = f"{POLLINATIONS_BASE_URL}/prompt/{encoded_prompt}?seed={seed}&width={width}&height={height}&nologo=true"
         
         log.info(f"Generating scenic image for destination: {original_destination} (translated to: {destination_en})")
+        log.info(f"Tourist spot received: '{tourist_spot}' (empty: {not tourist_spot})")
         log.info(f"Using seed: {seed}")
         log.info(f"Using prompt: {scenic_prompt}")
         
@@ -428,12 +430,23 @@ async def generate_scenic_image(
             detail=f"Error generating scenic image: {str(e)}"
         )
 
-def create_scenic_prompt(destination: str, style: str) -> str:
+def create_scenic_prompt(destination: str, style: str, tourist_spot: str = "") -> str:
     """Create a detailed scenic prompt for the destination based on style"""
     
     # Use the detailed photorealistic prompt template
     # Important: The bottom 1/4 of the image will be covered by a banner, so the main subject should be in the upper portion
-    prompt = f"Generate a photorealistic daytime scene of the most iconic landmark or natural scenery in {destination}, emphasizing its most distinctive features and authentic surroundings. If {destination} is famous for natural landscapes (mountains, beaches, forests, lakes, valleys), capture the breathtaking natural scenery with its unique geological formations, vegetation, and natural beauty positioned in the upper and middle portion of the frame. If {destination} is famous for architectural landmarks, capture the full view of the landmark from its most famous vantage point in the upper and middle portion of the composition, showcasing its unique architectural details. The main subject should be centered vertically in the upper 75% of the image. Show a clear blue sky with a few scattered, fluffy white clouds in the top portion. The scene should be serene and peaceful without any people, focusing purely on the beauty of the location. Include the actual surrounding environment—specific vegetation, pathways, water features, natural elements, or nearby structures as they exist. The bottom portion can show foreground elements like grass, road, or ground. The lighting is natural, with soft sunlight casting accurate shadows that highlight the textures and details, evoking a vivid springtime atmosphere. Ensure every element accurately reflects the real-world setting of {destination} for maximum realism, whether it's natural scenery or architectural beauty."
+    
+    # If tourist_spot is provided, use it in the prompt with a comma before destination
+    log.info(f"🔍 create_scenic_prompt called with: destination='{destination}', tourist_spot='{tourist_spot}', style='{style}'")
+    
+    if tourist_spot and tourist_spot.strip():
+        location_description = f"{tourist_spot}, {destination}"
+        log.info(f"✅ Using tourist spot in prompt: '{tourist_spot}' → location_description: '{location_description}'")
+    else:
+        location_description = destination
+        log.info(f"⚠️ No tourist spot provided, using only destination: '{location_description}'")
+    
+    prompt = f"Generate a photorealistic daytime scene of the most iconic landmark or natural scenery in {location_description}, emphasizing its most distinctive features and authentic surroundings. If {location_description} is famous for natural landscapes (mountains, beaches, forests, lakes, valleys), capture the breathtaking natural scenery with its unique geological formations, vegetation, and natural beauty positioned in the upper and middle portion of the frame. If {location_description} is famous for architectural landmarks, capture the full view of the landmark from its most famous vantage point in the upper and middle portion of the composition, showcasing its unique architectural details. The main subject should be centered vertically in the upper 75% of the image. Show a clear blue sky with a few scattered, fluffy white clouds in the top portion. The scene should be serene and peaceful without any people, focusing purely on the beauty of the location. Include the actual surrounding environment—specific vegetation, pathways, water features, natural elements, or nearby structures as they exist. The bottom portion can show foreground elements like grass, road, or ground. The lighting is natural, with soft sunlight casting accurate shadows that highlight the textures and details, evoking a vivid springtime atmosphere. Ensure every element accurately reflects the real-world setting of {location_description} for maximum realism, whether it's natural scenery or architectural beauty."
     
     return prompt
 

@@ -176,6 +176,10 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 	// console.log('Passing flights to AI analysis:', selectedFlights.length, 'flight(s)');
 	const aiAnalysis = await generateAIFlightAnalysisWithStages(selectedFlights, onStageUpdate, modelToUse);
 	
+	// Log the complete AI analysis to see all fields
+	console.log('🔍 Complete AI Analysis Object:', aiAnalysis);
+	console.log('🔍 AI Analysis tourist_spot:', aiAnalysis?.tourist_spot);
+	
 	// Format the flight data for display after AI analysis
 	const postData = formatFlightDataForPost(selectedFlights);
 	
@@ -193,16 +197,24 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 	if (onStageUpdate) onStageUpdate('generating_scenic_image');
 	
 	try {
-		// Extract destination from flight data or AI analysis
+		// Extract destination and tourist_spot from flight data or AI analysis
 		let destination = '';
+		let touristSpot = '';
+		
 		if (postData.destination) {
 			destination = postData.destination;
 		} else if (aiAnalysis && aiAnalysis.content) {
 			destination = extractDestination(aiAnalysis.content) || '';
 		}
 		
+		// Extract tourist_spot from AI analysis if available
+		if (aiAnalysis && aiAnalysis.tourist_spot) {
+			touristSpot = aiAnalysis.tourist_spot;
+			console.log('Tourist spot extracted from AI:', touristSpot);
+		}
+		
 		if (destination) {
-			console.log('Generating scenic image for destination:', destination);
+			console.log('Generating scenic image for destination:', destination, 'Tourist spot:', touristSpot);
 			const token = localStorage.getItem('token') || '';
 			
 			// Prepare flight data to send to backend
@@ -245,6 +257,7 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 			
 		console.log('About to call generateScenicImage with:', {
 			destination: destination,
+			tourist_spot: touristSpot,
 			style: 'realistic',
 			width: 1024,
 			height: 1024,
@@ -253,6 +266,7 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 		});
 		imageResponse = await generateScenicImage(token, {
 			destination: destination,
+			tourist_spot: touristSpot,
 			style: 'realistic',
 			width: 1024,
 			height: 1024,
@@ -373,7 +387,9 @@ export async function generateAIFlightAnalysisWithStages(flightData, onStageUpda
 		return {
 			header: combinedHeader,
 			content: analysis.short_comment || `Great flight deal found! ${firstFlight.airline} from ${firstFlight.startingPlace} to ${firstFlight.destination}`,
-			summary: analysis.summary || `Excellent flight deal with ${firstFlight.airline}! Price: $${firstFlight.cost} for ${firstFlight.startingPlace} → ${firstFlight.destination}`
+			summary: analysis.summary || `Excellent flight deal with ${firstFlight.airline}! Price: $${firstFlight.cost} for ${firstFlight.startingPlace} → ${firstFlight.destination}`,
+			destination: analysis.destination || firstFlight.destination,
+			tourist_spot: analysis.tourist_spot || ''
 		};
 	} catch (error) {
 		console.error('Error generating two-stage AI analysis:', error);
@@ -385,7 +401,9 @@ export async function generateAIFlightAnalysisWithStages(flightData, onStageUpda
 		return {
 			header: `Flight Deal: ${firstFlight.airline}`,
 			content: `Great flight deal found! ${firstFlight.airline} from ${firstFlight.startingPlace} to ${firstFlight.destination}`,
-			summary: `Excellent flight deal with ${firstFlight.airline}! Price: $${firstFlight.cost} for ${firstFlight.startingPlace} → ${firstFlight.destination}`
+			summary: `Excellent flight deal with ${firstFlight.airline}! Price: $${firstFlight.cost} for ${firstFlight.startingPlace} → ${firstFlight.destination}`,
+			destination: firstFlight.destination,
+			tourist_spot: ''
 		};
 	}
 }
