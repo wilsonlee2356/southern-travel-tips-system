@@ -21,6 +21,9 @@ from open_webui.env import (
 )
 from urllib.parse import quote
 
+# Import timezone utility
+from open_webui.utils.timezone import get_city_gmt_string
+
 # Import PIL for image editing
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -353,14 +356,15 @@ async def generate_scenic_image(
                             
                             log.info(f"Extracted airline: {airline_name}, price: {flight_price}")
                             
-                            # Pass original Chinese destination, airline, and price for display on image
+                            # Pass original Chinese destination, airline, price, and ai_analysis for display on image
                             edited_image_data = _add_bottom_banner(
                                 image_data, 
                                 width, 
                                 height, 
                                 destination=original_destination,
                                 airline=airline_name,
-                                price=flight_price
+                                price=flight_price,
+                                ai_analysis=ai_analysis
                             )
                             log.info(f"Successfully added bottom banner to generated image. Edited size: {len(edited_image_data)} bytes")
                         except Exception as e:
@@ -1174,6 +1178,20 @@ def _add_text_to_flight_info(image_data: bytes, flight_data: dict = None, ai_ana
         
         flight_price = str(flight_data.get("cost", 3500))
     
+    # Get GMT timezone strings for all locations
+    # Translate Chinese city names to English for timezone lookup
+    start_place_en = translate_destination(start_place)
+    destination_en = translate_destination(destination)
+    return_start_place_en = translate_destination(return_start_place)
+    return_destination_en = translate_destination(return_destination)
+    
+    start_place_gmt = get_city_gmt_string(start_place_en) or ""
+    destination_gmt = get_city_gmt_string(destination_en) or ""
+    return_start_place_gmt = get_city_gmt_string(return_start_place_en) or ""
+    return_destination_gmt = get_city_gmt_string(return_destination_en) or ""
+    
+    log.info(f"GMT timezones - Start: {start_place_en}={start_place_gmt}, Dest: {destination_en}={destination_gmt}, Return Start: {return_start_place_en}={return_start_place_gmt}, Return Dest: {return_destination_en}={return_destination_gmt}")
+    
     # Define text configurations (text, x, y, color, font_size)
     # font_size is optional, defaults to default_font_size if not specified
     texts_to_add = [
@@ -1182,13 +1200,17 @@ def _add_text_to_flight_info(image_data: bytes, flight_data: dict = None, ai_ana
         {"text": "回程", "x": 60, "y": 270, "color": (0, 0, 0), "font_size": 30}, #do not change this text
         {"text": return_date, "x": 150, "y": 270, "color": (0, 0, 0), "font_size": 30},#return date
         {"text": start_time, "x": 60, "y": 70, "color": (0, 0, 0), "font_size": 30},#start time
+        {"text": start_place_gmt, "x": 62, "y": 105, "color": (222, 103, 18), "font_size": 20},#GMT of start_place
         {"text": start_place, "x": 160, "y": 70, "color": (0, 0, 0), "font_size": 30},#start place
         {"text": start_arrival_time, "x": 60, "y": 190, "color": (0, 0, 0), "font_size": 30},#start arrival time
+        {"text": destination_gmt, "x": 62, "y": 225, "color": (222, 103, 18), "font_size": 20},#GMT of destination
         {"text": destination, "x": 160, "y": 190, "color": (0, 0, 0), "font_size": 30},#start destination place
 
         {"text": return_time, "x": 60, "y": 330, "color": (0, 0, 0), "font_size": 30},#return time
+        {"text": return_start_place_gmt, "x": 62, "y": 365, "color": (222, 103, 18), "font_size": 20},#GMT of return_start_place
         {"text": return_start_place, "x": 160, "y": 330, "color": (0, 0, 0), "font_size": 30},#return start place
         {"text": return_arrival_time, "x": 60, "y": 445, "color": (0, 0, 0), "font_size": 30},#return arrival time
+        {"text": return_destination_gmt, "x": 62, "y": 480, "color": (222, 103, 18), "font_size": 20},#GMT of return_destination
         {"text": return_destination, "x": 160, "y": 445, "color": (0, 0, 0), "font_size": 30},#return destination place
 
         {"text": "1", "x": 190, "y": 592, "color": (0, 0, 0), "font_size": 25},#do not change this text
@@ -1240,7 +1262,7 @@ def _add_text_to_flight_info(image_data: bytes, flight_data: dict = None, ai_ana
     log.info(f"Flight info image with text: {len(result_bytes)} bytes")
     return result_bytes
 
-def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: str = None, airline: str = None, price: str = None, special_text_config: dict = None) -> bytes:
+def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: str = None, airline: str = None, price: str = None, special_text_config: dict = None, ai_analysis: dict = None) -> bytes:
     """
     Add a light blue rectangle at the bottom of the image (1/4 height, 100% width)
     Similar to the Mongolia travel advertisement example
@@ -1460,12 +1482,42 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
     except Exception as e:
         log.error(f"Failed to add special text '{display_destination}': {e}")
     
-    # Add second special text "Brah brah 1" under "東京"
+    # Add second special text under destination - use promote_text from AI if available
+    # Extract promote_text from ai_analysis, fallback to default text
+    if ai_analysis and ai_analysis.get("promote_text"):
+        promote_text = ai_analysis.get("promote_text")
+        log.info(f"Using promote_text from AI analysis: {promote_text}")
+    else:
+        promote_text = "多航班及日子選擇！\n凌晨去晚返都有！"
+        log.info("Using default promote_text")
+    
+    # Calculate the left edge of the destination text to align promote_text with it
+    # The destination text uses center: True, so we need to account for that
+    destination_font_size = 120
+    destination_font = _load_chinese_font(destination_font_size, bold=True)
+    temp_draw = ImageDraw.Draw(final_image)
+    dest_bbox = temp_draw.textbbox((0, 0), display_destination, font=destination_font)
+    dest_text_width = dest_bbox[2] - dest_bbox[0]
+    
+    # The destination text center position (same as in special_text_config)
+    dest_center_x = (actual_width // 2) - 100
+    
+    # Since destination text uses center: True, the actual left edge is:
+    # center_x - (text_width // 2)
+    dest_left_edge = dest_center_x - (dest_text_width // 2)
+    
+    # Add safety margin to prevent text from going outside left edge
+    # Account for rotation (-7 degrees) and border width (4px) which can extend beyond text bounds
+    safe_margin = 270  # Extra large safety margin to ensure text stays well within bounds
+    promote_text_x = max(dest_left_edge, safe_margin)
+    
+    log.info(f"Destination center: {dest_center_x}, text width: {dest_text_width}, left edge: {dest_left_edge}, using promote_text x: {promote_text_x}")
+    
     special_text_config_2 = {
-        "text": "多航班及日子選擇！",
-        "x": (actual_width // 2) - 145,  # Move further left to align first character with "東京"
-        "y": (actual_height // 5) + 60,  # Under "東京" with spacing
-        "font_size": 45,
+        "text": promote_text,
+        "x": promote_text_x,  # Align with destination's left edge, with safety margin
+        "y": (actual_height // 5) + 75,  # Under "東京" with spacing
+        "font_size": 35,
         "text_color": (79, 201, 226),  # #4fc9e2 color
         "border_color": (255, 255, 255),  # White border
         "border_width": 4,
@@ -1480,25 +1532,25 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
     except Exception as e:
         log.error(f"Failed to add special text 'Brah brah 1': {e}")
     
-    # Add third special text "brah brah 2" under "Brah brah 1"
-    special_text_config_3 = {
-        "text": "凌晨去晚返都有！",
-        "x": (actual_width // 2) - 150,  # Same horizontal position as "Brah brah 1"
-        "y": (actual_height // 5) + 140,  # Under "Brah brah 1" with spacing
-        "font_size": 45,
-        "text_color": (79, 201, 226),  # #4fc9e2 color
-        "border_color": (255, 255, 255),  # White border
-        "border_width": 4,
-        "center": False,  # Don't center, use exact positioning
-        "bold": True,
-        "rotation_angle": -7  # Same rotation as others
-    }
+    # # Add third special text "brah brah 2" under "Brah brah 1"
+    # special_text_config_3 = {
+    #     "text": "凌晨去晚返都有！",
+    #     "x": (actual_width // 2) - 150,  # Same horizontal position as "Brah brah 1"
+    #     "y": (actual_height // 5) + 140,  # Under "Brah brah 1" with spacing
+    #     "font_size": 45,
+    #     "text_color": (79, 201, 226),  # #4fc9e2 color
+    #     "border_color": (255, 255, 255),  # White border
+    #     "border_width": 4,
+    #     "center": False,  # Don't center, use exact positioning
+    #     "bold": True,
+    #     "rotation_angle": -7  # Same rotation as others
+    # }
     
-    try:
-        final_image = _add_special_text_to_image(final_image, special_text_config_3)
-        log.info("Successfully added special text 'brah brah 2' with border")
-    except Exception as e:
-        log.error(f"Failed to add special text 'brah brah 2': {e}")
+    # try:
+    #     final_image = _add_special_text_to_image(final_image, special_text_config_3)
+    #     log.info("Successfully added special text 'brah brah 2' with border")
+    # except Exception as e:
+    #     log.error(f"Failed to add special text 'brah brah 2': {e}")
     
     # Add thin white rectangular border around the content
     # Create a new draw object to ensure we're working with the latest image

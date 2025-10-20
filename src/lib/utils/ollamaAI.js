@@ -389,62 +389,78 @@ function cleanJsonResponse(response) {
 		cleaned = cleaned.substring(0, jsonEndIndex + 1);
 	}
 	
-	// Fix JSON by removing newlines and control characters from string values
-	cleaned = fixJsonStringValues(cleaned);
-	
-	return cleaned;
+	// Try to parse the JSON directly first (handles pretty-printed JSON)
+	try {
+		const parsed = JSON.parse(cleaned);
+		console.log('✅ Successfully parsed JSON, now cleaning object...');
+		// Clean the object but preserve \n in promote_text
+		const cleanedObj = cleanObject(parsed);
+		const result = JSON.stringify(cleanedObj);
+		console.log('✅ Successfully cleaned and stringified JSON');
+		return result;
+	} catch (parseError) {
+		console.warn('⚠️ JSON processing failed (trying to fix):', parseError.message);
+		
+		// The JSON has actual newline characters inside string values
+		// We need to escape them BEFORE parsing
+		// Use a regex to find string values and replace actual newlines with \n
+		let fixed = cleaned.replace(
+			/"([^"]*?)"/g, 
+			(match, content) => {
+				// Replace actual newlines with escaped \n inside string values
+				const escapedContent = content
+					.replace(/\r\n/g, '\\n')
+					.replace(/\n/g, '\\n')
+					.replace(/\r/g, '\\n')
+					.replace(/\t/g, '\\t');
+				return `"${escapedContent}"`;
+			}
+		);
+		
+		console.log('🔧 Fixed newlines in string values');
+		
+		try {
+			const parsed = JSON.parse(fixed);
+			console.log('✅ Successfully parsed fixed JSON');
+			// Clean the object but preserve \n in promote_text
+			const cleanedObj = cleanObject(parsed);
+			const result = JSON.stringify(cleanedObj);
+			console.log('✅ Successfully cleaned and stringified fixed JSON');
+			return result;
+		} catch (fixError) {
+			console.error('❌ Still failed to parse after fix:', fixError.message);
+			console.log('Fixed JSON (first 300 chars):', fixed.substring(0, 300));
+			throw new Error(`Unable to parse or fix JSON: ${parseError.message}`);
+		}
+	}
 }
 
 /**
  * Recursively clean string values in objects
  * @param {any} obj - Object to clean
+ * @param {string} key - Current key being processed (to preserve \n in promote_text)
  * @returns {any} Cleaned object
  */
-function cleanObject(obj) {
+function cleanObject(obj, key = null) {
 	if (typeof obj === 'string') {
-		// Remove newlines, carriage returns, and other control characters
+		// For promote_text field, preserve newline characters (\n) but clean up formatting
+		if (key === 'promote_text') {
+			// Split by \n, trim each line, then rejoin with \n
+			// This removes extra spaces from pretty-printed JSON formatting
+			return obj.split('\n').map(line => line.trim()).join('\n');
+		}
+		// For other fields, remove newlines, carriage returns, and other control characters
 		return obj.replace(/[\r\n\t\f\v]/g, ' ').replace(/\s+/g, ' ').trim();
 	} else if (Array.isArray(obj)) {
-		return obj.map(cleanObject);
+		return obj.map(item => cleanObject(item, key));
 	} else if (obj && typeof obj === 'object') {
 		const cleaned = {};
-		for (const [key, value] of Object.entries(obj)) {
-			cleaned[key] = cleanObject(value);
+		for (const [k, value] of Object.entries(obj)) {
+			cleaned[k] = cleanObject(value, k);
 		}
 		return cleaned;
 	}
 	return obj;
-}
-
-/**
- * Fix JSON string values by removing newlines and control characters
- * @param {string} jsonString - JSON string that may contain invalid characters
- * @returns {string} Fixed JSON string
- */
-function fixJsonStringValues(jsonString) {
-	try {
-		// Parse and re-stringify to fix control characters
-		const parsed = JSON.parse(jsonString);
-		
-		// Recursively clean string values
-		const cleaned = cleanObject(parsed);
-		return JSON.stringify(cleaned);
-	} catch (error) {
-		// If parsing fails, try to manually fix common issues
-		console.warn('JSON parsing failed, attempting manual fix:', error);
-		
-		// Remove newlines and control characters from string values
-		let fixed = jsonString
-			.replace(/\\n/g, ' ')  // Replace literal \n
-			.replace(/\\r/g, ' ')  // Replace literal \r
-			.replace(/\\t/g, ' ')  // Replace literal \t
-			.replace(/\n/g, ' ')   // Replace actual newlines
-			.replace(/\r/g, ' ')   // Replace actual carriage returns
-			.replace(/\t/g, ' ')   // Replace actual tabs
-			.replace(/\s+/g, ' '); // Replace multiple spaces with single space
-		
-		return fixed;
-	}
 }
 
 /**
@@ -671,15 +687,15 @@ Use your knowledge base to provide accurate airline information and route insigh
 			return `[航空公司：${airlines} 出發地點：${group.startingPlace} 目的地：${group.destination} 來回價錢：$${totalPrice} 艙等：${seatClass} 出發日期：${departureDate} 出發時間：${departureTime} 行李資訊：${luggage}]`;
 		}).join(', ');
 		
-		const prompt = `仿又飛啦廣東俚語，輸JSON，每來回一對象，含destination、header、short_comment、summary、tourist_spot。destination取非香港地。header用超前部署、平、抵、減，含航司、價、期，勿含destination。short_comment限三十字，嘆價（如嘩！平到喊）。summary約八十字，句以逗點斷，每句宜長，約二三十字，述價、地景、促行，依資料，勿增詞。destination、header、short_comment、summary用繁體廣東話，tourist_spot用英文，隨選目的地名勝。價港幣，出發地香港，假設連稅。
+		const prompt = `仿又飛啦廣東俚語，輸JSON，每來回一對象，含destination、header、short_comment、summary、tourist_spot、promote_text。destination取非香港地。header用超前部署、平、抵、減，含航司、價、期，勿含destination。short_comment限三十字，嘆價（如嘩！平到喊）。summary約八十字，句以逗點斷，每句宜長，約二三十字，述價、地景、促行，依資料，勿增詞。destination、header、short_comment、summary、promote_text用繁體廣東話，promote_text短句分行，限二行，述價、行李、航優（如抵飛直航！\n二千五有找！）。tourist_spot用英文，隨選目的地名勝。價港幣，出發地香港，假設連稅、2025/2026。
 
 ## 例
-### 冰島
-{"destination":"冰島","header":"超前部署睇極光！芬蘭航空來回冰島雷克雅未克連稅$4,939起！12月指定日子出發","short_comment":"冰島一生人必去一次，提早plan定有著數！","summary":"最平五千六左右就包埋行李，呢口價真係抵玩！最正係極光季都有（9至4月初），想last minute去追光，定plan定今年冬天去都得！難得有平，立即book飛去圓夢啦！","tourist_spot":"Gullfoss"}
-### 大阪
-{"destination":"大阪","header":"樂桃航空抵飛！10月指定日子出發連稅一千有找、紅葉季連稅HK$1,217起！10月頭出發","short_comment":"想平飛大阪，真係非樂桃莫屬！例牌又再有優惠啦！","summary":"今次平飛都好多好易搵，10月指定日子出發連一千蚊都唔使，激抵！想睇紅葉季啱用，想去就可以book定！玩盡你嘅假期，抵玩～","tourist_spot":"Universal Studios Japan"}
-### 多倫多
-{"destination":"多倫多","header":"抵！減到八千二有找！大韓航空來回多倫多連稅$8,143起！10月指定日子出發","short_comment":"想去地球嘅另一邊探親，呢個優惠就啱啦！","summary":"多倫多長期五位數以上，今次八千二有找真係幾抵飛！轉機可以落機行下鬆一鬆再上機～優惠出發期仲去到下年5月，可以提早plan定去探親兼旅遊！","tourist_spot":"CN Tower"}
+### 東京
+{"destination":"東京","header":"超前部署！平到震！ANA來回連稅$2,323起！2025年9月出發","short_comment":"嘩！抵到傻～","summary":"東京$2,323來回真係痴線價！食壽司同逛新宿好正，秋季去東京啱晒，快啲搶飛啦～","tourist_spot":"Shibuya Crossing","promote_text":"直航抵飛！\n加埋寄艙行李都唔使二千四！"}
+### 福岡
+{"destination":"福岡","header":"平到喊！德威航空來回連稅$1,885起！2025年10月出發","short_comment":"真係CLS大減！","summary":"福岡$1,885來回平到爆！食博多拉麵超滿足，逛運河城好正，速速入手機票啦～","tourist_spot":"Canal City","promote_text":"激抵！平飛福岡！\n包15kg行李真平！"}
+### 曼谷
+{"destination":"曼谷","header":"抵到爆！泰航來回連稅$1,500起！2026年1月出發","short_comment":"嘩！平到唔信～","summary":"曼谷$1,500來回真超值！食冬陰功同遊大皇宮，冬遊曼谷好正，搶位book飛啦～","tourist_spot":"Grand Palace","promote_text":"抵價飛泰國！\n千五有找！"}
 
 ## 資料：${flightDataString}`;
 
@@ -772,11 +788,13 @@ Use your knowledge base to provide accurate airline information and route insigh
 		
 		// Remove markdown formatting if present
 		const cleanedResponse = cleanJsonResponse(initialResponse);
-		console.log('🎯 CLEANED JSON RESPONSE:', cleanedResponse);
+		console.log('🎯 CLEANED JSON RESPONSE (ready for parsing):', cleanedResponse);
+		console.log('🎯 First 200 chars:', cleanedResponse.substring(0, 200));
 		
 		const initialContent = JSON.parse(cleanedResponse);
 		console.log('🎯 PARSED AI CONTENT:', initialContent);
 		console.log('🎯 Has tourist_spot?', 'tourist_spot' in initialContent, '| Value:', initialContent.tourist_spot);
+		console.log('🎯 Has promote_text?', 'promote_text' in initialContent, '| Value:', initialContent.promote_text);
 			
 		// TODO: Uncomment Stage 2 later
 		// console.log('Stage 2: Refining content with current model...');
@@ -804,7 +822,10 @@ Use your knowledge base to provide accurate airline information and route insigh
 			const fallbackResponse = await this.analyzeFlightDeal(singleFlight);
 			// Remove markdown formatting if present
 			const cleanedFallbackResponse = cleanJsonResponse(fallbackResponse);
-			return JSON.parse(cleanedFallbackResponse);
+			const fallbackContent = JSON.parse(cleanedFallbackResponse);
+			console.log('🎯 FALLBACK PARSED CONTENT:', fallbackContent);
+			console.log('🎯 Fallback has promote_text?', 'promote_text' in fallbackContent, '| Value:', fallbackContent.promote_text);
+			return fallbackContent;
 		}
 	}
 }

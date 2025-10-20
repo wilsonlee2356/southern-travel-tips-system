@@ -177,8 +177,6 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 	const aiAnalysis = await generateAIFlightAnalysisWithStages(selectedFlights, onStageUpdate, modelToUse);
 	
 	// Log the complete AI analysis to see all fields
-	console.log('🔍 Complete AI Analysis Object:', aiAnalysis);
-	console.log('🔍 AI Analysis tourist_spot:', aiAnalysis?.tourist_spot);
 	
 	// Format the flight data for display after AI analysis
 	const postData = formatFlightDataForPost(selectedFlights);
@@ -190,6 +188,10 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 	// 	content: "This is test content. AI generation is currently commented out to save tokens during image testing. Destination: 首爾",
 	// 	summary: "Test summary for image testing"
 	// };
+
+	console.log('🔍 Complete AI Analysis Object:', aiAnalysis);
+	console.log('🔍 AI Analysis tourist_spot:', aiAnalysis?.tourist_spot);
+	
 	
 	// Generate scenic image for destination
 	let scenicImageUrl = null;
@@ -389,7 +391,8 @@ export async function generateAIFlightAnalysisWithStages(flightData, onStageUpda
 			content: analysis.short_comment || `Great flight deal found! ${firstFlight.airline} from ${firstFlight.startingPlace} to ${firstFlight.destination}`,
 			summary: analysis.summary || `Excellent flight deal with ${firstFlight.airline}! Price: $${firstFlight.cost} for ${firstFlight.startingPlace} → ${firstFlight.destination}`,
 			destination: analysis.destination || firstFlight.destination,
-			tourist_spot: analysis.tourist_spot || ''
+			tourist_spot: analysis.tourist_spot || '',
+			promote_text: analysis.promote_text || ''
 		};
 	} catch (error) {
 		console.error('Error generating two-stage AI analysis:', error);
@@ -403,7 +406,8 @@ export async function generateAIFlightAnalysisWithStages(flightData, onStageUpda
 			content: `Great flight deal found! ${firstFlight.airline} from ${firstFlight.startingPlace} to ${firstFlight.destination}`,
 			summary: `Excellent flight deal with ${firstFlight.airline}! Price: $${firstFlight.cost} for ${firstFlight.startingPlace} → ${firstFlight.destination}`,
 			destination: firstFlight.destination,
-			tourist_spot: ''
+			tourist_spot: '',
+			promote_text: ''
 		};
 	}
 }
