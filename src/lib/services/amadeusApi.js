@@ -245,8 +245,10 @@ class AmadeusApiService {
 			const airlineCode = firstSegment.carrierCode;
 			const airlineName = this.getAirlineName(airlineCode);
 
-			// Calculate total price
-			const totalPrice = parseFloat(offer.price.total);
+			// Calculate total price and convert to HKD
+			const totalPriceEuro = parseFloat(offer.price.total);
+			const EUR_TO_HKD = 9.02; // Exchange rate
+			const totalPriceHKD = Math.ceil(totalPriceEuro * EUR_TO_HKD); // Round up to integer
 
 			// Get travel class
 			const travelClass = this.mapTravelClass(offer.travelerPricings[0].fareOption);
@@ -264,7 +266,9 @@ class AmadeusApiService {
 				startingPlaceChinese,
 				destinationCode,
 				destinationChinese,
-				travelClass
+				travelClass,
+				priceEUR: totalPriceEuro,
+				priceHKD: totalPriceHKD
 			});
 
 			return {
@@ -275,8 +279,8 @@ class AmadeusApiService {
 				startingPlaceCode: startingPlaceCode,
 				destination: destinationChinese,
 				destinationCode: destinationCode,
-				cost: totalPrice,
-				currency: offer.price.currency,
+				cost: totalPriceHKD,
+				currency: 'HKD',
 				seatClass: travelClass,
 				departureDate: firstSegment.departure.at.split('T')[0],
 				departureTime: firstSegment.departure.at.split('T')[1].substring(0, 5),
@@ -285,6 +289,7 @@ class AmadeusApiService {
 				ticketValidDate: lastSegment.arrival.at.split('T')[0],
 				duration: this.formatDuration(itinerary.duration),
 				segments: segments.length,
+				luggageInfo: '20kg',
 				// Store original Amadeus data for reference
 				amadeusData: offer
 			};

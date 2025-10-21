@@ -667,7 +667,7 @@ Use your knowledge base to provide accurate airline information and route insigh
 			routeGroups[routeKey].seatClasses.push(flight.seatClass);
 			routeGroups[routeKey].departureDates.push(flight.departureDate);
 			routeGroups[routeKey].departureTimes.push(flight.departureTime || flight.flightTime || '待定');
-			routeGroups[routeKey].luggageInfos.push(flight.luggageInfo || '查詢航空公司');
+			routeGroups[routeKey].luggageInfos.push(flight.luggageInfo || '20kg');
 		});
 		
 		// Build flight data string with each route group separated by comma
@@ -687,15 +687,15 @@ Use your knowledge base to provide accurate airline information and route insigh
 			return `[航空公司：${airlines} 出發地點：${group.startingPlace} 目的地：${group.destination} 來回價錢：$${totalPrice} 艙等：${seatClass} 出發日期：${departureDate} 出發時間：${departureTime} 行李資訊：${luggage}]`;
 		}).join(', ');
 		
-		const prompt = `仿又飛啦廣東俚語，輸JSON，每來回一對象，含destination、header、short_comment、summary、tourist_spot、promote_text。destination取非香港地。header用超前部署、平、抵、減，含航司、價、期，勿含destination。short_comment限三十字，嘆價（如嘩！平到喊）。summary約八十字，句以逗點斷，每句宜長，約二三十字，述價、地景、促行，依資料，勿增詞。destination、header、short_comment、summary、promote_text用繁體廣東話，promote_text短句分行，限二行，述價、行李、航優（如抵飛直航！\n二千五有找！）。tourist_spot用英文，隨選目的地名勝。價港幣，出發地香港，假設連稅、2025/2026。
+		const prompt = `仿又飛啦廣東俚語，輸JSON，每來回一對象，選最平價，含destination、header、short_comment、summary、tourist_spot、promote_text。destination取非香港地。header多變語氣，選超前部署、難得、平、抵、減，含航司、價、期，勿含destination。short_comment限三十字，多變語氣，述地或價優（如直航減到咁平，心動！）。summary約八十字，句以逗點斷，每句宜長，約二三十字，述價、地景、促行，依資料，勿增詞。destination、header、short_comment、summary、promote_text用繁體廣東話，promote_text短句分行，限二行，述價、航優或地景，可含行李。tourist_spot用英文，隨選目的地名勝。價港幣，出發地香港，假設連稅、2025/2026。
 
 ## 例
 ### 東京
-{"destination":"東京","header":"超前部署！平到震！ANA來回連稅$2,323起！2025年9月出發","short_comment":"嘩！抵到傻～","summary":"東京$2,323來回真係痴線價！食壽司同逛新宿好正，秋季去東京啱晒，快啲搶飛啦～","tourist_spot":"Shibuya Crossing","promote_text":"直航抵飛！\n加埋寄艙行李都唔使二千四！"}
+{"destination":"東京","header":"超前部署！人氣日本目的地！ANA來回連稅$2,323起！2025年9月出發","short_comment":"想嚟日本旅行？呢個又幾抵玩！","summary":"二千五唔使飛東京真係好抵玩，航班時間都好多選擇，早/凌晨去晚返都得，日子選擇都唔少，東京最快10月下旬就開始有紅葉，想去睇可以plan一plan佢啦～","tourist_spot":"Shibuya Crossing","promote_text":"直航抵飛！\n加埋寄艙行李都唔使二千四！"}
 ### 福岡
-{"destination":"福岡","header":"平到喊！德威航空來回連稅$1,885起！2025年10月出發","short_comment":"真係CLS大減！","summary":"福岡$1,885來回平到爆！食博多拉麵超滿足，逛運河城好正，速速入手機票啦～","tourist_spot":"Canal City","promote_text":"激抵！平飛福岡！\n包15kg行李真平！"}
+{"destination":"福岡","header":"難得減到咁平！德威航空來回連稅$1,885起！2025年10月出發","short_comment":"正！福岡難得減到咁平！","summary":"減到千四有找包埋行李，平時要二千樓上㗎！真係勁抵買呀！航班時間中去黃昏返都幾唔錯，想去福岡玩就要快啲睇睇啦～","tourist_spot":"Canal City","promote_text":"激抵！平飛福岡！\n包15kg行李真平！"}
 ### 曼谷
-{"destination":"曼谷","header":"抵到爆！泰航來回連稅$1,500起！2026年1月出發","short_comment":"嘩！平到唔信～","summary":"曼谷$1,500來回真超值！食冬陰功同遊大皇宮，冬遊曼谷好正，搶位book飛啦～","tourist_spot":"Grand Palace","promote_text":"抵價飛泰國！\n千五有找！"}
+{"destination":"曼谷","header":"抵到爆！泰航來回連稅$1,500起！2026年1月出發","short_comment":"嘩！平到唔信～","summary":"搭國泰呢口價，一日有多達七班機揀，可以早去晚返，連暑假都照有平，好值得入手！去曼谷食玩買返幾日叉叉電啦～","tourist_spot":"Grand Palace","promote_text":"抵價飛泰國！\n千五有找！"}
 
 ## 資料：${flightDataString}`;
 

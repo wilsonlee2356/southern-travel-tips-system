@@ -199,14 +199,21 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 	if (onStageUpdate) onStageUpdate('generating_scenic_image');
 	
 	try {
-		// Extract destination and tourist_spot from flight data or AI analysis
+		// Extract destination and tourist_spot from AI analysis (prioritize AI as it's more accurate)
 		let destination = '';
 		let touristSpot = '';
 		
-		if (postData.destination) {
+		// Prioritize AI analysis destination as it correctly identifies the travel destination
+		// (postData.destination can be the return destination for round trips)
+		if (aiAnalysis && aiAnalysis.destination) {
+			destination = aiAnalysis.destination;
+			console.log('Using destination from AI analysis:', destination);
+		} else if (postData.destination) {
 			destination = postData.destination;
+			console.log('Using destination from flight data:', destination);
 		} else if (aiAnalysis && aiAnalysis.content) {
 			destination = extractDestination(aiAnalysis.content) || '';
+			console.log('Extracted destination from AI content:', destination);
 		}
 		
 		// Extract tourist_spot from AI analysis if available

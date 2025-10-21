@@ -450,7 +450,7 @@ def create_scenic_prompt(destination: str, style: str, tourist_spot: str = "") -
         location_description = destination
         log.info(f"⚠️ No tourist spot provided, using only destination: '{location_description}'")
     
-    prompt = f"Generate a photorealistic daytime scene of the most iconic landmark or natural scenery in {location_description}, emphasizing its most distinctive features and authentic surroundings. If {location_description} is famous for natural landscapes (mountains, beaches, forests, lakes, valleys), capture the breathtaking natural scenery with its unique geological formations, vegetation, and natural beauty positioned in the upper and middle portion of the frame. If {location_description} is famous for architectural landmarks, capture the full view of the landmark from its most famous vantage point in the upper and middle portion of the composition, showcasing its unique architectural details. The main subject should be centered vertically in the upper 75% of the image. Show a clear blue sky with a few scattered, fluffy white clouds in the top portion. The scene should be serene and peaceful without any people, focusing purely on the beauty of the location. Include the actual surrounding environment—specific vegetation, pathways, water features, natural elements, or nearby structures as they exist. The bottom portion can show foreground elements like grass, road, or ground. The lighting is natural, with soft sunlight casting accurate shadows that highlight the textures and details, evoking a vivid springtime atmosphere. Ensure every element accurately reflects the real-world setting of {location_description} for maximum realism, whether it's natural scenery or architectural beauty."
+    prompt = f"Generate a photorealistic daytime scene of the most iconic architectural landmark of {location_description}, with the full structure prominently centered in the upper two-thirds to three-quarters of the image, highlighting its distinctive architectural details (e.g., roof design, textures, materials). Ensure the landmark occupies the upper and middle 75% of the frame as the primary focus, with its base no lower than the middle of the image.Position a vibrant blue sky with a few soft, fluffy white clouds in the top 15-20% of the image, serving as a backdrop that enhances but does not dominate the landmark. Maintain a serene, tranquil atmosphere by excluding people, vehicles, or modern distractions, focusing solely on the landmark’s beauty.Incorporate the real-world surrounding environment of {location_description}, such as distant mountains, native vegetation, or pathways, positioned to frame the landmark in the upper and middle portions of the image without overshadowing it. The bottom one-quarter to one-third of the frame should feature contextual foreground elements (e.g., grass, cobblestone paths, or rocky terrain) that complement the scene but do not rise above the middle of the image or obscure the landmark.Use soft, natural sunlight consistent with a bright springtime day (mid-morning or early afternoon), casting accurate shadows to emphasize the landmark’s textures and depth. Reflect any seasonal characteristics of {location_description} (e.g., spring blossoms, lush greenery) for a vivid, location-specific atmosphere.Ensure hyper-realistic details, with every element—from the roof tiles to the surrounding landscape—accurately reflecting the real-world setting of {location_description}. Strictly place the landmark in the upper two-thirds to three-quarters of the frame, ensuring it is not pushed below the middle, cropped, or diminished by foreground elements."
     
     return prompt
 
@@ -1463,9 +1463,29 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
     # Use provided destination or fallback to "東京"
     display_destination = destination if destination else "東京"
     
+    # Calculate safe x position for destination text to prevent it from going outside left edge
+    destination_font_size = 120
+    destination_font = _load_chinese_font(destination_font_size, bold=True)
+    temp_draw = ImageDraw.Draw(final_image)
+    dest_bbox = temp_draw.textbbox((0, 0), display_destination, font=destination_font)
+    dest_text_width = dest_bbox[2] - dest_bbox[0]
+    
+    # Calculate minimum safe x position (accounting for rotation and border)
+    rotation_margin = int(max(dest_text_width, destination_font_size) * 0.3)  # 30% margin for rotation
+    border_width = 6
+    min_safe_x = rotation_margin + border_width + 50  # Extra 50px buffer
+    
+    # Calculate desired center position
+    desired_center_x = (actual_width // 2) - 100
+    
+    # Use the larger of desired position or minimum safe position
+    safe_dest_center_x = max(desired_center_x, min_safe_x + (dest_text_width // 2))
+    
+    log.info(f"Destination text width: {dest_text_width}, min_safe_x: {min_safe_x}, using center_x: {safe_dest_center_x}")
+    
     special_text_config = {
         "text": display_destination, #destination change here
-        "x": (actual_width // 2) - 100,  # Move to center horizontally for more distance from left edge
+        "x": safe_dest_center_x,  # Safe center position that keeps text within bounds
         "y": actual_height // 5,  # Move higher up in the image (was // 3, now // 5)
         "font_size": 120,
         "text_color": (122, 40, 156),  # #7a289c color
@@ -1492,26 +1512,26 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
         log.info("Using default promote_text")
     
     # Calculate the left edge of the destination text to align promote_text with it
-    # The destination text uses center: True, so we need to account for that
-    destination_font_size = 120
-    destination_font = _load_chinese_font(destination_font_size, bold=True)
-    temp_draw = ImageDraw.Draw(final_image)
-    dest_bbox = temp_draw.textbbox((0, 0), display_destination, font=destination_font)
-    dest_text_width = dest_bbox[2] - dest_bbox[0]
+    # Use the same safe center position that was calculated for the destination text
+    dest_left_edge = safe_dest_center_x - (dest_text_width // 2)
     
-    # The destination text center position (same as in special_text_config)
-    dest_center_x = (actual_width // 2) - 100
+    # Calculate safe x position for promote_text to prevent it from going outside left edge
+    promote_font_size = 35
+    promote_font = _load_chinese_font(promote_font_size, bold=True)
+    promote_bbox = temp_draw.textbbox((0, 0), promote_text, font=promote_font)
+    promote_text_width = promote_bbox[2] - promote_bbox[0]
     
-    # Since destination text uses center: True, the actual left edge is:
-    # center_x - (text_width // 2)
-    dest_left_edge = dest_center_x - (dest_text_width // 2)
+    # Calculate minimum safe x position for promote_text (accounting for rotation and border)
+    promote_rotation_margin = int(max(promote_text_width, promote_font_size) * 0.3)  # 30% margin for rotation
+    promote_border_width = 4
+    min_safe_promote_x = promote_rotation_margin + promote_border_width + 50  # Extra 50px buffer
     
-    # Add safety margin to prevent text from going outside left edge
-    # Account for rotation (-7 degrees) and border width (4px) which can extend beyond text bounds
-    safe_margin = 270  # Extra large safety margin to ensure text stays well within bounds
-    promote_text_x = max(dest_left_edge, safe_margin)
+    # Use the larger of destination-aligned position or minimum safe position
+    desired_promote_x = dest_left_edge + 30  # Small buffer from destination left edge
+    promote_text_x = max(desired_promote_x, min_safe_promote_x)
     
-    log.info(f"Destination center: {dest_center_x}, text width: {dest_text_width}, left edge: {dest_left_edge}, using promote_text x: {promote_text_x}")
+    log.info(f"Destination center: {safe_dest_center_x}, text width: {dest_text_width}, left edge: {dest_left_edge}")
+    log.info(f"Promote text width: {promote_text_width}, min_safe_x: {min_safe_promote_x}, desired_x: {desired_promote_x}, using promote_text x: {promote_text_x}")
     
     special_text_config_2 = {
         "text": promote_text,
