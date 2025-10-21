@@ -796,6 +796,105 @@ async def edit_image(
             detail=f"Error editing image: {str(e)}"
         )
 
+def _add_multiline_text_with_styles(image: Image.Image, text: str, x: int, y: int, rotation_angle: int, line_styles: list) -> Image.Image:
+    """
+    Add multiline text with different styling for each line
+    
+    Args:
+        image: PIL Image object
+        text: Multiline text (separated by \n)
+        x: X position for the text
+        y: Y position for the text
+        rotation_angle: Rotation angle in degrees
+        line_styles: List of style dictionaries for each line
+            [
+                {
+                    "line_index": 0,  # Which line (0-based)
+                    "font_size": 120,
+                    "text_color": (122, 40, 156),
+                    "border_color": (255, 255, 255),
+                    "border_width": 6,
+                    "bold": True
+                }
+            ]
+    
+    Returns:
+        PIL Image object with multiline text added
+    """
+    if not PIL_AVAILABLE:
+        log.warning("PIL not available, cannot add multiline text")
+        return image
+    
+    draw = ImageDraw.Draw(image)
+    
+    # Split text into lines
+    lines = text.split('\n')
+    
+    # Calculate line height for spacing
+    line_height = 0
+    current_y = y
+    
+    for line_index, line in enumerate(lines):
+        if not line.strip():  # Skip empty lines
+            current_y += 20  # Small spacing for empty lines
+            continue
+        
+        # Find style for this line
+        line_style = None
+        for style in line_styles:
+            if style.get("line_index") == line_index:
+                line_style = style
+                break
+        
+        if not line_style:
+            # Use default style if no specific style found
+            line_style = {
+                "font_size": 50,
+                "text_color": (0, 0, 0),
+                "border_color": (255, 255, 255),
+                "border_width": 2,
+                "bold": True
+            }
+        
+        # Load font for this line
+        font = _load_chinese_font(line_style["font_size"], bold=line_style.get("bold", True))
+        
+        # Calculate text dimensions
+        bbox = draw.textbbox((0, 0), line, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # Draw text with border and rotation
+        # Adjust x position for promote_text lines to align better with destination
+        adjusted_x = x
+        if line_index > 0:  # promote_text lines (not destination)
+            adjusted_x = x + 25  # Move promote_text slightly to the right
+        
+        _draw_text_with_border(
+            draw, 
+            line, 
+            adjusted_x,  # Use adjusted x position
+            current_y, 
+            font, 
+            line_style["text_color"], 
+            line_style["border_color"], 
+            line_style["border_width"], 
+            rotation_angle
+        )
+        
+        # Move to next line position
+        # Use appropriate spacing based on current line's font size
+        if line_index == 0:
+            # After destination (120px font), use moderate spacing
+            current_y += text_height + 10
+        else:
+            # Between promote_text lines (35px font), use minimal spacing
+            current_y += text_height + 2
+        
+        log.info(f"Added line {line_index}: '{line}' at ({x}, {current_y - text_height - (10 if line_index == 0 else 2)}) with style {line_style}")
+    
+    return image
+
 def _load_chinese_font(font_size: int, bold: bool = False):
     """
     Load a Chinese-compatible font with the specified size
@@ -910,9 +1009,12 @@ def _draw_text_with_border(draw, text: str, x: int, y: int, font, text_color=(0,
         rotated_image = temp_image.rotate(-rotation_angle, expand=True)
         
         # Paste the rotated text onto the main image
-        # Calculate the position to center the rotated text
+        # Calculate the position to maintain left alignment
         rot_width, rot_height = rotated_image.size
-        paste_x = x - rot_width // 2
+        # For left alignment, we need to adjust for the rotation
+        # Calculate the offset needed to maintain left edge alignment
+        rotation_offset_x = int(rot_width * 0.05)  # Smaller adjustment to move text slightly right
+        paste_x = x - rotation_offset_x
         paste_y = y - rot_height // 2
         
         draw._image.paste(rotated_image, (paste_x, paste_y), rotated_image)
@@ -1496,13 +1598,14 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
         "rotation_angle": -7  # 10 degrees counter-clockwise (positive value)
     }
     
-    try:
-        final_image = _add_special_text_to_image(final_image, special_text_config)
-        log.info(f"Successfully added special text '{display_destination}' with border")
-    except Exception as e:
-        log.error(f"Failed to add special text '{display_destination}': {e}")
+    # Skip adding the original destination text since we'll add it as part of the combined text
+    # try:
+    #     final_image = _add_special_text_to_image(final_image, special_text_config)
+    #     log.info(f"Successfully added special text '{display_destination}' with border")
+    # except Exception as e:
+    #     log.error(f"Failed to add special text '{display_destination}': {e}")
     
-    # Add second special text under destination - use promote_text from AI if available
+    # Add combined text with different styling for destination and promote_text
     # Extract promote_text from ai_analysis, fallback to default text
     if ai_analysis and ai_analysis.get("promote_text"):
         promote_text = ai_analysis.get("promote_text")
@@ -1511,46 +1614,72 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
         promote_text = "多航班及日子選擇！\n凌晨去晚返都有！"
         log.info("Using default promote_text")
     
-    # Calculate the left edge of the destination text to align promote_text with it
-    # Use the same safe center position that was calculated for the destination text
+    # Combine destination and promote_text into one text with different styling
+    # Use \n to separate them visually (reduced spacing)
+    combined_text = f"{display_destination}\n{promote_text}"
+    
+    # Calculate safe x position for the combined text
+    combined_font_size = 120  # Use destination font size as base
+    combined_font = _load_chinese_font(combined_font_size, bold=True)
+    combined_bbox = temp_draw.textbbox((0, 0), combined_text, font=combined_font)
+    combined_text_width = combined_bbox[2] - combined_bbox[0]
+    
+    # Calculate minimum safe x position for combined text (accounting for rotation and border)
+    combined_rotation_margin = int(max(combined_text_width, combined_font_size) * 0.3)  # 30% margin for rotation
+    combined_border_width = 6
+    min_safe_combined_x = combined_rotation_margin + combined_border_width + 50  # Extra 50px buffer
+    
+    # Use the exact same x position as the destination text for perfect alignment
+    # Calculate the destination's left edge from its safe center position
     dest_left_edge = safe_dest_center_x - (dest_text_width // 2)
     
-    # Calculate safe x position for promote_text to prevent it from going outside left edge
-    promote_font_size = 35
-    promote_font = _load_chinese_font(promote_font_size, bold=True)
-    promote_bbox = temp_draw.textbbox((0, 0), promote_text, font=promote_font)
-    promote_text_width = promote_bbox[2] - promote_bbox[0]
+    # Use the destination's left edge as the x position for all lines
+    combined_text_x = dest_left_edge
     
-    # Calculate minimum safe x position for promote_text (accounting for rotation and border)
-    promote_rotation_margin = int(max(promote_text_width, promote_font_size) * 0.3)  # 30% margin for rotation
-    promote_border_width = 4
-    min_safe_promote_x = promote_rotation_margin + promote_border_width + 50  # Extra 50px buffer
+    log.info(f"Combined text: '{combined_text}'")
+    log.info(f"Combined text width: {combined_text_width}, min_safe_x: {min_safe_combined_x}, using combined_text x: {combined_text_x}")
     
-    # Use the larger of destination-aligned position or minimum safe position
-    desired_promote_x = dest_left_edge + 30  # Small buffer from destination left edge
-    promote_text_x = max(desired_promote_x, min_safe_promote_x)
-    
-    log.info(f"Destination center: {safe_dest_center_x}, text width: {dest_text_width}, left edge: {dest_left_edge}")
-    log.info(f"Promote text width: {promote_text_width}, min_safe_x: {min_safe_promote_x}, desired_x: {desired_promote_x}, using promote_text x: {promote_text_x}")
-    
-    special_text_config_2 = {
-        "text": promote_text,
-        "x": promote_text_x,  # Align with destination's left edge, with safety margin
-        "y": (actual_height // 5) + 75,  # Under "東京" with spacing
-        "font_size": 35,
-        "text_color": (79, 201, 226),  # #4fc9e2 color
-        "border_color": (255, 255, 255),  # White border
-        "border_width": 4,
-        "center": False,  # Don't center, use exact positioning
-        "bold": True,
-        "rotation_angle": -7  # Same rotation as "東京"
-    }
+    # Create custom multiline text with different styling for each line
+    # Split the combined text and handle promote_text's internal line breaks
+    lines = [display_destination] + promote_text.split('\n')
     
     try:
-        final_image = _add_special_text_to_image(final_image, special_text_config_2)
-        log.info("Successfully added special text 'Brah brah 1' with border")
+        final_image = _add_multiline_text_with_styles(
+            final_image,
+            '\n'.join(lines),  # Rejoin with single \n
+            30,  # X position: 50px from left edge
+            90,  # Y position: 50px from top edge
+            -7,  # Same rotation as destination
+            [
+                {
+                    "line_index": 0,  # First line (destination)
+                    "font_size": 120,
+                    "text_color": (122, 40, 156),  # Purple color for destination
+                    "border_color": (255, 255, 255),  # White border
+                    "border_width": 6,
+                    "bold": True
+                },
+                {
+                    "line_index": 1,  # Second line (first line of promote_text)
+                    "font_size": 35,
+                    "text_color": (79, 201, 226),  # Light blue color for promote_text
+                    "border_color": (255, 255, 255),  # White border
+                    "border_width": 4,
+                    "bold": True
+                },
+                {
+                    "line_index": 2,  # Third line (second line of promote_text if exists)
+                    "font_size": 35,
+                    "text_color": (79, 201, 226),  # Light blue color for promote_text
+                    "border_color": (255, 255, 255),  # White border
+                    "border_width": 4,
+                    "bold": True
+                }
+            ]
+        )
+        log.info("Successfully added multiline text with different styles")
     except Exception as e:
-        log.error(f"Failed to add special text 'Brah brah 1': {e}")
+        log.error(f"Failed to add multiline text: {e}")
     
     # # Add third special text "brah brah 2" under "Brah brah 1"
     # special_text_config_3 = {
