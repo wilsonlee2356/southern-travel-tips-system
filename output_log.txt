@@ -1,282 +1,173 @@
-2025-10-09 18:04:21.022 | INFO     | open_webui.utils.middleware:process_chat_payload:798 - 🔍 Knowledge processing - UUID from request: 9028d569-f4e6-47d2-bc11-14f130548a23
-2025-10-09 18:04:21.022 | INFO     | open_webui.utils.middleware:process_chat_payload:799 - 🔍 Knowledge processing - Model knowledge: [{'id': 'f984b67a-6bcb-495e-90e4-d04753029269', 'user_id': '0afef353-767f-4e1a-a916-7fb166c29be0', 'name': 'Flyagainla tone guide', 'description': 'Guide to Imitate flyagainla blog tone', 'data': {'file_ids': ['6c05ae03-3869-4d4b-a1f1-43bfae08c888']}, 'meta': None, 'access_control': {'read': {'group_ids': [], 'user_ids': []}, 'write': {'group_ids': [], 'user_ids': []}}, 'created_at': 1760003221, 'updated_at': 1760003253, 'user': {'id': '0afef353-767f-4e1a-a916-7fb166c29be0', 'name': 'Sunny', 'email': 'sunny@gmail.com', 'role': 'admin', 'profile_image_url': 'data:image/jpeg;base64,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'}, 'files': [{'id': '6c05ae03-3869-4d4b-a1f1-43bfae08c888', 'meta': {'name': 'flyagain_rag.txt', 'content_type': 'text/plain', 'size': 6217, 'data': {}, 'collection_name': 'f984b67a-6bcb-495e-90e4-d04753029269'}, 'created_at': 1760003246, 'updated_at': 1760003246}], 'type': 'collection'}]
-2025-10-09 18:04:21.023 | INFO     | open_webui.utils.middleware:process_chat_payload:800 - 🔍 Form data keys after popping knowledge: ['model', 'messages', 'stream', 'temperature', 'top_p', 'max_tokens', 'metadata']
-/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/models/chats.py:531: SAWarning: fully NULL primary key identity cannot load any object.  This condition may raise an error in a future release.
-  chat = db.get(Chat, id)
-2025-10-09 18:04:21.041 | INFO     | open_webui.utils.chat:generate_chat_completion:287 - 🔍 Routing to OpenAI - form_data keys: ['model', 'messages', 'stream', 'metadata']
-2025-10-09 18:04:21.044 | INFO     | open_webui.routers.openai:get_all_models:397 - get_all_models()
-Batches: 100%|████████████████████████████████████████████████████████████████| 1/1 [00:01<00:00,  1.30s/it]
-2025-10-09 18:04:35.480 | INFO     | open_webui.retrieval.utils:query_doc:93 - query_doc:result [['d44cdf56-a4a1-4c6b-98e5-b380c4c5697f', '2bca29b9-e9de-488a-bd35-260eea516e9a', '6a8f18b7-8c3d-4298-afbe-445b6665c024']] [[{'created_by': '0afef353-767f-4e1a-a916-7fb166c29be0', 'embedding_config': "{'engine': '', 'model': 'BAAI/bge-large-zh-v1.5'}", 'file_id': '6c05ae03-3869-4d4b-a1f1-43bfae08c888', 'hash': '1012e3e7f59b7efa36fdf0b2620b98b73bd47b0559a17e36bbe13e6d61e1e850', 'name': 'flyagain_rag.txt', 'source': 'flyagain_rag.txt', 'start_index': 0}, {'created_by': '0afef353-767f-4e1a-a916-7fb166c29be0', 'embedding_config': "{'engine': '', 'model': 'BAAI/bge-large-zh-v1.5'}", 'file_id': '6c05ae03-3869-4d4b-a1f1-43bfae08c888', 'hash': '1012e3e7f59b7efa36fdf0b2620b98b73bd47b0559a17e36bbe13e6d61e1e850', 'name': 'flyagain_rag.txt', 'source': 'flyagain_rag.txt', 'start_index': 0}, {'created_by': '0afef353-767f-4e1a-a916-7fb166c29be0', 'embedding_config': "{'engine': '', 'model': 'BAAI/bge-large-zh-v1.5'}", 'file_id': '6c05ae03-3869-4d4b-a1f1-43bfae08c888', 'hash': '1012e3e7f59b7efa36fdf0b2620b98b73bd47b0559a17e36bbe13e6d61e1e850', 'name': 'flyagain_rag.txt', 'source': 'flyagain_rag.txt', 'start_index': 0}]]
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1029 - ================================================================================
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1030 - 📚 RAG-ENHANCED PROMPT (Full prompt with knowledge context):
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1031 - ================================================================================
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1032 - 🔹 Original User Prompt:
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1033 - 根據機票資料和flyagainla tone guide, 生成destination,header,short_comment和summary.重要!評論只能在三十字以內,而總結能夠長約一百字.這些都必須是繁體中文廣東話語氣.你的輸出必須只能有Json,絕對不能有任何文字,符號或回應在前後.Json格式內只能有"destination","header","short_comment"和"summary".Json內不能有任何換行,以下是Json例子
-                                                {
-                                                        "destination": "美國",
-                                                        "header": "創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
-                                                        "short_comment": "好多平飛！去美國嘅人真係少咗？",
-                                                        "summary": "國泰直航一減再減，不斷創疫後新低價，直迫轉機價！直航慳時間就算貴幾厝，都值得俾啦！優惠仲可以 open jaw，可以唔走回頭路玩晒加州兩大城市，連復活節都有平，正呀～"
-                                                }
-                                                已選機票資料:
-                                                [
-                                                航空公司：全日空航空公司
-                                                出發地點：香港
-                                                目的地：大阪
-                                                來回價錢：$2900
-                                                艙等：經濟艙
-                                                出發日期：2024-02-17
-                                                出發時間：8:30
-                                                行李資訊：1x 23kg checked bag, 1x 7kg carry-on]
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1034 - --------------------------------------------------------------------------------
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1035 - 🔹 Knowledge Context Retrieved:
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1036 - <source id="1" name="Flyagainla tone guide">### Sample 2: Japan ANA Flights (Multi-Destination)
-{
-  "Destination": "日本",
-  "Header": "平飛大減!多個航點二千五有找!ANA全日空來回日本各地連稅$2,323起!9月至2026年3月指定日子出發",
-  "Short Comment": "嘩!ANA真係越減越平!多個航點唔使二千五!",
-  "Summary": "多個航點二千五有找,連open jaw都得!想去北海道滑雪定東京睇櫻花,呢個價真係無得輸,搶啦~"
-}
-
-### Sample 3: Vancouver to HK Return (Reverse Route)
-{
-  "Destination": "溫哥華回港",
-  "Header": "回港早鳥平飛!中華航空溫哥華出發來回香港連稅$6,140起!9月至11月出發",
-  "Short Comment": "溫哥華回港平飛!中華航空$6,140起,抵到喊!",
-  "Summary": "呢口價仲平過香港去溫哥華,幾抵!想回港探親定食港式點心,轉機時間短,啱晒你,快啲入手啦~"
-}
-
-### Sample 4: Staycation Example (Pet-Friendly Hotel)
-{
-  "Destination": "Staycation",
-  "Header": "寵物友善!Murray Lane寵物酒店1晚$1,888起,包下午茶+海鮮晚餐!",
-  "Short Comment": "帶毛孩去歎staycation,仲有海鮮餐,超正~",
-  "Summary": "呢個staycation包下午茶同海鮮餐,仲可以帶貓狗!想同毛孩放鬆一晚,呢個價錢真係啱晒,book定啦~"
-}</source>
-<source id="1" name="Flyagainla tone guide">Patterns for Imitation:
-- Headers: Urgent, price-forward, slangy (e.g., "平飛大減!...二千五有找!").
-- Short Comments: Exclamatory openers (e.g., "平到喊!").
-- Summaries: 2-4 sentences on perks/attractions + CTA with ~.
-- RAG Use: Feed to AI for generating JSON output with "Destination", "Header", "Short Comment", "Summary". Index by tags (Staycation, ANA) for retrieval.
-
-## Sample JSON Outputs for RAG
-Use these as templates: Parse for slang, structure; generate JSON with ONLY Destination, Header, Short Comment, Summary.
-
-### Sample 1: Tokyo ANA Package (Flight + Hotel)
-{
-  "Destination": "東京",
-  "Header": "坐ANA早去晚返!東京7日6夜套票,包ANA來回機票+6晚住宿,每位連稅$4,132起!11月至2026年8月指定日子出發",
-  "Short Comment": "ANA例牌又減,循例睇下套票幾錢啦~",
-  "Summary": "東京$4,132起連機票同酒店,平到你唔信!想去新宿逛街同食壽司,呢個價錢真係超值,立即book啦~"
-}</source>
-<source id="1" name="Flyagainla tone guide">## RAG Generation Guidelines
-- For JSON Output: Array of objects with ONLY "Destination" (e.g., "東京"), "Header" (full title), "Short Comment" (hook), "Summary" (結論 text). No other fields. Group similar (e.g., "九州" for multi-Japan) if input specifies.
-- Input Parsing: From bracketed data (e.g., [航空公司:...]), extract Destination, price, airline, dates, etc. Assume HK$ prices, "連稅", defaults (e.g., Trip.com, 2025/2026 for dates).
-- Imitation Tips: Headers use "平飛大減"、"早鳥優惠"; Short Comments use "嘩!"、"平到喊"; Summaries mention local attractions (e.g., 東京=壽司, 熊本=熊本熊). Use ~, !, 20-30% slang.
-- Retrieval Hooks: Query by "ANA", "Staycation", "CLS" for samples. Output valid JSON (quotes, commas).</source>
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1037 - --------------------------------------------------------------------------------
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1038 - 🔹 FINAL COMBINED PROMPT (RAG Template Applied):
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1039 - ### Task:
-Respond to the user query using the provided context, incorporating inline citations in the format [id] **only when the <source> tag includes an explicit id attribute** (e.g., <source id="1">).
-
-### Guidelines:
-- If you don't know the answer, clearly state that.
-- If uncertain, ask the user for clarification.
-- Respond in the same language as the user's query.
-- If the context is unreadable or of poor quality, inform the user and provide the best possible answer.
-- If the answer isn't present in the context but you possess the knowledge, explain this to the user and provide the answer using your own understanding.
-- **Only include inline citations using [id] (e.g., [1], [2]) when the <source> tag includes an id attribute.**
-- Do not cite if the <source> tag does not contain an id attribute.
-- Do not use XML tags in your response.
-- Ensure citations are concise and directly related to the information provided.
-
-### Example of Citation:
-If the user asks about a specific topic and the information is found in a source with a provided id attribute, the response should include the citation like in the following example:
-* "According to the study, the proposed method increases efficiency by 20% [1]."
-
-### Output:
-Provide a clear and direct response to the user's query, including inline citations in the format [id] only when the <source> tag with id attribute is present in the context.
-
-<context>
-<source id="1" name="Flyagainla tone guide">### Sample 2: Japan ANA Flights (Multi-Destination)
-{
-  "Destination": "日本",
-  "Header": "平飛大減!多個航點二千五有找!ANA全日空來回日本各地連稅$2,323起!9月至2026年3月指定日子出發",
-  "Short Comment": "嘩!ANA真係越減越平!多個航點唔使二千五!",
-  "Summary": "多個航點二千五有找,連open jaw都得!想去北海道滑雪定東京睇櫻花,呢個價真係無得輸,搶啦~"
-}
-
-### Sample 3: Vancouver to HK Return (Reverse Route)
-{
-  "Destination": "溫哥華回港",
-  "Header": "回港早鳥平飛!中華航空溫哥華出發來回香港連稅$6,140起!9月至11月出發",
-  "Short Comment": "溫哥華回港平飛!中華航空$6,140起,抵到喊!",
-  "Summary": "呢口價仲平過香港去溫哥華,幾抵!想回港探親定食港式點心,轉機時間短,啱晒你,快啲入手啦~"
-}
-
-### Sample 4: Staycation Example (Pet-Friendly Hotel)
-{
-  "Destination": "Staycation",
-  "Header": "寵物友善!Murray Lane寵物酒店1晚$1,888起,包下午茶+海鮮晚餐!",
-  "Short Comment": "帶毛孩去歎staycation,仲有海鮮餐,超正~",
-  "Summary": "呢個staycation包下午茶同海鮮餐,仲可以帶貓狗!想同毛孩放鬆一晚,呢個價錢真係啱晒,book定啦~"
-}</source>
-<source id="1" name="Flyagainla tone guide">Patterns for Imitation:
-- Headers: Urgent, price-forward, slangy (e.g., "平飛大減!...二千五有找!").
-- Short Comments: Exclamatory openers (e.g., "平到喊!").
-- Summaries: 2-4 sentences on perks/attractions + CTA with ~.
-- RAG Use: Feed to AI for generating JSON output with "Destination", "Header", "Short Comment", "Summary". Index by tags (Staycation, ANA) for retrieval.
-
-## Sample JSON Outputs for RAG
-Use these as templates: Parse for slang, structure; generate JSON with ONLY Destination, Header, Short Comment, Summary.
-
-### Sample 1: Tokyo ANA Package (Flight + Hotel)
-{
-  "Destination": "東京",
-  "Header": "坐ANA早去晚返!東京7日6夜套票,包ANA來回機票+6晚住宿,每位連稅$4,132起!11月至2026年8月指定日子出發",
-  "Short Comment": "ANA例牌又減,循例睇下套票幾錢啦~",
-  "Summary": "東京$4,132起連機票同酒店,平到你唔信!想去新宿逛街同食壽司,呢個價錢真係超值,立即book啦~"
-}</source>
-<source id="1" name="Flyagainla tone guide">## RAG Generation Guidelines
-- For JSON Output: Array of objects with ONLY "Destination" (e.g., "東京"), "Header" (full title), "Short Comment" (hook), "Summary" (結論 text). No other fields. Group similar (e.g., "九州" for multi-Japan) if input specifies.
-- Input Parsing: From bracketed data (e.g., [航空公司:...]), extract Destination, price, airline, dates, etc. Assume HK$ prices, "連稅", defaults (e.g., Trip.com, 2025/2026 for dates).
-- Imitation Tips: Headers use "平飛大減"、"早鳥優惠"; Short Comments use "嘩!"、"平到喊"; Summaries mention local attractions (e.g., 東京=壽司, 熊本=熊本熊). Use ~, !, 20-30% slang.
-- Retrieval Hooks: Query by "ANA", "Staycation", "CLS" for samples. Output valid JSON (quotes, commas).</source>
-</context>
-
-<user_query>
-根據機票資料和flyagainla tone guide, 生成destination,header,short_comment和summary.重要!評論只能在三十字以內,而總結能夠長約一百字.這些都必須是繁體中文廣東話語氣.你的輸出必須只能有Json,絕對不能有任何文字,符號或回應在前後.Json格式內只能有"destination","header","short_comment"和"summary".Json內不能有任何換行,以下是Json例子
-                                                {
-                                                        "destination": "美國",
-                                                        "header": "創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
-                                                        "short_comment": "好多平飛！去美國嘅人真係少咗？",
-                                                        "summary": "國泰直航一減再減，不斷創疫後新低價，直迫轉機價！直航慳時間就算貴幾厝，都值得俾啦！優惠仲可以 open jaw，可以唔走回頭路玩晒加州兩大城市，連復活節都有平，正呀～"
-                                                }
-                                                已選機票資料:
-                                                [
-                                                航空公司：全日空航空公司
-                                                出發地點：香港
-                                                目的地：大阪
-                                                來回價錢：$2900
-                                                艙等：經濟艙
-                                                出發日期：2024-02-17
-                                                出發時間：8:30
-                                                行李資訊：1x 23kg checked bag, 1x 7kg carry-on]
-</user_query>
-
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1040 - ================================================================================
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1056 - 🎯===============================================================================
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1057 - 🎯 EXACT MESSAGES SENT TO AI MODEL (final format, no preprocessing tags):
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1058 - 🎯===============================================================================
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1060 - 🎯 Message 1 - Role: system
-2025-10-09 18:04:35.481 | INFO     | open_webui.utils.middleware:process_chat_payload:1061 - 🎯 Content:
-2025-10-09 18:04:35.482 | INFO     | open_webui.utils.middleware:process_chat_payload:1062 - ### Task:
-Respond to the user query using the provided context, incorporating inline citations in the format [id] **only when the <source> tag includes an explicit id attribute** (e.g., <source id="1">).
-
-### Guidelines:
-- If you don't know the answer, clearly state that.
-- If uncertain, ask the user for clarification.
-- Respond in the same language as the user's query.
-- If the context is unreadable or of poor quality, inform the user and provide the best possible answer.
-- If the answer isn't present in the context but you possess the knowledge, explain this to the user and provide the answer using your own understanding.
-- **Only include inline citations using [id] (e.g., [1], [2]) when the <source> tag includes an id attribute.**
-- Do not cite if the <source> tag does not contain an id attribute.
-- Do not use XML tags in your response.
-- Ensure citations are concise and directly related to the information provided.
-
-### Example of Citation:
-If the user asks about a specific topic and the information is found in a source with a provided id attribute, the response should include the citation like in the following example:
-* "According to the study, the proposed method increases efficiency by 20% [1]."
-
-### Output:
-Provide a clear and direct response to the user's query, including inline citations in the format [id] only when the <source> tag with id attribute is present in the context.
-
-<context>
-<source id="1" name="Flyagainla tone guide">### Sample 2: Japan ANA Flights (Multi-Destination)
-{
-  "Destination": "日本",
-  "Header": "平飛大減!多個航點二千五有找!ANA全日空來回日本各地連稅$2,323起!9月至2026年3月指定日子出發",
-  "Short Comment": "嘩!ANA真係越減越平!多個航點唔使二千五!",
-  "Summary": "多個航點二千五有找,連open jaw都得!想去北海道滑雪定東京睇櫻花,呢個價真係無得輸,搶啦~"
-}
-
-### Sample 3: Vancouver to HK Return (Reverse Route)
-{
-  "Destination": "溫哥華回港",
-  "Header": "回港早鳥平飛!中華航空溫哥華出發來回香港連稅$6,140起!9月至11月出發",
-  "Short Comment": "溫哥華回港平飛!中華航空$6,140起,抵到喊!",
-  "Summary": "呢口價仲平過香港去溫哥華,幾抵!想回港探親定食港式點心,轉機時間短,啱晒你,快啲入手啦~"
-}
-
-### Sample 4: Staycation Example (Pet-Friendly Hotel)
-{
-  "Destination": "Staycation",
-  "Header": "寵物友善!Murray Lane寵物酒店1晚$1,888起,包下午茶+海鮮晚餐!",
-  "Short Comment": "帶毛孩去歎staycation,仲有海鮮餐,超正~",
-  "Summary": "呢個staycation包下午茶同海鮮餐,仲可以帶貓狗!想同毛孩放鬆一晚,呢個價錢真係啱晒,book定啦~"
-}</source>
-<source id="1" name="Flyagainla tone guide">Patterns for Imitation:
-- Headers: Urgent, price-forward, slangy (e.g., "平飛大減!...二千五有找!").
-- Short Comments: Exclamatory openers (e.g., "平到喊!").
-- Summaries: 2-4 sentences on perks/attractions + CTA with ~.
-- RAG Use: Feed to AI for generating JSON output with "Destination", "Header", "Short Comment", "Summary". Index by tags (Staycation, ANA) for retrieval.
-
-## Sample JSON Outputs for RAG
-Use these as templates: Parse for slang, structure; generate JSON with ONLY Destination, Header, Short Comment, Summary.
-
-### Sample 1: Tokyo ANA Package (Flight + Hotel)
-{
-  "Destination": "東京",
-  "Header": "坐ANA早去晚返!東京7日6夜套票,包ANA來回機票+6晚住宿,每位連稅$4,132起!11月至2026年8月指定日子出發",
-  "Short Comment": "ANA例牌又減,循例睇下套票幾錢啦~",
-  "Summary": "東京$4,132起連機票同酒店,平到你唔信!想去新宿逛街同食壽司,呢個價錢真係超值,立即book啦~"
-}</source>
-<source id="1" name="Flyagainla tone guide">## RAG Generation Guidelines
-- For JSON Output: Array of objects with ONLY "Destination" (e.g., "東京"), "Header" (full title), "Short Comment" (hook), "Summary" (結論 text). No other fields. Group similar (e.g., "九州" for multi-Japan) if input specifies.
-- Input Parsing: From bracketed data (e.g., [航空公司:...]), extract Destination, price, airline, dates, etc. Assume HK$ prices, "連稅", defaults (e.g., Trip.com, 2025/2026 for dates).
-- Imitation Tips: Headers use "平飛大減"、"早鳥優惠"; Short Comments use "嘩!"、"平到喊"; Summaries mention local attractions (e.g., 東京=壽司, 熊本=熊本熊). Use ~, !, 20-30% slang.
-- Retrieval Hooks: Query by "ANA", "Staycation", "CLS" for samples. Output valid JSON (quotes, commas).</source>
-</context>
-
-<user_query>
-根據機票資料和flyagainla tone guide, 生成destination,header,short_comment和summary.重要!評論只能在三十字以內,而總結能夠長約一百字.這些都必須是繁體中文廣東話語氣.你的輸出必須只能有Json,絕對不能有任何文字,符號或回應在前後.Json格式內只能有"destination","header","short_comment"和"summary".Json內不能有任何換行,以下是Json例子
-                                                {
-                                                        "destination": "美國",
-                                                        "header": "創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
-                                                        "short_comment": "好多平飛！去美國嘅人真係少咗？",
-                                                        "summary": "國泰直航一減再減，不斷創疫後新低價，直迫轉機價！直航慳時間就算貴幾厝，都值得俾啦！優惠仲可以 open jaw，可以唔走回頭路玩晒加州兩大城市，連復活節都有平，正呀～"
-                                                }
-                                                已選機票資料:
-                                                [
-                                                航空公司：全日空航空公司
-                                                出發地點：香港
-                                                目的地：大阪
-                                                來回價錢：$2900
-                                                艙等：經濟艙
-                                                出發日期：2024-02-17
-                                                出發時間：8:30
-                                                行李資訊：1x 23kg checked bag, 1x 7kg carry-on]
-</user_query>
-
-2025-10-09 18:04:35.482 | INFO     | open_webui.utils.middleware:process_chat_payload:1063 - 🎯-------------------------------------------------------------------------------
-2025-10-09 18:04:35.482 | INFO     | open_webui.utils.middleware:process_chat_payload:1060 - 🎯 Message 2 - Role: user
-2025-10-09 18:04:35.482 | INFO     | open_webui.utils.middleware:process_chat_payload:1061 - 🎯 Content:
-2025-10-09 18:04:35.482 | INFO     | open_webui.utils.middleware:process_chat_payload:1062 - 根據機票資料和flyagainla tone guide, 生成destination,header,short_comment和summary.重要!評論只能在三十字以內,而總結能夠長約一百字.這些都必須是繁體中文廣東話語氣.你的輸出必須只能有Json,絕對不能有任何文字,符號或回應在前後.Json格式內只能有"destination","header","short_comment"和"summary".Json內不能有任何換行,以下是Json例子
-                                                {
-                                                        "destination": "美國",
-                                                        "header": "創疫後直航新低價！多平飛日子選擇！國泰航空來回洛杉磯/三藩市，連稅$5,328起！2026年6月30日或之前出發",
-                                                        "short_comment": "好多平飛！去美國嘅人真係少咗？",
-                                                        "summary": "國泰直航一減再減，不斷創疫後新低價，直迫轉機價！直航慳時間就算貴幾厝，都值得俾啦！優惠仲可以 open jaw，可以唔走回頭路玩晒加州兩大城市，連復活節都有平，正呀～"
-                                                }
-                                                已選機票資料:
-                                                [
-                                                航空公司：全日空航空公司
-                                                出發地點：香港
-                                                目的地：大阪
-                                                來回價錢：$2900
-                                                艙等：經濟艙
-                                                出發日期：2024-02-17
-                                                出發時間：8:30
-                                                行李資訊：1x 23kg checked bag, 1x 7kg carry-on]
-2025-10-09 18:04:35.482 | INFO     | open_webui.utils.middleware:process_chat_payload:1063 - 🎯-------------------------------------------------------------------------------
-2025-10-09 18:04:35.482 | INFO     | open_webui.utils.middleware:process_chat_payload:1064 - 🎯===============================================================================
+Loading WEBUI_SECRET_KEY from file, not provided as an environment variable.
+Loading WEBUI_SECRET_KEY from .webui_secret_key
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+  File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1462, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1383, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1246, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/click/core.py", line 814, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/main.py", line 423, in main
+    run(
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/main.py", line 593, in run
+    server.run()
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/_compat.py", line 30, in asyncio_run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 71, in serve
+    await self._serve(sockets)
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 78, in _serve
+    config.load()
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/config.py", line 439, in load
+    self.loaded_app = import_from_string(self.app)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/importer.py", line 22, in import_from_string
+    raise exc from None
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/importlib/__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/app/backend/open_webui/main.py", line 45, in <module>
+    from starlette_compress import CompressMiddleware
+ModuleNotFoundError: No module named 'starlette_compress'
+Loading WEBUI_SECRET_KEY from file, not provided as an environment variable.
+Loading WEBUI_SECRET_KEY from .webui_secret_key
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+  File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1462, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1383, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1246, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/click/core.py", line 814, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/main.py", line 423, in main
+    run(
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/main.py", line 593, in run
+    server.run()
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/_compat.py", line 30, in asyncio_run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 71, in serve
+    await self._serve(sockets)
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 78, in _serve
+    config.load()
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/config.py", line 439, in load
+    self.loaded_app = import_from_string(self.app)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/importer.py", line 22, in import_from_string
+    raise exc from None
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/importlib/__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/app/backend/open_webui/main.py", line 45, in <module>
+    from starlette_compress import CompressMiddleware
+ModuleNotFoundError: No module named 'starlette_compress'
+Loading WEBUI_SECRET_KEY from file, not provided as an environment variable.
+Loading WEBUI_SECRET_KEY from .webui_secret_key
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+  File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1462, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1383, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/click/core.py", line 1246, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/click/core.py", line 814, in invoke
+    return callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/main.py", line 423, in main
+    run(
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/main.py", line 593, in run
+    server.run()
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 67, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/_compat.py", line 30, in asyncio_run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 71, in serve
+    await self._serve(sockets)
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 78, in _serve
+    config.load()
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/config.py", line 439, in load
+    self.loaded_app = import_from_string(self.app)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/importer.py", line 22, in import_from_string
+    raise exc from None
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/importlib/__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/app/backend/open_webui/main.py", line 45, in <module>
+    from starlette_compress import CompressMiddleware
+ModuleNotFoundError: No module named 'starlette_compress'
+Loading WEBUI_SECRET_KEY from file, not provided as an environment variable.
+Loading WEBUI_SECRET_KEY from .webui_secret_key

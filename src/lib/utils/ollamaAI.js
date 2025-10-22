@@ -687,7 +687,7 @@ Use your knowledge base to provide accurate airline information and route insigh
 			return `[航空公司：${airlines} 出發地點：${group.startingPlace} 目的地：${group.destination} 來回價錢：$${totalPrice} 艙等：${seatClass} 出發日期：${departureDate} 出發時間：${departureTime} 行李資訊：${luggage}]`;
 		}).join(', ');
 		
-		const prompt = `仿又飛啦廣東俚語，輸JSON，每來回一對象，選最平價，含destination、header、short_comment、summary、tourist_spot、promote_text。destination取非香港地。header多變語氣，選超前部署、難得、平、抵、減，含航司、價、期，勿含destination。short_comment限三十字，多變語氣，述地或價優（如直航減到咁平，心動！）。summary約八十字，句以逗點斷，每句宜長，約二三十字，述價、地景、促行，依資料，勿增詞。destination、header、short_comment、summary、promote_text用繁體廣東話，promote_text短句分行，限二行，述價、航優或地景，可含行李。tourist_spot用英文，隨選目的地名勝。價港幣，出發地香港，假設連稅、2025/2026。
+		const prompt = `仿又飛啦廣東俚語，輸JSON，每來回一對象，選最平價，含destination、header、short_comment、summary、tourist_spot、promote_text。destination取非香港地。header用一句，含超前部署、平、抵、減之一，多變語氣，含航司、價、期，勿含destination。short_comment限三十字，多變語氣，述地或價優（如直航減到咁平，心動！）。summary約八十字，句以逗點斷，每句宜長，約二三十字，述價、地景、促行，依資料，勿增詞。destination、header、short_comment、summary、promote_text用繁體廣東話，promote_text短句分行，限二行，述價、航優或地景，可含行李。tourist_spot用英文，隨選目的地名勝。價港幣，出發地香港，假設連稅、2025/2026。
 
 ## 例
 ### 東京
