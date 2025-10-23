@@ -228,9 +228,21 @@ Output your response as a JSON object with a single key "post" containing the ge
 						if (jsonData.post) {
 							// Replace \n escape sequences with actual newlines
 							finalContent = jsonData.post.replace(/\\n/g, '\n');
-							console.log('Extracted post content:', finalContent);
+							console.log('✅ Successfully extracted post content:', finalContent);
+							console.log('✅ Post content length:', finalContent.length);
 						} else {
 							console.log('No "post" key found in JSON, using full response');
+							// If no "post" key, try to use the full JSON as string or look for other content keys
+							if (typeof jsonData === 'string') {
+								finalContent = jsonData;
+							} else if (jsonData.content) {
+								finalContent = jsonData.content;
+							} else if (jsonData.text) {
+								finalContent = jsonData.text;
+							} else {
+								// If it's an object but no expected keys, stringify it
+								finalContent = JSON.stringify(jsonData);
+							}
 						}
 					} catch (e) {
 						console.log('Not JSON format or parsing failed, using raw text:', e);
@@ -238,12 +250,14 @@ Output your response as a JSON object with a single key "post" containing the ge
 					}
 					
 					// The generated text should already be in the desired format
+					console.log('🔍 Setting generatedPost with finalContent:', finalContent);
 					generatedPost = {
 						content: finalContent,
 						caption: finalContent,
 						hashtags: '',
 						description: 'AI-generated content'
 					};
+					console.log('🔍 Generated post set:', generatedPost);
 					
 					// Use the first uploaded image if available
 					if (uploadedImages.length > 0) {

@@ -162,7 +162,16 @@ async def update_password(
         user = Auths.authenticate_user(session_user.email, form_data.password)
 
         if user:
-            hashed = get_password_hash(form_data.new_password)
+            # The password passed to bcrypt must be 72 bytes or fewer. If it is longer, it will be truncated before hashing.
+            new_password = form_data.new_password
+            password_bytes = new_password.encode("utf-8")
+            
+            if len(password_bytes) > 72:
+                # Truncate password to 72 bytes to avoid bcrypt error
+                new_password = password_bytes[:72].decode("utf-8", errors="ignore")
+                log.info(f"Update password truncated to: '{new_password}'")
+
+            hashed = get_password_hash(new_password)
             return Auths.update_user_password_by_id(user.id, hashed)
         else:
             raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_PASSWORD)
@@ -582,13 +591,18 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
         role = "admin" if not has_users else request.app.state.config.DEFAULT_USER_ROLE
 
         # The password passed to bcrypt must be 72 bytes or fewer. If it is longer, it will be truncated before hashing.
-        if len(form_data.password.encode("utf-8")) > 72:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                detail=ERROR_MESSAGES.PASSWORD_TOO_LONG,
-            )
+        password = form_data.password
+        password_bytes = password.encode("utf-8")
+        
+        # Debug logging
+        log.info(f"Password length: {len(password_bytes)} bytes, password: '{password}'")
+        
+        if len(password_bytes) > 72:
+            # Truncate password to 72 bytes to avoid bcrypt error
+            password = password_bytes[:72].decode("utf-8", errors="ignore")
+            log.info(f"Password truncated to: '{password}'")
 
-        hashed = get_password_hash(form_data.password)
+        hashed = get_password_hash(password)
         user = Auths.insert_new_auth(
             form_data.email.lower(),
             hashed,
@@ -735,7 +749,19 @@ async def add_user(form_data: AddUserForm, user=Depends(get_admin_user)):
         raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
 
     try:
-        hashed = get_password_hash(form_data.password)
+        # The password passed to bcrypt must be 72 bytes or fewer. If it is longer, it will be truncated before hashing.
+        password = form_data.password
+        password_bytes = password.encode("utf-8")
+        
+        # Debug logging
+        log.info(f"Add user password length: {len(password_bytes)} bytes, password: '{password}'")
+        
+        if len(password_bytes) > 72:
+            # Truncate password to 72 bytes to avoid bcrypt error
+            password = password_bytes[:72].decode("utf-8", errors="ignore")
+            log.info(f"Add user password truncated to: '{password}'")
+
+        hashed = get_password_hash(password)
         user = Auths.insert_new_auth(
             form_data.email.lower(),
             hashed,

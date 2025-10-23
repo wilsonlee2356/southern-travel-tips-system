@@ -9,9 +9,50 @@ import time
 
 from urllib.parse import quote
 from huggingface_hub import snapshot_download
-from langchain.retrievers import ContextualCompressionRetriever, EnsembleRetriever
+# Import from langchain_core instead
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.documents import Document
+from typing import List, Optional
 from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
+
+# Custom implementations for missing classes
+class EnsembleRetriever(BaseRetriever):
+    def __init__(self, retrievers: List[BaseRetriever], weights: List[float] = None):
+        super().__init__()
+        self.retrievers = retrievers
+        self.weights = weights or [1.0] * len(retrievers)
+        
+    def _get_relevant_documents(self, query: str) -> List[Document]:
+        all_docs = []
+        for retriever, weight in zip(self.retrievers, self.weights):
+            docs = retriever.get_relevant_documents(query)
+            for doc in docs:
+                doc.metadata['weight'] = weight
+            all_docs.extend(docs)
+        
+        # Simple deduplication and scoring
+        seen = set()
+        unique_docs = []
+        for doc in all_docs:
+            doc_key = doc.page_content
+            if doc_key not in seen:
+                seen.add(doc_key)
+                unique_docs.append(doc)
+        
+        return unique_docs
+
+class ContextualCompressionRetriever(BaseRetriever):
+    def __init__(self, base_compressor, base_retriever):
+        super().__init__()
+        self.base_compressor = base_compressor
+        self.base_retriever = base_retriever
+        
+    def _get_relevant_documents(self, query: str) -> List[Document]:
+        docs = self.base_retriever.get_relevant_documents(query)
+        if hasattr(self.base_compressor, 'compress_documents'):
+            return self.base_compressor.compress_documents(docs, query)
+        return docs
 
 from open_webui.config import VECTOR_DB
 from open_webui.retrieval.vector.factory import VECTOR_DB_CLIENT

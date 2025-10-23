@@ -434,7 +434,16 @@ async def update_user_by_id(
                 )
 
         if form_data.password:
-            hashed = get_password_hash(form_data.password)
+            # The password passed to bcrypt must be 72 bytes or fewer. If it is longer, it will be truncated before hashing.
+            password = form_data.password
+            password_bytes = password.encode("utf-8")
+            
+            if len(password_bytes) > 72:
+                # Truncate password to 72 bytes to avoid bcrypt error
+                password = password_bytes[:72].decode("utf-8", errors="ignore")
+                log.info(f"Update user password truncated to: '{password}'")
+
+            hashed = get_password_hash(password)
             log.debug(f"hashed: {hashed}")
             Auths.update_user_password_by_id(user_id, hashed)
 

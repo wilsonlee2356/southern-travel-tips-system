@@ -38,9 +38,11 @@ RUN npm config set registry https://registry.npmjs.org/ && \
 
 COPY . .
 ENV APP_BUILD_HASH=${BUILD_HASH}
-# Fix for rollup platform-specific dependencies
-RUN rm -rf node_modules package-lock.json && npm install --legacy-peer-deps
-RUN npm run build
+    # Fix for rollup platform-specific dependencies and PostCSS native binding issues
+    RUN rm -rf node_modules package-lock.json && \
+        npm install --legacy-peer-deps && \
+        npm rebuild && \
+        npm run build
 
 ######## WebUI backend ########
 FROM python:3.11-slim-bookworm AS base
@@ -121,6 +123,8 @@ RUN if [ "$USE_OLLAMA" = "true" ]; then \
     apt-get install -y --no-install-recommends gcc python3-dev && \
     # for RAG OCR
     apt-get install -y --no-install-recommends ffmpeg libsm6 libxext6 && \
+    # install Chinese fonts with bold variants for text rendering
+    apt-get install -y --no-install-recommends fonts-wqy-microhei fonts-wqy-zenhei fonts-noto-cjk && \
     # install helper tools
     apt-get install -y --no-install-recommends curl jq && \
     # install ollama
@@ -134,6 +138,8 @@ RUN if [ "$USE_OLLAMA" = "true" ]; then \
     apt-get install -y --no-install-recommends gcc python3-dev && \
     # for RAG OCR
     apt-get install -y --no-install-recommends ffmpeg libsm6 libxext6 && \
+    # install Chinese fonts with bold variants for text rendering
+    apt-get install -y --no-install-recommends fonts-wqy-microhei fonts-wqy-zenhei fonts-noto-cjk && \
     # cleanup
     rm -rf /var/lib/apt/lists/*; \
     fi
@@ -171,6 +177,8 @@ COPY --chown=$UID:$GID --from=build /app/package.json /app/package.json
 
 # copy backend files
 COPY --chown=$UID:$GID ./backend .
+# Copy flight info image to backend directory
+COPY --chown=$UID:$GID ./flight_info_screenshot.png /app/backend/flight_info_screenshot.png
 
 EXPOSE 8080
 

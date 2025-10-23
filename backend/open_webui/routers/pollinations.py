@@ -378,9 +378,22 @@ async def generate_scenic_image(
                     # Load flight info image from file
                     flight_info_image_base64 = None
                     try:
-                        # Go up from backend/open_webui/routers/pollinations.py to project root
-                        flight_info_path = Path(__file__).parent.parent.parent.parent / "flight_info_screenshot.png"
-                        if flight_info_path.exists():
+                        # Try multiple possible paths for the flight info image
+                        possible_paths = [
+                            Path(__file__).parent.parent.parent.parent / "flight_info_screenshot.png",  # Project root
+                            Path(__file__).parent.parent.parent / "flight_info_screenshot.png",  # Backend root
+                            Path("/app/flight_info_screenshot.png"),  # Docker app root
+                            Path("/app/backend/flight_info_screenshot.png"),  # Docker backend
+                            Path("/app/backend/open_webui/static/flight_info_screenshot.png"),  # Static assets
+                        ]
+                        
+                        flight_info_path = None
+                        for path in possible_paths:
+                            if path.exists():
+                                flight_info_path = path
+                                break
+                        
+                        if flight_info_path:
                             with open(flight_info_path, "rb") as f:
                                 flight_info_data = f.read()
                                 
@@ -400,7 +413,7 @@ async def generate_scenic_image(
                                 flight_info_image_base64 = f"data:image/png;base64,{base64.b64encode(flight_info_data).decode()}"
                                 log.info(f"Loaded flight info image: {flight_info_path}")
                         else:
-                            log.warning(f"Flight info image not found: {flight_info_path}")
+                            log.warning(f"Flight info image not found in any of the expected locations: {possible_paths}")
                     except Exception as e:
                         log.error(f"Failed to load flight info image: {e}")
                     
@@ -857,7 +870,17 @@ def _add_multiline_text_with_styles(image: Image.Image, text: str, x: int, y: in
             }
         
         # Load font for this line
-        font = _load_chinese_font(line_style["font_size"], bold=line_style.get("bold", True))
+        font_size = line_style["font_size"]
+        is_bold = line_style.get("bold", True)
+        
+        # Use proper font loading for Chinese characters
+        if is_bold:
+            # Use the main font loading function with bold=True
+            font = _load_chinese_font(font_size, bold=True)
+            log.info(f"Loading BOLD font for line '{line}' (size: {font_size})")
+        else:
+            font = _load_chinese_font(font_size, bold=False)
+            log.info(f"Loading REGULAR font for line '{line}' (size: {font_size})")
         
         # Calculate text dimensions
         bbox = draw.textbbox((0, 0), line, font=font)
@@ -870,17 +893,55 @@ def _add_multiline_text_with_styles(image: Image.Image, text: str, x: int, y: in
         if line_index > 0:  # promote_text lines (not destination)
             adjusted_x = x + 25  # Move promote_text slightly to the right
         
-        _draw_text_with_border(
-            draw, 
-            line, 
-            adjusted_x,  # Use adjusted x position
-            current_y, 
-            font, 
-            line_style["text_color"], 
-            line_style["border_color"], 
-            line_style["border_width"], 
-            rotation_angle
-        )
+        # Draw text with border and rotation
+        if is_bold:
+            # Check if we have a true bold font by checking the font path
+            font_path = getattr(font, 'path', '')
+            is_true_bold = any(bold_font in font_path for bold_font in ['Bold', 'bold', 'Black', 'black'])
+            
+            if is_true_bold:
+                # Use true bold font - draw once normally
+                log.info(f"Using TRUE BOLD font for '{line}' - drawing once")
+                _draw_text_with_border(
+                    draw, 
+                    line, 
+                    adjusted_x, 
+                    current_y, 
+                    font, 
+                    line_style["text_color"], 
+                    line_style["border_color"], 
+                    line_style["border_width"], 
+                    rotation_angle
+                )
+            else:
+                # Fallback to manual bold effect for fonts without true bold
+                log.info(f"Using MANUAL BOLD effect for '{line}' - drawing multiple times")
+                offsets = [(0, 0), (1, 0), (0, 1), (1, 1)]
+                for offset_x, offset_y in offsets:
+                    _draw_text_with_border(
+                        draw, 
+                        line, 
+                        adjusted_x + offset_x,  # Use adjusted x position with offset
+                        current_y + offset_y, 
+                        font, 
+                        line_style["text_color"], 
+                        line_style["border_color"], 
+                        line_style["border_width"], 
+                        rotation_angle
+                    )
+        else:
+            # Regular text - draw once normally
+            _draw_text_with_border(
+                draw, 
+                line, 
+                adjusted_x,  # Use adjusted x position
+                current_y, 
+                font, 
+                line_style["text_color"], 
+                line_style["border_color"], 
+                line_style["border_width"], 
+                rotation_angle
+            )
         
         # Move to next line position
         # Use appropriate spacing based on current line's font size
@@ -888,12 +949,26 @@ def _add_multiline_text_with_styles(image: Image.Image, text: str, x: int, y: in
             # After destination (120px font), use moderate spacing
             current_y += text_height + 10
         else:
-            # Between promote_text lines (35px font), use minimal spacing
-            current_y += text_height + 2
+            # Between promote_text lines (35px font), use more spacing for better readability
+            current_y += text_height + 8
         
         log.info(f"Added line {line_index}: '{line}' at ({x}, {current_y - text_height - (10 if line_index == 0 else 2)}) with style {line_style}")
     
     return image
+
+def _load_chinese_font_specific(font_size: int, font_path: str):
+    """
+    Load a specific Chinese font from a given path
+    Returns the font object or default font if not found
+    """
+    try:
+        font = ImageFont.truetype(font_path, font_size)
+        log.info(f"Successfully loaded specific font: {font_path} (size: {font_size})")
+        return font
+    except Exception as e:
+        log.warning(f"Could not load specific font {font_path}: {e}")
+        # Fallback to default font
+        return ImageFont.load_default()
 
 def _load_chinese_font(font_size: int, bold: bool = False):
     """
@@ -903,34 +978,34 @@ def _load_chinese_font(font_size: int, bold: bool = False):
     if bold:
         # Prioritize bold fonts when bold is requested
         font_paths = [
+            # Linux bold fonts (Docker environment) - prioritize fonts with true bold variants
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",  # Noto Sans CJK Bold (true bold)
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",  # Noto Sans CJK Bold (alternative path)
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Black.ttc",  # Noto Sans CJK Black (extra bold)
+            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",  # WQY ZenHei (fallback - not truly bold)
+            "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",  # WQY MicroHei (fallback)
             # Windows bold fonts
             "C:/Windows/Fonts/msyhbd.ttc",  # Microsoft YaHei Bold
             "C:/Windows/Fonts/simhei.ttf",  # SimHei (bold by default)
             "C:/Windows/Fonts/msjh.ttc",  # Microsoft JhengHei (can appear bold)
-            # Linux bold fonts
-            "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
-            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",  # Bold appearance
             # WSL Windows bold fonts access
             "/mnt/c/Windows/Fonts/msyhbd.ttc",
             "/mnt/c/Windows/Fonts/simhei.ttf",
             # Fallback to regular fonts if bold not available
             "C:/Windows/Fonts/msyh.ttc",
             "C:/Windows/Fonts/msjh.ttc",
-            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
         ]
     else:
         # Regular fonts
         font_paths = [
+            # Linux fonts (Docker environment) - prioritize available fonts
+            "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
             # Windows fonts
             "C:/Windows/Fonts/msyh.ttc",  # Microsoft YaHei
             "C:/Windows/Fonts/msjh.ttc",  # Microsoft JhengHei
             "C:/Windows/Fonts/simsun.ttc",  # SimSun
             "C:/Windows/Fonts/simhei.ttf",  # SimHei
-            # Linux fonts
-            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
-            "/usr/share/fonts/truetype/arphic/uming.ttc",
             # WSL Windows fonts access
             "/mnt/c/Windows/Fonts/msyh.ttc",
             "/mnt/c/Windows/Fonts/simsun.ttc",
@@ -940,7 +1015,7 @@ def _load_chinese_font(font_size: int, bold: bool = False):
     for font_path in font_paths:
         try:
             font = ImageFont.truetype(font_path, font_size)
-            log.info(f"Successfully loaded font: {font_path} (size: {font_size})")
+            log.info(f"Successfully loaded font: {font_path} (size: {font_size}, bold: {bold})")
             return font
         except Exception as e:
             log.debug(f"Could not load font {font_path}: {e}")

@@ -7,6 +7,8 @@ import hashlib
 import requests
 import os
 
+log = logging.getLogger(__name__)
+
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -159,13 +161,57 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def verify_password(plain_password, hashed_password):
-    return (
-        pwd_context.verify(plain_password, hashed_password) if hashed_password else None
-    )
+    # The password passed to bcrypt must be 72 bytes or fewer. If it is longer, it will be truncated before verifying.
+    password_bytes = plain_password.encode("utf-8")
+    
+    if len(password_bytes) > 72:
+        # Truncate password to 72 bytes to avoid bcrypt error
+        plain_password = password_bytes[:72].decode("utf-8", errors="ignore")
+        log.info(f"Password truncated in verify_password to: '{plain_password}'")
+    
+    try:
+        # Try using bcrypt directly instead of passlib
+        import bcrypt
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8')) if hashed_password else None
+    except Exception as e:
+        log.error(f"Error in verify_password: {str(e)}")
+        return None
 
 
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    # The password passed to bcrypt must be 72 bytes or fewer. If it is longer, it will be truncated before hashing.
+    log.info(f"get_password_hash called with password: '{password}', length: {len(password)}, bytes: {len(password.encode('utf-8'))}")
+    log.info(f"Password repr: {repr(password)}")
+    log.info(f"Password type: {type(password)}")
+    
+    password_bytes = password.encode("utf-8")
+    log.info(f"Password bytes: {password_bytes}")
+    log.info(f"Password bytes length: {len(password_bytes)}")
+    
+    if len(password_bytes) > 72:
+        # Truncate password to 72 bytes to avoid bcrypt error
+        password = password_bytes[:72].decode("utf-8", errors="ignore")
+        log.info(f"Password truncated in get_password_hash to: '{password}'")
+    
+    try:
+        # Try using bcrypt directly instead of passlib
+        import bcrypt
+        log.info(f"Trying direct bcrypt with password: '{password}', bytes: {len(password.encode('utf-8'))}")
+        
+        # Generate salt
+        salt = bcrypt.gensalt()
+        log.info(f"Generated salt: {salt}")
+        
+        # Hash the password
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+        log.info(f"Successfully hashed password with direct bcrypt, hash length: {len(hashed)}")
+        return hashed.decode('utf-8')
+        
+    except Exception as e:
+        log.error(f"Error in get_password_hash: {str(e)}, password was: '{password}', bytes: {len(password_bytes)}")
+        log.error(f"Exception type: {type(e)}")
+        log.error(f"Exception args: {e.args}")
+        raise
 
 
 def create_token(data: dict, expires_delta: Union[timedelta, None] = None) -> str:
