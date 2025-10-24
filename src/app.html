@@ -2,6 +2,37 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		
+		<!-- Ngrok bypass for deployment - must be first script -->
+		<script>
+			// Override fetch globally before any other scripts load
+			// Only applies in production (not localhost)
+			if (typeof window !== 'undefined') {
+				const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+				
+				if (!isLocalhost) {
+					// Store original fetch
+					const originalFetch = window.fetch;
+					
+					// Override fetch to add ngrok header
+					window.fetch = function(...args) {
+						const [resource, config] = args;
+						
+						// Add ngrok bypass header to all requests
+						const newConfig = {
+							...config,
+							headers: {
+								...config?.headers,
+								'ngrok-skip-browser-warning': 'true'
+							}
+						};
+						
+						return originalFetch(resource, newConfig);
+					};
+				}
+			}
+		</script>
+		
 		<link rel="icon" type="image/png" href="/static/favicon.png" />
 		<link rel="icon" type="image/png" href="/static/favicon-96x96.png" sizes="96x96" />
 		<link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />

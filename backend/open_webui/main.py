@@ -1169,6 +1169,15 @@ app.add_middleware(AdapterInterceptionMiddleware)
 
 
 @app.middleware("http")
+async def add_ngrok_header(request: Request, call_next):
+    """Add ngrok-skip-browser-warning header to bypass ngrok warning page in deployment"""
+    response = await call_next(request)
+    # Add header to help with ngrok deployments
+    response.headers["ngrok-skip-browser-warning"] = "true"
+    return response
+
+
+@app.middleware("http")
 async def commit_session_after_request(request: Request, call_next):
     response = await call_next(request)
     # log.debug("Commit session after request")

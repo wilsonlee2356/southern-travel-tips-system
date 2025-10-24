@@ -477,7 +477,17 @@
 				const originalFetch = window.fetch;
 				window.fetch = function(...args) {
 					const [resource, config] = args;
-					// Add ngrok header to bypass warning page in deployment
+					
+					// Only add header for API calls, not for static assets
+					const url = typeof resource === 'string' ? resource : resource.url;
+					const isStaticAsset = url.match(/\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|ico)$/i);
+					
+					// Skip intercepting static assets
+					if (isStaticAsset) {
+						return originalFetch(resource, config);
+					}
+					
+					// Add ngrok header to bypass warning page for API calls only
 					const newConfig = {
 						...config,
 						headers: {
