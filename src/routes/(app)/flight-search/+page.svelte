@@ -325,7 +325,7 @@
 			startingPlaceCode: 'HKG',
 			destination: '倫敦',
 			destinationCode: 'LHR',
-			cost: 18000,
+			cost: 9000,
 			currency: 'HKD',
 			seatClass: '商務艙',
 			departureDate: '2024-02-19',
