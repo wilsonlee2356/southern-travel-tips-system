@@ -4,9 +4,22 @@
  */
 
 // Configuration
+// Use environment variable for deployment, fallback to localhost for development
+const getBaseUrl = () => {
+	// Check if we're in browser environment
+	if (typeof window !== 'undefined') {
+		// In production (not localhost), use the current origin
+		// In development (localhost), use localhost:8080
+		const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+		return isLocalhost ? 'http://localhost:8080' : window.location.origin;
+	}
+	// Fallback for server-side rendering
+	return 'http://localhost:8080';
+};
+
 const OLLAMA_CONFIG = {
-	baseUrl: 'http://localhost:8080', // OpenWebUI API URL for RAG functionality
-	openWebUIUrl: 'http://localhost:8080', // OpenWebUI URL
+	baseUrl: getBaseUrl(), // OpenWebUI API URL for RAG functionality
+	openWebUIUrl: getBaseUrl(), // OpenWebUI URL
 	model: 'humblemat/hon9kon9ize_CantoneseLLMChat-v1.0-7B-F16.gguf:latest', // Default model name
 	largeModel: 'qwen2.5:32b', // Larger model for initial analysis
 	timeout: 30000, // 30 seconds timeout

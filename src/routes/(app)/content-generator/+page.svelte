@@ -210,28 +210,49 @@ Output your response as a JSON object with a single key "post" containing the ge
 					let finalContent = generatedText;
 					
 					try {
-						// Remove markdown code blocks if present (```json ... ```)
+						// Remove markdown code blocks if present (```json ... ``` or ``` ... ```)
 						let cleanText = generatedText.trim();
-						if (cleanText.startsWith('```json')) {
-							cleanText = cleanText.replace(/^```json\s*/, '').replace(/```\s*$/, '');
-						} else if (cleanText.startsWith('```')) {
-							cleanText = cleanText.replace(/^```\s*/, '').replace(/```\s*$/, '');
+						console.log('🔍 Original text:', cleanText.substring(0, 100));
+						
+						// More aggressive markdown removal
+						if (cleanText.includes('```')) {
+							// Remove opening ```json or ```
+							cleanText = cleanText.replace(/^```(?:json)?\s*\n?/i, '');
+							// Remove closing ```
+							cleanText = cleanText.replace(/\n?```\s*$/i, '');
+							console.log('🔍 After markdown removal:', cleanText.substring(0, 100));
 						}
 						
-						console.log('Cleaned text for JSON parsing:', cleanText);
+						// Fix control characters in the JSON string
+						// The AI sometimes generates actual newlines inside the JSON instead of \n
+						// We need to find the "post" value and escape the newlines properly
+						const postMatch = cleanText.match(/"post"\s*:\s*"([\s\S]*?)"\s*}/);
+						if (postMatch) {
+							const originalPostValue = postMatch[1];
+							// Escape actual newlines in the post value
+							const escapedPostValue = originalPostValue.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+							cleanText = cleanText.replace(
+								/"post"\s*:\s*"[\s\S]*?"\s*}/,
+								`"post": "${escapedPostValue}"}`
+							);
+							console.log('🔍 Fixed control characters in post value');
+						}
+						
+						console.log('🔍 Cleaned text length:', cleanText.length);
+						console.log('🔍 About to parse as JSON...');
 						
 						// Try to parse as JSON
 						const jsonData = JSON.parse(cleanText);
-						console.log('Parsed JSON data:', jsonData);
+						console.log('✅ Successfully parsed JSON:', jsonData);
 						
 						// Extract the post content
 						if (jsonData.post) {
 							// Replace \n escape sequences with actual newlines
 							finalContent = jsonData.post.replace(/\\n/g, '\n');
-							console.log('✅ Successfully extracted post content:', finalContent);
-							console.log('✅ Post content length:', finalContent.length);
+							console.log('✅ Successfully extracted post content from jsonData.post');
+							console.log('✅ Post content:', finalContent);
 						} else {
-							console.log('No "post" key found in JSON, using full response');
+							console.log('❌ No "post" key found in JSON, using full response');
 							// If no "post" key, try to use the full JSON as string or look for other content keys
 							if (typeof jsonData === 'string') {
 								finalContent = jsonData;
@@ -245,7 +266,8 @@ Output your response as a JSON object with a single key "post" containing the ge
 							}
 						}
 					} catch (e) {
-						console.log('Not JSON format or parsing failed, using raw text:', e);
+						console.error('❌ JSON parsing failed:', e);
+						console.log('❌ Failed text:', generatedText.substring(0, 200));
 						// If it's not JSON, just use the raw text
 					}
 					

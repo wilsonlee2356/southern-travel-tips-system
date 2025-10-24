@@ -468,6 +468,28 @@
 	};
 
 	onMount(async () => {
+		// Add ngrok-skip-browser-warning header only in production/deployment mode
+		if (typeof window !== 'undefined') {
+			const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+			
+			// Only intercept fetch in production (not localhost)
+			if (!isLocalhost) {
+				const originalFetch = window.fetch;
+				window.fetch = function(...args) {
+					const [resource, config] = args;
+					// Add ngrok header to bypass warning page in deployment
+					const newConfig = {
+						...config,
+						headers: {
+							...config?.headers,
+							'ngrok-skip-browser-warning': 'true'
+						}
+					};
+					return originalFetch(resource, newConfig);
+				};
+			}
+		}
+		
 		if (typeof window !== 'undefined' && window.applyTheme) {
 			window.applyTheme();
 		}
