@@ -35,6 +35,14 @@
 	let useAmadeusApi = true; // Toggle between mock and real API
 	let searchCounter = 0; // Counter to create unique IDs across searches
 	
+	// Autocomplete state
+	let startingPlaceInput = '';
+	let destinationInput = '';
+	let filteredStartingPlaces = [];
+	let filteredDestinations = [];
+	let showStartingPlaceDropdown = false;
+	let showDestinationDropdown = false;
+	
 	// Model selection state
 	let selectedRAGModel = null;
 	let selectedBaseModel = null;
@@ -51,6 +59,54 @@
 			}));
 		}
 	}
+
+	// City list with display names for autocomplete
+	const cityList = [
+		{ name: 'Hong Kong', chinese: '香港', code: 'HKG', display: 'Hong Kong (香港) - HKG' },
+		{ name: 'Seoul', chinese: '首爾', code: 'ICN', display: 'Seoul (首爾) - ICN' },
+		{ name: 'Tokyo', chinese: '東京', code: 'NRT', display: 'Tokyo (東京) - NRT' },
+		{ name: 'Osaka', chinese: '大阪', code: 'KIX', display: 'Osaka (大阪) - KIX' },
+		{ name: 'Taipei', chinese: '台北', code: 'TPE', display: 'Taipei (台北) - TPE' },
+		{ name: 'Kaohsiung', chinese: '高雄', code: 'KHH', display: 'Kaohsiung (高雄) - KHH' },
+		{ name: 'Singapore', chinese: '新加坡', code: 'SIN', display: 'Singapore (新加坡) - SIN' },
+		{ name: 'Bangkok', chinese: '曼谷', code: 'BKK', display: 'Bangkok (曼谷) - BKK' },
+		{ name: 'Dubai', chinese: '杜拜', code: 'DXB', display: 'Dubai (杜拜) - DXB' },
+		{ name: 'London', chinese: '倫敦', code: 'LHR', display: 'London (倫敦) - LHR' },
+		{ name: 'New York', chinese: '紐約', code: 'JFK', display: 'New York (紐約) - JFK' },
+		{ name: 'Los Angeles', chinese: '洛杉磯', code: 'LAX', display: 'Los Angeles (洛杉磯) - LAX' },
+		{ name: 'Sydney', chinese: '雪梨', code: 'SYD', display: 'Sydney (雪梨) - SYD' },
+		{ name: 'Paris', chinese: '巴黎', code: 'CDG', display: 'Paris (巴黎) - CDG' },
+		{ name: 'Frankfurt', chinese: '法蘭克福', code: 'FRA', display: 'Frankfurt (法蘭克福) - FRA' },
+		{ name: 'Amsterdam', chinese: '阿姆斯特丹', code: 'AMS', display: 'Amsterdam (阿姆斯特丹) - AMS' },
+		{ name: 'Vancouver', chinese: '溫哥華', code: 'YVR', display: 'Vancouver (溫哥華) - YVR' },
+		{ name: 'Toronto', chinese: '多倫多', code: 'YYZ', display: 'Toronto (多倫多) - YYZ' },
+		{ name: 'Nagoya', chinese: '名古屋', code: 'NGO', display: 'Nagoya (名古屋) - NGO' },
+		{ name: 'Fukuoka', chinese: '福岡', code: 'FUK', display: 'Fukuoka (福岡) - FUK' },
+		{ name: 'Sapporo', chinese: '札幌', code: 'CTS', display: 'Sapporo (札幌) - CTS' },
+		{ name: 'Okinawa', chinese: '沖繩', code: 'OKA', display: 'Okinawa (沖繩) - OKA' },
+		{ name: 'Shanghai', chinese: '上海', code: 'PVG', display: 'Shanghai (上海) - PVG' },
+		{ name: 'Beijing', chinese: '北京', code: 'PEK', display: 'Beijing (北京) - PEK' },
+		{ name: 'Guangzhou', chinese: '廣州', code: 'CAN', display: 'Guangzhou (廣州) - CAN' },
+		{ name: 'Shenzhen', chinese: '深圳', code: 'SZX', display: 'Shenzhen (深圳) - SZX' },
+		{ name: 'Chengdu', chinese: '成都', code: 'CTU', display: 'Chengdu (成都) - CTU' },
+		{ name: 'Melbourne', chinese: '墨爾本', code: 'MEL', display: 'Melbourne (墨爾本) - MEL' },
+		{ name: 'Brisbane', chinese: '布里斯本', code: 'BNE', display: 'Brisbane (布里斯本) - BNE' },
+		{ name: 'Perth', chinese: '珀斯', code: 'PER', display: 'Perth (珀斯) - PER' },
+		{ name: 'Rome', chinese: '羅馬', code: 'FCO', display: 'Rome (羅馬) - FCO' },
+		{ name: 'Madrid', chinese: '馬德里', code: 'MAD', display: 'Madrid (馬德里) - MAD' },
+		{ name: 'Barcelona', chinese: '巴塞隆拿', code: 'BCN', display: 'Barcelona (巴塞隆拿) - BCN' },
+		{ name: 'Vienna', chinese: '維也納', code: 'VIE', display: 'Vienna (維也納) - VIE' },
+		{ name: 'Copenhagen', chinese: '哥本哈根', code: 'CPH', display: 'Copenhagen (哥本哈根) - CPH' },
+		{ name: 'Stockholm', chinese: '斯德哥爾摩', code: 'ARN', display: 'Stockholm (斯德哥爾摩) - ARN' },
+		{ name: 'Oslo', chinese: '奧斯陸', code: 'OSL', display: 'Oslo (奧斯陸) - OSL' },
+		{ name: 'Helsinki', chinese: '赫爾辛基', code: 'HEL', display: 'Helsinki (赫爾辛基) - HEL' },
+		{ name: 'Istanbul', chinese: '伊斯坦堡', code: 'IST', display: 'Istanbul (伊斯坦堡) - IST' },
+		{ name: 'Abu Dhabi', chinese: '阿布達比', code: 'AUH', display: 'Abu Dhabi (阿布達比) - AUH' },
+		{ name: 'Doha', chinese: '多哈', code: 'DOH', display: 'Doha (多哈) - DOH' },
+		{ name: 'Cairo', chinese: '開羅', code: 'CAI', display: 'Cairo (開羅) - CAI' },
+		{ name: 'Johannesburg', chinese: '約翰尼斯堡', code: 'JNB', display: 'Johannesburg (約翰尼斯堡) - JNB' },
+		{ name: 'Cape Town', chinese: '開普敦', code: 'CPT', display: 'Cape Town (開普敦) - CPT' }
+	];
 
 	// Location code mapping for common cities
 	const locationCodeMap = {
@@ -229,6 +285,58 @@
 		// If no match found, return null to indicate invalid input
 		// This will trigger the validation error in the search function
 		return null;
+	};
+
+	// Filter cities based on input
+	const filterCities = (input) => {
+		if (!input || input.trim() === '') {
+			return cityList.slice(0, 10); // Show top 10 cities when empty
+		}
+		
+		const searchTerm = input.toLowerCase().trim();
+		return cityList.filter(city => 
+			city.name.toLowerCase().includes(searchTerm) ||
+			city.chinese.includes(searchTerm) ||
+			city.code.toLowerCase().includes(searchTerm)
+		).slice(0, 10); // Limit to 10 results
+	};
+
+	// Handle starting place input
+	const handleStartingPlaceInput = (e) => {
+		startingPlaceInput = e.target.value;
+		searchForm.startingPlace = startingPlaceInput;
+		filteredStartingPlaces = filterCities(startingPlaceInput);
+		showStartingPlaceDropdown = true;
+	};
+
+	// Handle destination input
+	const handleDestinationInput = (e) => {
+		destinationInput = e.target.value;
+		searchForm.destination = destinationInput;
+		filteredDestinations = filterCities(destinationInput);
+		showDestinationDropdown = true;
+	};
+
+	// Select starting place from dropdown
+	const selectStartingPlace = (city) => {
+		startingPlaceInput = city.display;
+		searchForm.startingPlace = city.code;
+		showStartingPlaceDropdown = false;
+	};
+
+	// Select destination from dropdown
+	const selectDestination = (city) => {
+		destinationInput = city.display;
+		searchForm.destination = city.code;
+		showDestinationDropdown = false;
+	};
+
+	// Close dropdowns when clicking outside
+	const handleClickOutside = (e) => {
+		if (!e.target.closest('.autocomplete-container')) {
+			showStartingPlaceDropdown = false;
+			showDestinationDropdown = false;
+		}
 	};
 
 	// Sample flight data for demonstration
@@ -474,6 +582,12 @@
 			departureDate: '',
 			returnDate: ''
 		};
+		startingPlaceInput = '';
+		destinationInput = '';
+		filteredStartingPlaces = [];
+		filteredDestinations = [];
+		showStartingPlaceDropdown = false;
+		showDestinationDropdown = false;
 		searchCounter = 0;
 		searchResults = sampleFlights.map((flight, index) => ({
 			...flight,
@@ -613,6 +727,8 @@
 		}
 	};
 </script>
+
+<svelte:window on:click={handleClickOutside} />
 
 <div
 	class=" flex flex-col w-full h-screen max-h-[100dvh] transition-width duration-200 ease-in-out {$showSidebar
@@ -755,7 +871,7 @@
 				<form on:submit|preventDefault={handleSearch} class="space-y-6">
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 						<!-- Starting Place -->
-						<div>
+						<div class="autocomplete-container relative">
 							<label for="starting-place" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 								{$i18n.t('Starting Place')}
 							</label>
@@ -763,14 +879,33 @@
 								id="starting-place"
 								type="text"
 								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-								placeholder="e.g., Hong Kong, HKG, Los Angeles, LAX"
-								bind:value={searchForm.startingPlace}
+								placeholder="e.g., Hong Kong, Seoul, Tokyo..."
+								value={startingPlaceInput}
+								on:input={handleStartingPlaceInput}
+								on:focus={() => {
+									filteredStartingPlaces = filterCities(startingPlaceInput);
+									showStartingPlaceDropdown = true;
+								}}
+								autocomplete="off"
 								required
 							/>
+							{#if showStartingPlaceDropdown && filteredStartingPlaces.length > 0}
+								<div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+									{#each filteredStartingPlaces as city}
+										<button
+											type="button"
+											class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-900 dark:text-gray-100"
+											on:click={() => selectStartingPlace(city)}
+										>
+											{city.display}
+										</button>
+									{/each}
+								</div>
+							{/if}
 						</div>
 
 						<!-- Destination -->
-						<div>
+						<div class="autocomplete-container relative">
 							<label for="destination" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 								{$i18n.t('Destination')}
 							</label>
@@ -778,10 +913,29 @@
 								id="destination"
 								type="text"
 								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-								placeholder="e.g., Seoul, ICN, New York, JFK"
-								bind:value={searchForm.destination}
+								placeholder="e.g., Seoul, Tokyo, Singapore..."
+								value={destinationInput}
+								on:input={handleDestinationInput}
+								on:focus={() => {
+									filteredDestinations = filterCities(destinationInput);
+									showDestinationDropdown = true;
+								}}
+								autocomplete="off"
 								required
 							/>
+							{#if showDestinationDropdown && filteredDestinations.length > 0}
+								<div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+									{#each filteredDestinations as city}
+										<button
+											type="button"
+											class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-900 dark:text-gray-100"
+											on:click={() => selectDestination(city)}
+										>
+											{city.display}
+										</button>
+									{/each}
+								</div>
+							{/if}
 						</div>
 
 						<!-- Cost -->

@@ -600,36 +600,6 @@
 				{/if} -->
 
 				<div class="">
-					<Tooltip content={$i18n.t('Post')} placement="right">
-						<a
-							class=" cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
-							href="/post"
-							on:click={async (e) => {
-								e.stopImmediatePropagation();
-								e.preventDefault();
-
-								goto('/post');
-								itemClickHandler();
-							}}
-							draggable="false"
-						>
-							<div class=" self-center flex items-center justify-center size-9">
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4.5">
-									<path
-										d="M3 3h18v18h-18z M8 8h8v8h-8z M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M16 7a1 1 0 1 0 0-2a1 1 0 1 0 0 2"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="1.5"
-										stroke-linejoin="round"
-										stroke-linecap="round"
-									/>
-								</svg>
-							</div>
-						</a>
-					</Tooltip>
-				</div>
-
-				<div class="">
 					<Tooltip content={$i18n.t('Flight Search')} placement="right">
 						<a
 							class=" cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
@@ -647,6 +617,66 @@
 								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4.5">
 									<path
 										d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.5"
+										stroke-linejoin="round"
+										stroke-linecap="round"
+									/>
+								</svg>
+							</div>
+						</a>
+					</Tooltip>
+				</div>
+
+				<div class="">
+					<Tooltip content={$i18n.t('Content Generator')} placement="right">
+						<a
+							class=" cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
+							href="/content-generator"
+							on:click={async (e) => {
+								e.stopImmediatePropagation();
+								e.preventDefault();
+
+								goto('/content-generator');
+								itemClickHandler();
+							}}
+							draggable="false"
+						>
+							<div class=" self-center flex items-center justify-center size-9">
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4.5">
+									<path
+										d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5l1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.5"
+										stroke-linejoin="round"
+										stroke-linecap="round"
+									/>
+								</svg>
+							</div>
+						</a>
+					</Tooltip>
+				</div>
+
+				<div class="">
+					<Tooltip content={$i18n.t('Post')} placement="right">
+						<a
+							class=" cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
+							href="/post"
+							on:click={async (e) => {
+								e.stopImmediatePropagation();
+								e.preventDefault();
+
+								goto('/post');
+								itemClickHandler();
+							}}
+							draggable="false"
+						>
+							<div class=" self-center flex items-center justify-center size-9">
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4.5">
+									<path
+										d="M3 3h18v18h-18z M8 8h8v8h-8z M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M16 7a1 1 0 1 0 0-2a1 1 0 1 0 0 2"
 										fill="none"
 										stroke="currentColor"
 										stroke-width="1.5"

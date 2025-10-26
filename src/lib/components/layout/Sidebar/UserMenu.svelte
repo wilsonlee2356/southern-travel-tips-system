@@ -109,74 +109,76 @@
 				<div class=" self-center truncate">{$i18n.t('Archived Chats')}</div>
 			</DropdownMenu.Item> -->
 
-			{#if role === 'admin'}
-				<DropdownMenu.Item
-					as="a"
-					href="/playground"
-					class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition select-none"
-					on:click={async () => {
-						show = false;
-						if ($mobile) {
-							await tick();
-							showSidebar.set(false);
-						}
-					}}
-				>
-					<div class=" self-center mr-3">
-						<Code className="size-5" strokeWidth="1.5" />
-					</div>
-					<div class=" self-center truncate">{$i18n.t('Playground')}</div>
-				</DropdownMenu.Item>
-				<DropdownMenu.Item
-					as="a"
-					href="/admin"
-					class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition select-none"
-					on:click={async () => {
-						show = false;
-						if ($mobile) {
-							await tick();
-							showSidebar.set(false);
-						}
-					}}
-				>
-					<div class=" self-center mr-3">
-						<UserGroup className="w-5 h-5" strokeWidth="1.5" />
-					</div>
-					<div class=" self-center truncate">{$i18n.t('Admin Panel')}</div>
-				</DropdownMenu.Item>
-			{/if}
+		{#if role === 'admin'}
+			<!-- Playground tab - commented out -->
+			<!-- <DropdownMenu.Item
+				as="a"
+				href="/playground"
+				class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition select-none"
+				on:click={async () => {
+					show = false;
+					if ($mobile) {
+						await tick();
+						showSidebar.set(false);
+					}
+				}}
+			>
+				<div class=" self-center mr-3">
+					<Code className="size-5" strokeWidth="1.5" />
+				</div>
+				<div class=" self-center truncate">{$i18n.t('Playground')}</div>
+			</DropdownMenu.Item> -->
+			<DropdownMenu.Item
+				as="a"
+				href="/admin"
+				class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition select-none"
+				on:click={async () => {
+					show = false;
+					if ($mobile) {
+						await tick();
+						showSidebar.set(false);
+					}
+				}}
+			>
+				<div class=" self-center mr-3">
+					<UserGroup className="w-5 h-5" strokeWidth="1.5" />
+				</div>
+				<div class=" self-center truncate">{$i18n.t('Admin Panel')}</div>
+			</DropdownMenu.Item>
+		{/if}
 
-			{#if help && $user?.role === 'admin'}
-				<hr class=" border-gray-50 dark:border-gray-800 my-1 p-0" />
+		{#if help && $user?.role === 'admin'}
+			<hr class=" border-gray-50 dark:border-gray-800 my-1 p-0" />
 
-				<!-- {$i18n.t('Help')} -->
+			<!-- {$i18n.t('Help')} -->
 
-				<DropdownMenu.Item
-					as="a"
-					class="flex gap-2 items-center py-1.5 px-3 text-sm select-none w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition"
-					id="chat-share-button"
-					on:click={() => {
-						show = false;
-					}}
-					href="https://docs.openwebui.com"
-				>
-					<QuestionMarkCircle className="size-5" />
-					<div class="flex items-center">{$i18n.t('Documentation')}</div>
-				</DropdownMenu.Item>
+			<!-- Documentation tab - commented out -->
+			<!-- <DropdownMenu.Item
+				as="a"
+				class="flex gap-2 items-center py-1.5 px-3 text-sm select-none w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition"
+				id="chat-share-button"
+				on:click={() => {
+					show = false;
+				}}
+				href="https://docs.openwebui.com"
+			>
+				<QuestionMarkCircle className="size-5" />
+				<div class="flex items-center">{$i18n.t('Documentation')}</div>
+			</DropdownMenu.Item> -->
 
-				<!-- Releases -->
-				<DropdownMenu.Item
-					as="a"
-					class="flex gap-2 items-center py-1.5 px-3 text-sm select-none w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition"
-					id="chat-share-button"
-					on:click={() => {
-						show = false;
-					}}
-					href="https://github.com/open-webui/"
-				>
-					<Map className="size-5" />
-					<div class="flex items-center">{$i18n.t('Releases')}</div>
-				</DropdownMenu.Item>
+			<!-- Releases tab - commented out -->
+			<!-- <DropdownMenu.Item
+				as="a"
+				class="flex gap-2 items-center py-1.5 px-3 text-sm select-none w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition"
+				id="chat-share-button"
+				on:click={() => {
+					show = false;
+				}}
+				href="https://github.com/open-webui/"
+			>
+				<Map className="size-5" />
+				<div class="flex items-center">{$i18n.t('Releases')}</div>
+			</DropdownMenu.Item> -->
 
 				<!-- <DropdownMenu.Item
 					class="flex gap-2 items-center py-1.5 px-3 text-sm select-none w-full cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition cursor-pointer"
@@ -196,7 +198,8 @@
 				</DropdownMenu.Item> -->
 			{/if}
 
-			<hr class=" border-gray-50 dark:border-gray-800 my-1 p-0" />
+			<!-- Separator line - commented out -->
+			<!-- <hr class=" border-gray-50 dark:border-gray-800 my-1 p-0" /> -->
 
 			<DropdownMenu.Item
 				class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
