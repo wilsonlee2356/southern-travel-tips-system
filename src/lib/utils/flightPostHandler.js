@@ -264,12 +264,16 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 				};
 			}
 			
+		// Configure image dimensions (change height here)
+		const imageWidth = 1024;
+		const imageHeight = 1024;  // ← CHANGE THIS VALUE to adjust generated image height
+		
 		console.log('About to call generateScenicImage with:', {
 			destination: destination,
 			tourist_spot: touristSpot,
 			style: 'realistic',
-			width: 1024,
-			height: 1024,
+			width: imageWidth,
+			height: imageHeight,
 			flight_data: flightDataForBackend,
 			ai_analysis: aiAnalysis
 		});
@@ -277,8 +281,8 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 			destination: destination,
 			tourist_spot: touristSpot,
 			style: 'realistic',
-			width: 1024,
-			height: 1024,
+			width: imageWidth,
+			height: imageHeight,
 			flight_data: flightDataForBackend,
 			ai_analysis: aiAnalysis
 		});

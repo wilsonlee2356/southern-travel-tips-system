@@ -1457,40 +1457,62 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
     log.info(f"Destination for special text: {destination}")
     log.info(f"Airline: {airline}, Price: {price}")
     
-    # Load image from bytes
-    image = Image.open(io.BytesIO(image_data))
-    log.info(f"Loaded image: actual size {image.size}, mode: {image.mode}")
-    
-    # Use ACTUAL image dimensions, not requested dimensions
-    actual_width, actual_height = image.size
-    
-    # Calculate banner dimensions based on actual image size
-    banner_height = actual_height // 4  # 1/4 of actual image height
-    banner_width = actual_width         # 100% of actual image width
-    banner_y = actual_height - banner_height  # Position at bottom
-    
-    log.info(f"Banner dimensions: {banner_width}x{banner_height} at y={banner_y}")
+    # Load generated image from bytes
+    generated_image = Image.open(io.BytesIO(image_data))
+    log.info(f"Loaded generated image: size {generated_image.size}, mode: {generated_image.mode}")
     
     # Convert to RGB for simpler handling
-    if image.mode != 'RGB':
-        image = image.convert('RGB')
-        log.info(f"Converted to RGB: {image.size}, mode: {image.mode}")
+    if generated_image.mode != 'RGB':
+        generated_image = generated_image.convert('RGB')
+        log.info(f"Converted to RGB: {generated_image.size}, mode: {generated_image.mode}")
     
-    # Create a new image with the banner area
-    # Crop the top 75% of the original image
-    scenic_area = image.crop((0, 0, actual_width, banner_y))
-    log.info(f"Cropped scenic area: {scenic_area.size}")
+    # Create FIXED 1024x1024 canvas
+    target_width = 1024
+    target_height = 1024
+    actual_width = target_width
+    actual_height = target_height
     
-    # Create light blue banner area
+    # Create empty white canvas
+    final_image = Image.new('RGB', (target_width, target_height), (255, 255, 255))
+    log.info(f"Created 1024x1024 canvas")
+    
+    # Paste the generated image at the very top of the canvas
+    # The generated image is always 1024px wide, only height varies
+    generated_width, generated_height = generated_image.size
+    
+    # Resize generated image to exactly 1024px width if needed (should already be 1024)
+    if generated_width != target_width:
+        generated_image = generated_image.resize((target_width, generated_height), Image.Resampling.LANCZOS)
+        log.info(f"Resized generated image width from {generated_width} to {target_width}")
+        generated_width = target_width
+    
+    # Paste the generated image at the top, full width (0, 0)
+    # If generated height is less than 1024, it will show on white background
+    # If generated height is more than 1024, it will be cropped at bottom (banner will overlay)
+    paste_height = min(generated_height, target_height)
+    if generated_height > target_height:
+        # Crop to fit canvas height
+        cropped_image = generated_image.crop((0, 0, target_width, target_height))
+        final_image.paste(cropped_image, (0, 0))
+        log.info(f"Cropped generated image to {target_width}x{target_height} and pasted at (0, 0)")
+    else:
+        # Paste as-is from top
+        final_image.paste(generated_image, (0, 0))
+        log.info(f"Pasted generated image {generated_width}x{generated_height} at (0, 0)")
+    
+    # Fixed banner dimensions (always the same on 1024x1024 canvas)
+    banner_height = 256  # Fixed 256px (1/4 of 1024)
+    banner_width = 1024  # Fixed 1024px (full width)
+    banner_y = 768  # Fixed position (1024 - 256)
+    
+    log.info(f"Using FIXED canvas: {actual_width}x{actual_height}")
+    log.info(f"Fixed banner: {banner_width}x{banner_height} at y={banner_y}")
+    
+    # Create light blue banner area and overlay it on top of the canvas
     light_blue = (135, 206, 250)  # LightSkyBlue RGB
     banner_area = Image.new('RGB', (banner_width, banner_height), light_blue)
-    log.info(f"Created banner area: {banner_area.size} with color {light_blue}")
-    
-    # Combine scenic area and banner area
-    final_image = Image.new('RGB', (actual_width, actual_height), (255, 255, 255))
-    final_image.paste(scenic_area, (0, 0))
     final_image.paste(banner_area, (0, banner_y))
-    log.info(f"Combined final image: {final_image.size}")
+    log.info(f"Added banner area: {banner_area.size} at y={banner_y}")
     
     # Add a small purple rectangle on top of the blue banner
     draw = ImageDraw.Draw(final_image)
@@ -1503,7 +1525,7 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
     
     # Calculate purple rectangle width dynamically based on airline text length
     # Load font first to measure text width
-    airline_font_size = 60
+    airline_font_size = 80  # Increased by 1/3 (60 * 1.33)
     airline_font = _load_chinese_font(airline_font_size, bold=True)
     
     # Measure airline text width
@@ -1538,7 +1560,7 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
             "x": purple_x + (purple_width // 2),  # Center horizontally in purple rectangle
             "y": purple_y + (purple_height // 2) - 15,  # Center vertically in purple rectangle, moved up 10px
             "color": (255, 255, 255),  # White
-            "font_size": 60
+            "font_size": 80  # Increased by 1/3 (60 * 1.33)
         }
     ]
     
@@ -1547,13 +1569,13 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
     price_length = len(display_price)
     
     if price_length <= 5:  # e.g., "3,222" or "12,345"
-        prefix_suffix_font_size = 70
+        prefix_suffix_font_size = 88  # Reduced by 5% (93 * 0.95)
     elif price_length <= 6:  # e.g., "123,456"
-        prefix_suffix_font_size = 60
+        prefix_suffix_font_size = 76  # Reduced by 5% (80 * 0.95)
     elif price_length <= 7:  # e.g., "1,234,567"
-        prefix_suffix_font_size = 55
+        prefix_suffix_font_size = 69  # Reduced by 5% (73 * 0.95)
     else:  # Very long prices
-        prefix_suffix_font_size = 50
+        prefix_suffix_font_size = 64  # Reduced by 5% (67 * 0.95)
     
     log.info(f"Price length: {price_length}, using prefix/suffix font size: {prefix_suffix_font_size}")
     
@@ -1564,7 +1586,7 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
             "y": banner_y + (banner_height // 2) - 60,  # Center vertically in blue banner, moved down 10px
             "parts": [
                 {"text": "來回連稅$", "font_size": prefix_suffix_font_size, "color": (255, 255, 255)}, #smaller this size if display_price is longer
-                {"text": display_price, "font_size": 105, "color": (255, 255, 255)}, #keep this the same
+                {"text": display_price, "font_size": 133, "color": (255, 255, 255)}, #Reduced by 5% (140 * 0.95)
                 {"text": "起", "font_size": prefix_suffix_font_size, "color": (255, 255, 255)}, #smaller this size if display_price is longer
             ]
         }
@@ -1614,8 +1636,8 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
         if icon_path.exists():
             icon = Image.open(icon_path).convert("RGBA")  # Convert to RGBA to handle transparency
             
-            # Resize icon to be appropriately sized for the scenic area (about 8% of image height)
-            icon_height = int(actual_height * 0.08)
+            # Resize icon to be appropriately sized for the scenic area (increased by 1/3)
+            icon_height = int(actual_height * 0.11)  # Increased from 0.08 to 0.11 (8% * 1.33)
             icon_width = int(icon.width * (icon_height / icon.height))
             icon = icon.resize((icon_width, icon_height), Image.Resampling.LANCZOS)
             
@@ -1641,7 +1663,7 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
     display_destination = destination if destination else "東京"
     
     # Calculate safe x position for destination text to prevent it from going outside left edge
-    destination_font_size = 120
+    destination_font_size = 160  # Increased by 1/3 (120 * 1.33)
     destination_font = _load_chinese_font(destination_font_size, bold=True)
     temp_draw = ImageDraw.Draw(final_image)
     dest_bbox = temp_draw.textbbox((0, 0), display_destination, font=destination_font)
@@ -1694,7 +1716,7 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
     combined_text = f"{display_destination}\n{promote_text}"
     
     # Calculate safe x position for the combined text
-    combined_font_size = 120  # Use destination font size as base
+    combined_font_size = 160  # Increased by 1/3 (120 * 1.33)
     combined_font = _load_chinese_font(combined_font_size, bold=True)
     combined_bbox = temp_draw.textbbox((0, 0), combined_text, font=combined_font)
     combined_text_width = combined_bbox[2] - combined_bbox[0]
@@ -1728,26 +1750,26 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
             [
                 {
                     "line_index": 0,  # First line (destination)
-                    "font_size": 120,
+                    "font_size": 160,  # Increased by 1/3 (120 * 1.33)
                     "text_color": (122, 40, 156),  # Purple color for destination
                     "border_color": (255, 255, 255),  # White border
-                    "border_width": 6,
+                    "border_width": 8,  # Increased by 1/3 (6 * 1.33)
                     "bold": True
                 },
                 {
                     "line_index": 1,  # Second line (first line of promote_text)
-                    "font_size": 35,
+                    "font_size": 47,  # Increased by 1/3 (35 * 1.33)
                     "text_color": (79, 201, 226),  # Light blue color for promote_text
                     "border_color": (255, 255, 255),  # White border
-                    "border_width": 4,
+                    "border_width": 5,  # Increased by 1/3 (4 * 1.33)
                     "bold": True
                 },
                 {
                     "line_index": 2,  # Third line (second line of promote_text if exists)
-                    "font_size": 35,
+                    "font_size": 47,  # Increased by 1/3 (35 * 1.33)
                     "text_color": (79, 201, 226),  # Light blue color for promote_text
                     "border_color": (255, 255, 255),  # White border
-                    "border_width": 4,
+                    "border_width": 5,  # Increased by 1/3 (4 * 1.33)
                     "bold": True
                 }
             ]

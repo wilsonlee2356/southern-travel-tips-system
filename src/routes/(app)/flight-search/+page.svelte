@@ -304,7 +304,7 @@
 			startingPlaceCode: 'HKG',
 			destination: '杜拜',
 			destinationCode: 'DXB',
-			cost: 2250,
+			cost: 2950,
 			currency: 'HKD',
 			seatClass: '經濟艙',
 			departureDate: '2024-02-18',
