@@ -1626,7 +1626,7 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
         {
             "text": display_airline, #change this airline name
             "x": purple_x + (purple_width // 2),  # Center horizontally in purple rectangle
-            "y": purple_y + (purple_height // 2) - 15,  # Center vertically in purple rectangle, moved up 10px
+            "y": purple_y + (purple_height // 2) - 20,  # Center vertically in purple rectangle, moved up 15px
             "color": (255, 255, 255),  # White
             "font_size": 80  # Increased by 1/3 (60 * 1.33)
         }
@@ -1651,7 +1651,7 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
     multipart_texts = [
         {
             "x": actual_width // 2,  # Center of entire image width
-            "y": banner_y + (banner_height // 2) - 60,  # Center vertically in blue banner, moved down 10px
+            "y": banner_y + (banner_height // 2) - 65,  # Center vertically in blue banner, moved up 5px more
             "parts": [
                 {"text": "來回連稅$", "font_size": prefix_suffix_font_size, "color": (255, 255, 255)}, #smaller this size if display_price is longer
                 {"text": display_price, "font_size": 133, "color": (255, 255, 255)}, #Reduced by 5% (140 * 0.95)

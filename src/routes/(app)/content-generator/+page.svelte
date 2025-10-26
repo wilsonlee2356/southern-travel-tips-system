@@ -39,17 +39,65 @@
 	let contentSaved = false;
 	let currentContentId = null;
 	
-	// AI model options - include ALL models (Ollama, OpenAI, Google AI, etc.)
-	$: aiModelOptions = [
-		// All available models from the models store
-		...($models || []).map(model => ({
+	// Allowed model patterns (exact matches or starts with)
+	const allowedModelPatterns = [
+		/^gpt-4$/i,
+		/^gpt-?4o$/i,
+		/^gpt-?4\.1$/i,
+		/^gpt-?4\.1-?mini$/i,
+		/^gpt-?5$/i,
+		/^gemini-?2\.5-?flash$/i,
+		/^gemini-?2\.5-?pro$/i,
+		/^gemini-?2\.0-?flash$/i
+	];
+
+	// Function to check if a model is allowed
+	const isAllowedModel = (model) => {
+		let modelId = (model.id || '').toLowerCase().trim();
+		let modelName = (model.name || '').toLowerCase().trim();
+		
+		// Strip 'models/' prefix if present
+		if (modelId.startsWith('models/')) {
+			modelId = modelId.substring(7);
+		}
+		if (modelName.startsWith('models/')) {
+			modelName = modelName.substring(7);
+		}
+		
+		// Check if model ID or name matches any of the allowed patterns
+		return allowedModelPatterns.some(pattern => {
+			return pattern.test(modelId) || pattern.test(modelName);
+		});
+	};
+	
+	// AI model options - only show allowed models
+	$: aiModelOptions = (() => {
+		console.log('=== MODEL FILTERING DEBUG (Content Generator) ===');
+		console.log('Total models available:', ($models || []).length);
+		
+		// Log all available models
+		($models || []).forEach(model => {
+			console.log(`Model: ID="${model.id}", Name="${model.name}", Owner="${model.owned_by}"`);
+		});
+		
+		// Filter and log results
+		const filtered = ($models || []).filter(model => {
+			const isAllowed = isAllowedModel(model);
+			console.log(`Checking "${model.id}" / "${model.name}": ${isAllowed ? '✅ ALLOWED' : '❌ FILTERED'}`);
+			return isAllowed;
+		});
+		
+		console.log('Filtered models count:', filtered.length);
+		console.log('=== END DEBUG ===');
+		
+		return filtered.map(model => ({
 			value: `model:${model.id}`,
 			label: `${model.name || model.id}${model.owned_by && model.owned_by !== 'ollama' ? ` (${model.owned_by})` : ''}`,
 			type: 'all_models',
 			modelId: model.id,
 			ownedBy: model.owned_by
-		}))
-	];
+		}));
+	})();
 	
 	// Get current selected value for the dropdown
 	$: currentSelectedValue = selectedModel ? `model:${selectedModel.id}` : '';
