@@ -6,6 +6,8 @@
 	import {
 		user,
 		chats,
+		posts,
+		contents,
 		settings,
 		showSettings,
 		chatId,
@@ -40,12 +42,16 @@
 		updateChatFolderIdById,
 		importChat
 	} from '$lib/apis/chats';
+	import { getPostList } from '$lib/apis/posts';
+	import { getContentList } from '$lib/apis/contents';
 	import { createNewFolder, getFolders, updateFolderParentIdById } from '$lib/apis/folders';
 	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	import ArchivedChatsModal from './ArchivedChatsModal.svelte';
 	import UserMenu from './Sidebar/UserMenu.svelte';
 	import ChatItem from './Sidebar/ChatItem.svelte';
+	import PostItem from './Sidebar/PostItem.svelte';
+	import ContentItem from './Sidebar/ContentItem.svelte';
 	import Spinner from '../common/Spinner.svelte';
 	import Loader from '../common/Loader.svelte';
 	import Folder from '../common/Folder.svelte';
@@ -71,6 +77,8 @@
 
 	let selectedChatId = null;
 	let showPinnedChat = true;
+	let showPostHistory = false;
+	let showContentHistory = false;
 
 	let showCreateChannel = false;
 
@@ -162,6 +170,14 @@
 
 	const initChannels = async () => {
 		await channels.set(await getChannels(localStorage.token));
+	};
+
+	const initPostList = async () => {
+		await posts.set(await getPostList(localStorage.token));
+	};
+
+	const initContentList = async () => {
+		await contents.set(await getContentList(localStorage.token));
 	};
 
 	const initChatList = async () => {
@@ -365,6 +381,8 @@
 			if (!value) {
 				await initChannels();
 				await initChatList();
+				await initPostList();
+				await initContentList();
 			}
 		});
 
@@ -374,6 +392,8 @@
 
 		await initChannels();
 		await initChatList();
+		await initPostList();
+		await initContentList();
 
 		window.addEventListener('keydown', onKeyDown);
 		window.addEventListener('keyup', onKeyUp);
@@ -1273,6 +1293,60 @@
 					</div>
 				</Folder>
 			</div>
+
+			<!-- Post History Section -->
+			{#if $posts && $posts.length > 0}
+				<div class="px-2 pb-2">
+					<Folder
+						isOpen={showPostHistory}
+						on:toggle={() => {
+							showPostHistory = !showPostHistory;
+						}}
+						name={$i18n.t('Post History')}
+					>
+						<div
+							class="ml-3 pl-1 mt-[1px] flex flex-col overflow-y-auto scrollbar-hidden border-s border-gray-100 dark:border-gray-900"
+						>
+							{#each $posts as post, idx (`post-${post?.id ?? idx}`)}
+								<PostItem
+									id={post.id}
+									title={post.title}
+									on:change={async () => {
+										initPostList();
+									}}
+								/>
+							{/each}
+						</div>
+					</Folder>
+				</div>
+			{/if}
+
+			<!-- Content History Section -->
+			{#if $contents && $contents.length > 0}
+				<div class="px-2 pb-2">
+					<Folder
+						isOpen={showContentHistory}
+						on:toggle={() => {
+							showContentHistory = !showContentHistory;
+						}}
+						name={$i18n.t('Content History')}
+					>
+						<div
+							class="ml-3 pl-1 mt-[1px] flex flex-col overflow-y-auto scrollbar-hidden border-s border-gray-100 dark:border-gray-900"
+						>
+							{#each $contents as content, idx (`content-${content?.id ?? idx}`)}
+								<ContentItem
+									id={content.id}
+									title={content.title}
+									on:change={async () => {
+										initContentList();
+									}}
+								/>
+							{/each}
+						</div>
+					</Folder>
+				</div>
+			{/if}
 
 			<div class="px-1.5 pt-1.5 pb-2 sticky bottom-0 z-10 bg-gray-50 dark:bg-gray-950 sidebar">
 				<div class="flex flex-col font-primary">

@@ -1813,7 +1813,7 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
             final_image,
             '\n'.join(lines),  # Rejoin with single \n
             30,  # X position: 50px from left edge
-            90,  # Y position: 50px from top edge
+            110,  # Y position: 70px from top edge (moved down by 20)
             -7,  # Same rotation as destination
             [
                 {

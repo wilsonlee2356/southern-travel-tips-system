@@ -1,8 +1,10 @@
 <script>
-	import { mobile, showSidebar, user, showArchivedChats, models } from '$lib/stores';
+	import { mobile, showSidebar, user, showArchivedChats, models, contents } from '$lib/stores';
 	import { getContext } from 'svelte';
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import { chatCompletion } from '$lib/apis/openai/index';
+	import { createNewContent, getContentList, getContentById } from '$lib/apis/contents';
 	// Note: Web content extraction moved to server-side API
 
 	const i18n = getContext('i18n');
@@ -32,6 +34,10 @@
 	
 	// Model selection
 	let selectedModel = null;
+	
+	// Content saving state
+	let contentSaved = false;
+	let currentContentId = null;
 	
 	// AI model options - include ALL models (Ollama, OpenAI, Google AI, etc.)
 	$: aiModelOptions = [
@@ -284,6 +290,9 @@ Output your response as a JSON object with a single key "post" containing the ge
 					}
 					
 					generationStatus = 'Content generated successfully!';
+					
+					// Save to database
+					await saveContentToDatabase();
 				} else {
 					throw new Error('No content generated - empty response');
 				}
@@ -298,6 +307,75 @@ Output your response as a JSON object with a single key "post" containing the ge
 			isGenerating = false;
 		}
 	};
+	
+	// Function to save content to database
+	async function saveContentToDatabase() {
+		if (contentSaved) return;
+		
+		try {
+			// Extract a title from the generated content (first line or first 50 chars)
+			const contentLines = generatedPost.content.split('\n').filter(line => line.trim());
+			const title = contentLines[0] ? contentLines[0].substring(0, 100) : 'Generated Content';
+			
+			const contentData = {
+				title: title,
+				generated_content: generatedPost.content,
+				urls: formData.urls.filter(url => url.trim()),
+				model_id: selectedModel?.id || null,
+				photos: uploadedImages.length > 0 ? uploadedImages.map(img => img.name) : null
+			};
+			
+			const result = await createNewContent(localStorage.token, contentData);
+			if (result) {
+				contentSaved = true;
+				currentContentId = result.id;
+				console.log('Content saved to database:', result);
+				
+				// Refresh the content list in the sidebar
+				const updatedContents = await getContentList(localStorage.token);
+				contents.set(updatedContents);
+			}
+		} catch (error) {
+			console.error('Error saving content:', error);
+		}
+	}
+
+	// Load content from history if id is provided
+	onMount(async () => {
+		const contentId = $page.url.searchParams.get('id');
+		
+		if (contentId) {
+			try {
+				const savedContent = await getContentById(localStorage.token, contentId);
+				if (savedContent) {
+					console.log('Loading saved content:', savedContent);
+					
+					// Populate form with saved data
+					formData.urls = savedContent.urls && savedContent.urls.length > 0 ? savedContent.urls : [''];
+					
+					// Set the generated content
+					generatedPost = {
+						content: savedContent.generated_content,
+						caption: savedContent.generated_content,
+						hashtags: '',
+						description: 'Loaded from history'
+					};
+					
+					// Try to find the model
+					if (savedContent.model_id && $models) {
+						selectedModel = $models.find(m => m.id === savedContent.model_id) || null;
+					}
+					
+					// Mark as already saved
+					contentSaved = true;
+					currentContentId = contentId;
+					generationStatus = 'Content loaded from history';
+				}
+			} catch (error) {
+				console.error('Error loading content:', error);
+			}
+		}
+	});
 
 	// Reset form
 	const resetForm = () => {
@@ -313,6 +391,8 @@ Output your response as a JSON object with a single key "post" containing the ge
 			hashtags: ''
 		};
 		generationStatus = '';
+		contentSaved = false;
+		currentContentId = null;
 	};
 </script>
 

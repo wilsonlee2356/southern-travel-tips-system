@@ -1,9 +1,11 @@
 <script>
-	import { mobile, showArchivedChats, showSidebar, user } from '$lib/stores';
+	import { mobile, showArchivedChats, showSidebar, user, posts } from '$lib/stores';
 	import { getContext } from 'svelte';
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import { getFlightDataFromStorage, createFlightPostContent } from '$lib/utils/flightPostHandler.js';
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
+	import { createNewPost, getPostList, getPostById } from '$lib/apis/posts';
 
 	const i18n = getContext('i18n');
 
@@ -39,68 +41,160 @@
 	let editPromoteText = '';
 	let editAirline = '';
 	let editPrice = '';
+	
+	// Post saving state
+	let postSaved = false;
+	let currentFlightData = null;
+	
+	// Function to save post to database
+	async function savePostToDatabase() {
+		if (!currentFlightData || postSaved) return;
+		
+		try {
+			const postData = {
+				title: header || `${currentFlightData.destination} Flight Deal`,
+				post_content: postContent || createFlightPostContent(currentFlightData),
+				flight_data: currentFlightData,
+				ai_analysis: currentFlightData.aiAnalysis || {},
+				scenic_image: scenicImage,
+				original_scenic_image: originalScenicImage,
+				flight_info_image: flightInfoImage
+			};
+			
+			const result = await createNewPost(localStorage.token, postData);
+			if (result) {
+				postSaved = true;
+				console.log('Post saved to database:', result);
+				
+				// Refresh the post list in the sidebar
+				const updatedPosts = await getPostList(localStorage.token);
+				posts.set(updatedPosts);
+			}
+		} catch (error) {
+			console.error('Error saving post:', error);
+		}
+	}
 
-	// Handle incoming flight data from flight search
-	onMount(() => {
-		const flightData = getFlightDataFromStorage();
-		if (flightData) {
-			// Populate form fields with flight data
-			airlineName = flightData.airline;
-			returnPrice = flightData.returnPrice.toString();
-			departureDate = flightData.departureDate;
-			flightTime = flightData.flightTime;
-			luggageInfo = flightData.luggageInfo;
-			
-			// Store scenic image if available
-			if (flightData.scenicImage) {
-				scenicImage = flightData.scenicImage;
-				console.log('Scenic image loaded in post page:', {
-					isBase64: scenicImage.startsWith('data:image'),
-					isEdited: scenicImage.startsWith('data:image'),
-					imageType: scenicImage.startsWith('data:image') ? 'Edited (base64)' : 'Original (URL)'
-				});
+	// Handle incoming flight data from flight search OR load post from history
+	onMount(async () => {
+		// Check if we're loading a saved post from history
+		const postId = $page.url.searchParams.get('id');
+		
+		if (postId) {
+			// Load post from database
+			try {
+				const savedPost = await getPostById(localStorage.token, postId);
+				if (savedPost) {
+					console.log('Loading saved post:', savedPost);
+					
+					// Populate all fields from saved post
+					header = savedPost.ai_analysis?.header || savedPost.title || '';
+					firstComment = savedPost.ai_analysis?.content || '';
+					summary = savedPost.ai_analysis?.summary || '';
+					postContent = savedPost.post_content || '';
+					
+					// Load flight data
+					const flightData = savedPost.flight_data;
+					if (flightData) {
+						airlineName = flightData.airline || '';
+						returnPrice = flightData.returnPrice?.toString() || '';
+						departureDate = flightData.departureDate || '';
+						flightTime = flightData.flightTime || '';
+						luggageInfo = flightData.luggageInfo || '';
+						ticketValidity = flightData.ticketValidDate || '';
+						extraComment = `Departure: ${new Date(flightData.departureDate).toLocaleDateString()}\nFlight Time: ${flightData.flightTime}\nPrice: $${flightData.returnPrice}`;
+						
+						// For editing
+						editDestination = flightData.destination || '';
+						editAirline = flightData.airline || '';
+						editPrice = flightData.returnPrice?.toString() || '';
+						editPromoteText = savedPost.ai_analysis?.promote_text || '';
+						
+						currentFlightData = flightData;
+					}
+					
+					// Load images
+					scenicImage = savedPost.scenic_image;
+					originalScenicImage = savedPost.original_scenic_image;
+					flightInfoImage = savedPost.flight_info_image;
+					
+					// Generate hashtags
+					if (flightData?.airline) {
+						postHashtags = `#FlightDeals #Travel #${flightData.airline.replace(/\s+/g, '')} #TravelTips #CheapFlights`;
+					}
+					
+					// Mark as already saved
+					postSaved = true;
+				}
+			} catch (error) {
+				console.error('Error loading post:', error);
 			}
-			
-			// Store original image and text data for editing
-			if (flightData.originalScenicImage) {
-				originalScenicImage = flightData.originalScenicImage;
+		} else {
+			// Load from flight search (new post flow)
+			const flightData = getFlightDataFromStorage();
+			if (flightData) {
+				// Populate form fields with flight data
+				airlineName = flightData.airline;
+				returnPrice = flightData.returnPrice.toString();
+				departureDate = flightData.departureDate;
+				flightTime = flightData.flightTime;
+				luggageInfo = flightData.luggageInfo;
+				
+				// Store scenic image if available
+				if (flightData.scenicImage) {
+					scenicImage = flightData.scenicImage;
+					console.log('Scenic image loaded in post page:', {
+						isBase64: scenicImage.startsWith('data:image'),
+						isEdited: scenicImage.startsWith('data:image'),
+						imageType: scenicImage.startsWith('data:image') ? 'Edited (base64)' : 'Original (URL)'
+					});
+				}
+				
+				// Store original image and text data for editing
+				if (flightData.originalScenicImage) {
+					originalScenicImage = flightData.originalScenicImage;
+				}
+				editDestination = flightData.destination || '';
+				// Get promote_text from aiAnalysis if available
+				editPromoteText = flightData.promoteText || flightData.aiAnalysis?.promote_text || '';
+				editAirline = flightData.airline || '';
+				editPrice = flightData.returnPrice?.toString() || '';
+				
+				// Store flight info image if available
+				if (flightData.flightInfoImage) {
+					flightInfoImage = flightData.flightInfoImage;
+					console.log('Flight info image loaded in post page:', {
+						isBase64: flightInfoImage.startsWith('data:image'),
+						imageType: flightInfoImage.startsWith('data:image') ? 'Flight Info (base64)' : 'Flight Info (URL)'
+					});
+				}
+				
+				// Use AI analysis if available, otherwise fallback to defaults
+				if (flightData.aiAnalysis) {
+					header = flightData.aiAnalysis.header;
+					firstComment = flightData.aiAnalysis.content;
+					summary = flightData.aiAnalysis.summary;
+				} else {
+					// Fallback to default values
+					header = `Flight Deal: ${flightData.airline}`;
+					firstComment = `Great flight deal found! ${flightData.airline} from ${flightData.startingPlace} to ${flightData.destination}`;
+					summary = flightData.multipleFlights 
+						? `Found ${flightData.flightCount} great flight deals!\n\nTotal Price: $${flightData.returnPrice}\nRoutes: ${flightData.allRoutes}\n\nPerfect for multi-city travel or group bookings.`
+						: `Excellent flight deal with ${flightData.airline}!\n\nRoute: ${flightData.startingPlace} → ${flightData.destination}\nPrice: $${flightData.returnPrice}\nClass: ${flightData.seatClass}\n\nBook now before prices increase!`;
+				}
+				
+				// Set other fields
+				extraComment = `Departure: ${new Date(flightData.departureDate).toLocaleDateString()}\nFlight Time: ${flightData.flightTime}\nPrice: $${flightData.returnPrice}`;
+				ticketValidity = flightData.ticketValidDate;
+				
+				// Auto-generate post content for social media
+				postContent = createFlightPostContent(flightData);
+				postHashtags = `#FlightDeals #Travel #${flightData.airline.replace(/\s+/g, '')} #TravelTips #CheapFlights`;
+				
+				// Store flight data and save to database
+				currentFlightData = flightData;
+				savePostToDatabase();
 			}
-			editDestination = flightData.destination || '';
-			// Get promote_text from aiAnalysis if available
-			editPromoteText = flightData.promoteText || flightData.aiAnalysis?.promote_text || '';
-			editAirline = flightData.airline || '';
-			editPrice = flightData.returnPrice?.toString() || '';
-			
-			// Store flight info image if available
-			if (flightData.flightInfoImage) {
-				flightInfoImage = flightData.flightInfoImage;
-				console.log('Flight info image loaded in post page:', {
-					isBase64: flightInfoImage.startsWith('data:image'),
-					imageType: flightInfoImage.startsWith('data:image') ? 'Flight Info (base64)' : 'Flight Info (URL)'
-				});
-			}
-			
-			// Use AI analysis if available, otherwise fallback to defaults
-			if (flightData.aiAnalysis) {
-				header = flightData.aiAnalysis.header;
-				firstComment = flightData.aiAnalysis.content;
-				summary = flightData.aiAnalysis.summary;
-			} else {
-				// Fallback to default values
-				header = `Flight Deal: ${flightData.airline}`;
-				firstComment = `Great flight deal found! ${flightData.airline} from ${flightData.startingPlace} to ${flightData.destination}`;
-				summary = flightData.multipleFlights 
-					? `Found ${flightData.flightCount} great flight deals!\n\nTotal Price: $${flightData.returnPrice}\nRoutes: ${flightData.allRoutes}\n\nPerfect for multi-city travel or group bookings.`
-					: `Excellent flight deal with ${flightData.airline}!\n\nRoute: ${flightData.startingPlace} → ${flightData.destination}\nPrice: $${flightData.returnPrice}\nClass: ${flightData.seatClass}\n\nBook now before prices increase!`;
-			}
-			
-			// Set other fields
-			extraComment = `Departure: ${new Date(flightData.departureDate).toLocaleDateString()}\nFlight Time: ${flightData.flightTime}\nPrice: $${flightData.returnPrice}`;
-			ticketValidity = flightData.ticketValidDate;
-			
-			// Auto-generate post content for social media
-			postContent = createFlightPostContent(flightData);
-			postHashtags = `#FlightDeals #Travel #${flightData.airline.replace(/\s+/g, '')} #TravelTips #CheapFlights`;
 		}
 	});
 	
