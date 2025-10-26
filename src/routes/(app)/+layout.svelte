@@ -259,7 +259,8 @@
 </script>
 
 <SettingsModal bind:show={$showSettings} />
-<ChangelogModal bind:show={$showChangelog} />
+<!-- What's New modal - commented out -->
+<!-- <ChangelogModal bind:show={$showChangelog} /> -->
 
 <!-- Update notification popup - commented out -->
 <!-- {#if version && compareVersion(version.latest, version.current) && ($settings?.showUpdateToast ?? true)}

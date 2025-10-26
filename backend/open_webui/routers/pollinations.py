@@ -417,11 +417,12 @@ async def generate_scenic_image(
                     except Exception as e:
                         log.error(f"Failed to load flight info image: {e}")
                     
-                    # Return both images as base64
+                    # Return both images as base64, including original for re-editing
                     return JSONResponse(content={
                         "success": True,
                         "image_url": full_url,
                         "image_base64": f"data:image/jpeg;base64,{base64.b64encode(edited_image_data).decode()}",
+                        "original_image_base64": f"data:image/jpeg;base64,{base64.b64encode(image_data).decode()}",  # Original without overlays
                         "flight_info_image_base64": flight_info_image_base64,
                         "destination": original_destination,
                         "destination_en": destination_en,
@@ -429,7 +430,9 @@ async def generate_scenic_image(
                         "style": style,
                         "dimensions": f"{width}x{height}",
                         "seed": seed,
-                        "edited": True
+                        "edited": True,
+                        "airline": airline_name,
+                        "price": flight_price
                     })
                 else:
                     log.error(f"Pollinations.ai API error: {response.status}")
@@ -466,6 +469,71 @@ def create_scenic_prompt(destination: str, style: str, tourist_spot: str = "") -
     prompt = f"Generate a photorealistic daytime scene of the most iconic architectural landmark of {location_description}, with the full structure prominently centered in the upper two-thirds to three-quarters of the image, highlighting its distinctive architectural details (e.g., roof design, textures, materials). Ensure the landmark occupies the upper and middle 75% of the frame as the primary focus, with its base no lower than the middle of the image.Position a vibrant blue sky with a few soft, fluffy white clouds in the top 15-20% of the image, serving as a backdrop that enhances but does not dominate the landmark. Maintain a serene, tranquil atmosphere by excluding people, vehicles, or modern distractions, focusing solely on the landmark’s beauty.Incorporate the real-world surrounding environment of {location_description}, such as distant mountains, native vegetation, or pathways, positioned to frame the landmark in the upper and middle portions of the image without overshadowing it. The bottom one-quarter to one-third of the frame should feature contextual foreground elements (e.g., grass, cobblestone paths, or rocky terrain) that complement the scene but do not rise above the middle of the image or obscure the landmark.Use soft, natural sunlight consistent with a bright springtime day (mid-morning or early afternoon), casting accurate shadows to emphasize the landmark’s textures and depth. Reflect any seasonal characteristics of {location_description} (e.g., spring blossoms, lush greenery) for a vivid, location-specific atmosphere.Ensure hyper-realistic details, with every element—from the roof tiles to the surrounding landscape—accurately reflecting the real-world setting of {location_description}. Strictly place the landmark in the upper two-thirds to three-quarters of the frame, ensuring it is not pushed below the middle, cropped, or diminished by foreground elements."
     
     return prompt
+
+@router.post("/regenerate-with-text")
+async def regenerate_image_with_custom_text(
+    request: Request,
+    payload: dict,
+    user: UserModel = Depends(get_verified_user),
+):
+    """
+    Regenerate the scenic image with custom text overlays
+    Keeps the original Pollinations.ai image but updates the text overlays
+    
+    Expected payload:
+    {
+        "original_image_base64": "data:image/jpeg;base64,...",  # Original Pollinations image (without overlays)
+        "destination": "Tokyo",
+        "promote_text": "多航班及日子選擇！\n凌晨去晚返都有！",
+        "airline": "中華航空",
+        "price": "3,500"
+    }
+    """
+    try:
+        # Extract parameters
+        original_image_base64 = payload.get("original_image_base64")
+        destination = payload.get("destination", "")
+        promote_text = payload.get("promote_text", "")
+        airline = payload.get("airline")
+        price = payload.get("price")
+        
+        if not original_image_base64:
+            raise HTTPException(status_code=400, detail="Original image is required")
+        
+        # Decode the base64 image
+        if "," in original_image_base64:
+            original_image_base64 = original_image_base64.split(",")[1]
+        image_bytes = base64.b64decode(original_image_base64)
+        
+        # Regenerate the image with new text overlays
+        edited_image_bytes = _add_bottom_banner(
+            image_bytes,
+            1024,  # width
+            1024,  # height
+            destination=destination,
+            airline=airline,
+            price=price,
+            ai_analysis={"promote_text": promote_text}
+        )
+        
+        # Return the edited image
+        return JSONResponse(content={
+            "success": True,
+            "image_base64": f"data:image/jpeg;base64,{base64.b64encode(edited_image_bytes).decode()}",
+            "destination": destination,
+            "promote_text": promote_text,
+            "airline": airline,
+            "price": price
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error regenerating image with custom text: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error regenerating image: {str(e)}"
+        )
 
 @router.get("/styles")
 async def get_available_styles():

@@ -478,16 +478,25 @@
 				window.fetch = function(...args) {
 					const [resource, config] = args;
 					
-					// Only add header for API calls, not for static assets
+					// Get URL from resource
 					const url = typeof resource === 'string' ? resource : resource.url;
-					const isStaticAsset = url.match(/\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|ico)$/i);
 					
-					// Skip intercepting static assets
+					// Skip static assets
+					const isStaticAsset = url.match(/\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|ico)$/i);
 					if (isStaticAsset) {
 						return originalFetch(resource, config);
 					}
 					
-					// Add ngrok header to bypass warning page for API calls only
+					// Only add ngrok header to same-origin requests (our own API)
+					// Don't add it to external APIs (like Amadeus, OpenAI, etc.)
+					const isSameOrigin = url.startsWith('/') || url.startsWith(window.location.origin);
+					
+					if (!isSameOrigin) {
+						// External API - don't add ngrok header
+						return originalFetch(resource, config);
+					}
+					
+					// Same origin API call - add ngrok header to bypass warning page
 					const newConfig = {
 						...config,
 						headers: {
@@ -710,3 +719,4 @@
 	position="top-right"
 	closeButton
 />
+

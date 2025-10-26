@@ -51,6 +51,36 @@ export const generateScenicImage = async (
 };
 
 /**
+ * Regenerate scenic image with custom text overlays
+ */
+export const regenerateImageWithText = async (
+	token: string = '',
+	payload: {
+		original_image_base64: string;
+		destination: string;
+		promote_text: string;
+		airline?: string;
+		price?: string;
+	}
+): Promise<any> => {
+	const response = await fetch(`${WEBUI_API_BASE_URL}/pollinations/regenerate-with-text`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			...(token && { Authorization: `Bearer ${token}` })
+		},
+		body: JSON.stringify(payload)
+	});
+
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}));
+		throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+	}
+
+	return response.json();
+};
+
+/**
  * Get available image generation styles
  */
 export const getAvailableStyles = async (token: string = ''): Promise<PollinationsStylesResponse> => {

@@ -311,7 +311,9 @@ export async function navigateToPostWithFlightData(selectedFlights, goto, onStag
 		...postData,
 		aiAnalysis: aiAnalysis,
 		scenicImage: scenicImageUrl,
+		originalScenicImage: imageResponse?.original_image_base64 || null,  // Store original for editing
 		flightInfoImage: imageResponse?.flight_info_image_base64 || null,
+		promoteText: aiAnalysis?.promote_text || '',  // Store for editing
 		modelInfo: modelToUse // Include model information
 	};
 

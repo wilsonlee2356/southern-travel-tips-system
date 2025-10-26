@@ -18,7 +18,19 @@
 					window.fetch = function(...args) {
 						const [resource, config] = args;
 						
-						// Add ngrok bypass header to all requests
+						// Get URL from resource
+						const url = typeof resource === 'string' ? resource : resource.url;
+						
+						// Only add ngrok header to same-origin requests (our own API)
+						// Don't add it to external APIs (like Amadeus, OpenAI, etc.)
+						const isSameOrigin = url.startsWith('/') || url.startsWith(window.location.origin);
+						
+						if (!isSameOrigin) {
+							// External API - don't add ngrok header
+							return originalFetch(resource, config);
+						}
+						
+						// Same origin - add ngrok bypass header
 						const newConfig = {
 							...config,
 							headers: {

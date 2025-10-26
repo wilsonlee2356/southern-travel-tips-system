@@ -3,6 +3,7 @@
 	import { getContext } from 'svelte';
 	import { onMount } from 'svelte';
 	import { getFlightDataFromStorage, createFlightPostContent } from '$lib/utils/flightPostHandler.js';
+	import { WEBUI_API_BASE_URL } from '$lib/constants';
 
 	const i18n = getContext('i18n');
 
@@ -30,6 +31,14 @@
 	let ticketValidity = '';
 	let luggageInfo = '';
 	let summary = '';
+	
+	// Image editing state
+	let showEditImageModal = false;
+	let originalScenicImage = null;  // Original image without overlays
+	let editDestination = '';
+	let editPromoteText = '';
+	let editAirline = '';
+	let editPrice = '';
 
 	// Handle incoming flight data from flight search
 	onMount(() => {
@@ -51,6 +60,16 @@
 					imageType: scenicImage.startsWith('data:image') ? 'Edited (base64)' : 'Original (URL)'
 				});
 			}
+			
+			// Store original image and text data for editing
+			if (flightData.originalScenicImage) {
+				originalScenicImage = flightData.originalScenicImage;
+			}
+			editDestination = flightData.destination || '';
+			// Get promote_text from aiAnalysis if available
+			editPromoteText = flightData.promoteText || flightData.aiAnalysis?.promote_text || '';
+			editAirline = flightData.airline || '';
+			editPrice = flightData.returnPrice?.toString() || '';
 			
 			// Store flight info image if available
 			if (flightData.flightInfoImage) {
@@ -84,6 +103,53 @@
 			postHashtags = `#FlightDeals #Travel #${flightData.airline.replace(/\s+/g, '')} #TravelTips #CheapFlights`;
 		}
 	});
+	
+	// Function to handle image text editing
+	async function handleEditImage() {
+		try {
+			if (!originalScenicImage) {
+				alert('Original image not available for editing');
+				return;
+			}
+			
+			const token = localStorage.getItem('token') || '';
+			
+			// Call the regenerate API directly
+			const response = await fetch(`${WEBUI_API_BASE_URL}/pollinations/regenerate-with-text`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					...(token && { Authorization: `Bearer ${token}` })
+				},
+				body: JSON.stringify({
+					original_image_base64: originalScenicImage,
+					destination: editDestination,
+					promote_text: editPromoteText,
+					airline: editAirline,
+					price: editPrice
+				})
+			});
+			
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+			}
+			
+			const result = await response.json();
+			
+			if (result.success) {
+				// Update the scenic image with the newly edited version
+				scenicImage = result.image_base64;
+				showEditImageModal = false;
+				console.log('Image text updated successfully');
+			} else {
+				alert('Failed to update image text');
+			}
+		} catch (error) {
+			console.error('Error editing image:', error);
+			alert('Error editing image: ' + error.message);
+		}
+	}
 </script>
 
 <div
@@ -397,33 +463,37 @@
 							></textarea>
 						</div>
 						<!-- Website Blog Image -->
-						<!-- Ticket Screenshot -->
+						<!-- Generated Image -->
 						<div class="mb-6">
 							<label for="ticket-screenshot" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								Country Image
+								Generated image
 							</label>
-							<div
+							<button
 								id="ticket-screenshot"
-								class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer"
+								type="button"
+								on:click={() => showEditImageModal = true}
+								class="w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer group"
 							>
 								<svg
 									class="mx-auto h-12 w-12 text-gray-400"
-									stroke="currentColor"
 									fill="none"
-									viewBox="0 0 48 48"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
 								>
 									<path
-										d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-										stroke-width="2"
 										stroke-linecap="round"
 										stroke-linejoin="round"
+										stroke-width="2"
+										d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
 									/>
 								</svg>
-								<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-									Click to upload ticket screenshot or drag and drop
+								<p class="mt-3 text-base font-medium text-gray-700 dark:text-gray-300">
+									Edit Text on Image
 								</p>
-								<p class="text-xs text-gray-500 dark:text-gray-500">PNG, JPG, GIF up to 10MB</p>
-							</div>
+								<p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+									Click to customize text overlay on your generated image
+								</p>
+							</button>
 						</div>
 					{:else}
 						<!-- Social Media Form Fields (Instagram/Facebook) -->
@@ -727,3 +797,95 @@
 		</div>
 	</div>
 </div>
+
+<!-- Edit Image Text Modal -->
+{#if showEditImageModal}
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm">
+	<div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+		<div class="p-6">
+			<div class="flex justify-between items-center mb-6">
+				<h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Text on Image</h2>
+				<button
+					on:click={() => showEditImageModal = false}
+					class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+				>
+					<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+			
+			<div class="space-y-4">
+				<!-- Destination -->
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+						Destination (目的地)
+					</label>
+					<input
+						type="text"
+						bind:value={editDestination}
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+						placeholder="e.g., 東京, 首爾"
+					/>
+				</div>
+				
+				<!-- Promote Text -->
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+						Promotion Text (宣傳文字)
+					</label>
+					<textarea
+						bind:value={editPromoteText}
+						rows="3"
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+						placeholder="e.g., 多航班及日子選擇！\n凌晨去晚返都有！"
+					></textarea>
+					<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Use \n for line breaks</p>
+				</div>
+				
+				<!-- Airline -->
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+						Airline (航空公司)
+					</label>
+					<input
+						type="text"
+						bind:value={editAirline}
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+						placeholder="e.g., 中華航空, 國泰航空"
+					/>
+				</div>
+				
+				<!-- Price -->
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+						Price (價錢)
+					</label>
+					<input
+						type="text"
+						bind:value={editPrice}
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+						placeholder="e.g., 3,500"
+					/>
+				</div>
+			</div>
+			
+			<!-- Action Buttons -->
+			<div class="mt-6 flex justify-end space-x-3">
+				<button
+					on:click={() => showEditImageModal = false}
+					class="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
+				>
+					Cancel
+				</button>
+				<button
+					on:click={handleEditImage}
+					class="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
+				>
+					Update Image
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+{/if}
