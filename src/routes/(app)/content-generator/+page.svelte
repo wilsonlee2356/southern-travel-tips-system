@@ -388,41 +388,50 @@ Output your response as a JSON object with a single key "post" containing the ge
 		}
 	}
 
-	// Load content from history if id is provided
-	onMount(async () => {
+	// Load content data when URL changes (reactive to content ID changes)
+	$: {
 		const contentId = $page.url.searchParams.get('id');
-		
 		if (contentId) {
-			try {
-				const savedContent = await getContentById(localStorage.token, contentId);
-				if (savedContent) {
-					console.log('Loading saved content:', savedContent);
-					
-					// Populate form with saved data
-					formData.urls = savedContent.urls && savedContent.urls.length > 0 ? savedContent.urls : [''];
-					
-					// Set the generated content
-					generatedPost = {
-						content: savedContent.generated_content,
-						caption: savedContent.generated_content,
-						hashtags: '',
-						description: 'Loaded from history'
-					};
-					
-					// Try to find the model
-					if (savedContent.model_id && $models) {
-						selectedModel = $models.find(m => m.id === savedContent.model_id) || null;
-					}
-					
-					// Mark as already saved
-					contentSaved = true;
-					currentContentId = contentId;
-					generationStatus = 'Content loaded from history';
-				}
-			} catch (error) {
-				console.error('Error loading content:', error);
-			}
+			loadContentFromHistory(contentId);
 		}
+	}
+	
+	// Function to load content from history
+	async function loadContentFromHistory(contentId) {
+		try {
+			const savedContent = await getContentById(localStorage.token, contentId);
+			if (savedContent) {
+				console.log('Loading saved content:', savedContent);
+				
+				// Populate form with saved data
+				formData.urls = savedContent.urls && savedContent.urls.length > 0 ? savedContent.urls : [''];
+				
+				// Set the generated content
+				generatedPost = {
+					content: savedContent.generated_content,
+					caption: savedContent.generated_content,
+					hashtags: '',
+					description: 'Loaded from history'
+				};
+				
+				// Try to find the model
+				if (savedContent.model_id && $models) {
+					selectedModel = $models.find(m => m.id === savedContent.model_id) || null;
+				}
+				
+				// Mark as already saved
+				contentSaved = true;
+				currentContentId = contentId;
+				generationStatus = 'Content loaded from history';
+			}
+		} catch (error) {
+			console.error('Error loading content:', error);
+		}
+	}
+	
+	// Load content from history if id is provided on mount
+	onMount(async () => {
+		// No need to load here anymore, the reactive statement above handles it
 	});
 
 	// Reset form
