@@ -700,7 +700,11 @@ Use your knowledge base to provide accurate airline information and route insigh
 			return `[航空公司：${airlines} 出發地點：${group.startingPlace} 目的地：${group.destination} 來回價錢：$${totalPrice} 艙等：${seatClass} 出發日期：${departureDate} 出發時間：${departureTime} 行李資訊：${luggage}]`;
 		}).join(', ');
 		
-		const prompt = `仿又飛啦廣東俚語，輸JSON，每來回一對象，選最平價，含destination、header、short_comment、summary、tourist_spot、promote_text。destination取非香港地。header首一至二句，含超前部署、平、抵、減之一，推銷機票，後接航司、價、期，勿含destination。short_comment一至二句，限二十字，多變語氣，述地或價優（如直航減到咁平，心動！）。summary約八十字，句以逗點斷，每句宜長，約二三十字，述價、地景、促行，依資料，勿增詞。destination、header、short_comment、summary、promote_text用繁體廣東話，promote_text短句分行，限二行，述價、航優或地景，可含行李。tourist_spot用英文，隨選目的地名勝。價港幣，出發地香港，假設連稅、2025/2026。
+		// Get starting place and destination from the first ticket
+		const startingPlace = uniqueFlights[0]?.startingPlace || '香港';
+		const destination = uniqueFlights[0]?.destination || '';
+		
+		const prompt = `你係廣東話銷售語氣專家，仿例中語氣，輸JSON，每來回一對象，出發地取首票${startingPlace}，destination取首票${destination}，選最平價，含destination、header、short_comment、summary、tourist_spot、promote_text。destination取非香港地。header必以一至二促銷句開首，推銷機票，後接航司、價、期。short_comment一至二句，限二十字，多變語氣，述地或價優（如直航減到咁平，心動！）。summary約八十字，句以逗點斷，每句宜長，約二三十字，述價、地景、促行，依資料，勿增詞。destination、header、short_comment、summary、promote_text用繁體廣東話，promote_text短句分行，限二行，述價、航優或地景，可含行李。tourist_spot用英文，隨選目的地名勝。價港幣，出發地香港，假設連稅、2025/2026。
 
 ## 例
 ### 東京
@@ -709,6 +713,8 @@ Use your knowledge base to provide accurate airline information and route insigh
 {"destination":"福岡","header":"難得減到咁平！德威航空來回連稅$1,885起！2025年10月出發","short_comment":"正！福岡難得減到咁平！","summary":"減到千四有找包埋行李，平時要二千樓上㗎！真係勁抵買呀！航班時間中去黃昏返都幾唔錯，想去福岡玩就要快啲睇睇啦～","tourist_spot":"Canal City","promote_text":"激抵！平飛福岡！\n包15kg行李真平！"}
 ### 曼谷
 {"destination":"曼谷","header":"千五有找去曼谷！泰航來回連稅$1,500起！2026年1月出發","short_comment":"嘩！平到唔信～","summary":"搭國泰呢口價，一日有多達七班機揀，可以早去晚返，連暑假都照有平，好值得入手！去曼谷食玩買返幾日叉叉電啦～","tourist_spot":"Grand Palace","promote_text":"抵價飛泰國！\n千五有找！"}
+### 墨爾本
+{"destination":"墨爾本","header":"唔係廉航都咁抵！減到下年暑假！汶萊皇家航空來回墨爾本連稅$3,833起！10月至2026年8月指定日子出發","short_comment":"久違了！想四千有找飛澳洲，仲有佢！","summary":"呢口價去澳洲，唔係搭廉航真係超抵玩！仲要包25kg行李，多過國泰同港航，性價比高！不過留意回程需於汶萊過夜轉機，可以當係出去半日遊自製一票兩地～","tourist_spot":"Carlton Gardens","promote_text":"唔係廉航都咁抵飛！\n減到下年暑假都有！"}
 
 ## 資料：${flightDataString}`;
 
