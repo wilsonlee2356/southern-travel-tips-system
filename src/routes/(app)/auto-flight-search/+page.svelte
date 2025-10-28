@@ -22,6 +22,11 @@
 	let isSearching = false;
 	let searchError = '';
 	let searchResults = null;
+	let chartData = [];
+	let hoveredBar = null;
+	let tooltipPosition = { x: 0, y: 0 };
+	let priceGrid = null;
+	let selectedCell = null;
 
 	// Autocomplete state
 	let departureInput = '';
@@ -133,12 +138,150 @@
 			
 			searchResults = transformedResults;
 			
+			// Build price grid for calendar view (7x7)
+			priceGrid = buildPriceGrid(transformedResults);
+			console.log('Price Grid:', priceGrid);
+			
+			// Build chart data for 60 days
+			chartData = buildChartData(transformedResults);
+			console.log('Chart Data:', chartData);
+			
 		} catch (error) {
 			console.error('Error in auto flight search:', error);
 			searchError = error.message || 'Failed to search flights';
 		} finally {
 			isSearching = false;
 		}
+	};
+
+	// Build 7x7 price grid from search results
+	const buildPriceGrid = (results) => {
+		if (!results || results.length === 0) return null;
+
+		// Extract unique departure and return dates
+		const allDepartureDates = [...new Set(results.map(r => r.departureDate))].sort();
+		const allReturnDates = [...new Set(results.map(r => r.returnDate).filter(d => d))].sort();
+
+		if (allDepartureDates.length === 0 || allReturnDates.length === 0) return null;
+
+		// Take first 7 dates for both axes
+		const departureDates = allDepartureDates.slice(0, 7);
+		const returnDates = allReturnDates.slice(0, 7);
+
+		// Build a map for quick lookup
+		const priceMap = {};
+		results.forEach(result => {
+			const key = `${result.departureDate}_${result.returnDate}`;
+			priceMap[key] = result;
+		});
+
+		// Find cheapest price
+		const cheapestPrice = Math.min(...results.map(r => r.price));
+
+		// Build grid structure
+		const grid = {
+			departureDates,
+			returnDates,
+			cells: {},
+			cheapestPrice
+		};
+
+		// Populate cells
+		departureDates.forEach(depDate => {
+			returnDates.forEach(retDate => {
+				const key = `${depDate}_${retDate}`;
+				grid.cells[key] = priceMap[key] || null;
+			});
+		});
+
+		return grid;
+	};
+
+	// Build chart data from API results (60 days of data)
+	const buildChartData = (results) => {
+		if (!results || results.length === 0) return [];
+
+		// Group by departure date
+		const dateMap = {};
+		results.forEach(result => {
+			const depDate = result.departureDate;
+			if (!dateMap[depDate]) {
+				dateMap[depDate] = [];
+			}
+			dateMap[depDate].push(result);
+		});
+
+		// Get all dates and sort
+		const dates = Object.keys(dateMap).sort();
+		
+		// Build chart data array
+		const data = dates.map(date => {
+			const flights = dateMap[date];
+			// Find cheapest flight for this departure date
+			const cheapest = flights.reduce((min, flight) => 
+				flight.price < min.price ? flight : min
+			);
+			
+			// Calculate trip duration
+			const depDate = new Date(cheapest.departureDate);
+			const retDate = new Date(cheapest.returnDate);
+			const duration = Math.ceil((retDate - depDate) / (1000 * 60 * 60 * 24));
+
+			return {
+				date: date,
+				price: cheapest.price,
+				priceEuro: cheapest.priceEuro,
+				departureDate: cheapest.departureDate,
+				returnDate: cheapest.returnDate,
+				duration: duration,
+				origin: cheapest.origin,
+				destination: cheapest.destination,
+				originName: cheapest.originName,
+				destinationName: cheapest.destinationName
+			};
+		});
+
+		// If we have less than 60 days, return what we have
+		// If we have more, take first 60
+		return data.slice(0, 60);
+	};
+
+	// Format date for tooltip (e.g., "Thu, Nov 13")
+	const formatTooltipDate = (dateStr) => {
+		const date = new Date(dateStr);
+		const options = { weekday: 'short', month: 'short', day: 'numeric' };
+		return date.toLocaleDateString('en-US', options);
+	};
+
+	// Format date for grid header (e.g., "Mon Nov 10")
+	const formatGridDate = (dateStr) => {
+		const date = new Date(dateStr);
+		const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+		const monthDay = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+		return `${weekday} ${monthDay}`;
+	};
+
+	// Handle grid cell click
+	const handleCellClick = (depDate, retDate, cell) => {
+		if (cell) {
+			selectedCell = `${depDate}_${retDate}`;
+			console.log('Selected flight:', cell);
+		}
+	};
+
+	// Handle bar hover
+	const handleBarHover = (event, data, index) => {
+		hoveredBar = index;
+		const rect = event.target.getBoundingClientRect();
+		tooltipPosition = {
+			x: rect.left + rect.width / 2,
+			y: rect.top
+		};
+	};
+
+	// Handle bar leave
+	const handleBarLeave = () => {
+		hoveredBar = null;
 	};
 
 	// Reset search
@@ -157,6 +300,10 @@
 		showDestinationDropdown = false;
 		searchError = '';
 		searchResults = null;
+		priceGrid = null;
+		selectedCell = null;
+		chartData = [];
+		hoveredBar = null;
 	};
 </script>
 
@@ -419,57 +566,194 @@
 				</form>
 			</div>
 
-			<!-- Results Display -->
-			{#if searchResults && searchResults.length > 0}
-				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+			<!-- Results Display - Price Grid Calendar -->
+			{#if priceGrid}
+				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
 					<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-						Cheapest Flight Dates ({searchResults.length} results)
+						Flight Price Calendar
 					</h2>
 					
 					<div class="overflow-x-auto">
-						<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-							<thead class="bg-gray-50 dark:bg-gray-700">
+						<table class="border-collapse w-full">
+							<thead>
 								<tr>
-									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-										Departure Date
+									<!-- Empty corner cell -->
+									<th class="border border-gray-300 dark:border-gray-600 px-3 py-2 bg-gray-50 dark:bg-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300">
+										
 									</th>
-									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-										Return Date
-									</th>
-									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-										Route
-									</th>
-									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-										Price (HKD)
-									</th>
-									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-										Price (EUR)
-									</th>
+									<!-- Departure date headers -->
+									{#each priceGrid.departureDates as depDate}
+										<th class="border border-gray-300 dark:border-gray-600 px-3 py-2 bg-gray-50 dark:bg-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300 text-center whitespace-nowrap">
+											{formatGridDate(depDate)}
+										</th>
+									{/each}
 								</tr>
 							</thead>
-							<tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-								{#each searchResults as result}
-									<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-										<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-											{result.departureDate}
+							<tbody>
+								{#each priceGrid.returnDates as retDate}
+									<tr>
+										<!-- Return date header -->
+										<td class="border border-gray-300 dark:border-gray-600 px-3 py-2 bg-gray-50 dark:bg-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300 text-center whitespace-nowrap">
+											{formatGridDate(retDate)}
 										</td>
-										<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-											{result.returnDate || 'N/A'}
-										</td>
-										<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-											{result.originName} ({result.origin}) → {result.destinationName} ({result.destination})
-										</td>
-										<td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">
-											${result.price}
-										</td>
-										<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-											€{result.priceEuro}
-										</td>
+										
+										<!-- Price cells -->
+										{#each priceGrid.departureDates as depDate}
+											{@const key = `${depDate}_${retDate}`}
+											{@const cell = priceGrid.cells[key]}
+											{@const isSelected = selectedCell === key}
+											{@const isCheapest = cell && cell.price === priceGrid.cheapestPrice}
+											{@const isHighPrice = cell && cell.price > priceGrid.cheapestPrice * 2}
+											
+											<td 
+												class="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center cursor-pointer transition-colors
+													{isSelected ? 'bg-blue-500' : 
+													 isCheapest ? 'bg-green-50 dark:bg-green-900/20' :
+													 'bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/20'}"
+												on:click={() => handleCellClick(depDate, retDate, cell)}
+											>
+												{#if cell}
+													<div class="flex items-center justify-center gap-1">
+														{#if isCheapest}
+															<svg class="w-3 h-3 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+																<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+															</svg>
+														{/if}
+														<span class="text-sm font-semibold {
+															isSelected ? 'text-white' :
+															isCheapest ? 'text-green-600 dark:text-green-400' :
+															isHighPrice ? 'text-red-600 dark:text-red-400' :
+															'text-green-600 dark:text-green-400'
+														}">
+															${cell.price}
+														</span>
+													</div>
+												{:else}
+													<span class="text-xs text-gray-400 dark:text-gray-500">no flights</span>
+												{/if}
+											</td>
+										{/each}
 									</tr>
 								{/each}
 							</tbody>
 						</table>
 					</div>
+					
+					<!-- Legend -->
+					<div class="mt-4 flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
+						<div class="flex items-center gap-2">
+							<svg class="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+								<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+							</svg>
+							<span>Cheapest Price</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<div class="w-4 h-4 bg-blue-500 border border-gray-300 rounded"></div>
+							<span>Selected</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<span class="text-red-600 font-semibold">Red</span>
+							<span>High Price (2x+ cheapest)</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<span class="text-green-600 font-semibold">Green</span>
+							<span>Standard Price</span>
+						</div>
+					</div>
+				</div>
+			{/if}
+			
+			<!-- Results Display - Price Chart -->
+			{#if chartData && chartData.length > 0}
+				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+					<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+						Price Graph ({chartData.length} days)
+					</h2>
+					
+					{#if chartData.length > 0}
+						{@const maxPrice = Math.max(...chartData.map(d => d.price))}
+						{@const minPrice = Math.min(...chartData.map(d => d.price))}
+						{@const priceRange = maxPrice - minPrice}
+						{@const chartHeight = 300}
+						{@const barWidth = 8}
+						{@const barGap = 2}
+						{@const chartWidth = chartData.length * (barWidth + barGap)}
+						
+						<div class="relative overflow-x-auto bg-blue-50 dark:bg-gray-900 p-4 rounded-lg">
+							<!-- Bar Chart SVG -->
+						<svg 
+							width="100%" 
+							height={chartHeight + 60}
+							viewBox="0 0 {chartWidth + 60} {chartHeight + 60}"
+							class="w-full"
+							style="min-width: {chartWidth + 60}px; padding-left: 50px;"
+						>
+							<!-- Y-axis labels (moved further left) -->
+							<text x="5" y="20" class="text-xs fill-gray-600 dark:fill-gray-400" text-anchor="start">
+								${Math.ceil(maxPrice)}
+							</text>
+							<text x="5" y={chartHeight / 2} class="text-xs fill-gray-600 dark:fill-gray-400" text-anchor="start">
+								${Math.ceil(maxPrice / 2)}
+							</text>
+							<text x="5" y={chartHeight - 10} class="text-xs fill-gray-600 dark:fill-gray-400" text-anchor="start">
+								$0
+							</text>
+							
+							<!-- Grid lines -->
+							<line x1="50" y1="0" x2={chartWidth + 50} y2="0" stroke="#e5e7eb" stroke-width="1" />
+							<line x1="50" y1={chartHeight / 2} x2={chartWidth + 50} y2={chartHeight / 2} stroke="#e5e7eb" stroke-width="1" stroke-dasharray="4" />
+							<line x1="50" y1={chartHeight} x2={chartWidth + 50} y2={chartHeight} stroke="#e5e7eb" stroke-width="1" />
+							
+							<!-- Bars -->
+							{#each chartData as data, i}
+								{@const barHeight = ((data.price - minPrice) / priceRange) * chartHeight}
+								{@const x = 50 + i * (barWidth + barGap)}
+								{@const y = chartHeight - barHeight}
+								{@const isHovered = hoveredBar === i}
+								
+								<rect
+									x={x}
+									y={y}
+									width={barWidth}
+									height={barHeight}
+									fill={isHovered ? '#3b82f6' : '#93c5fd'}
+									class="cursor-pointer transition-colors"
+									role="button"
+									tabindex="0"
+									on:mouseenter={(e) => handleBarHover(e, data, i)}
+									on:mouseleave={handleBarLeave}
+								/>
+								
+								<!-- Date labels at intervals -->
+								{#if i % 7 === 0}
+									{@const date = new Date(data.date)}
+									<text 
+										x={x - 10} 
+										y={chartHeight + 20} 
+										class="text-xs fill-gray-600 dark:fill-gray-400"
+										text-anchor="start"
+									>
+										{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+									</text>
+								{/if}
+							{/each}
+							
+							<!-- Month labels -->
+							{#if chartData.length > 0}
+								{@const firstDate = new Date(chartData[0].date)}
+								{@const lastDate = new Date(chartData[chartData.length - 1].date)}
+								<text x={50 + chartWidth / 4} y={chartHeight + 40} class="text-sm fill-gray-700 dark:fill-gray-300 font-medium">
+									{firstDate.toLocaleDateString('en-US', { month: 'long' })}
+								</text>
+								{#if firstDate.getMonth() !== lastDate.getMonth()}
+									<text x={50 + chartWidth * 3 / 4} y={chartHeight + 40} class="text-sm fill-gray-700 dark:fill-gray-300 font-medium">
+										{lastDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+									</text>
+								{/if}
+							{/if}
+						</svg>
+						</div>
+					{/if}
 				</div>
 			{:else if searchResults && searchResults.length === 0}
 				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
@@ -483,6 +767,35 @@
 						<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
 							No cheapest flight dates were found for this route. Try searching for a different destination or date.
 						</p>
+					</div>
+				</div>
+			{/if}
+			
+			<!-- Hover Tooltip (outside main if/else) -->
+			{#if hoveredBar !== null && chartData[hoveredBar]}
+				{@const data = chartData[hoveredBar]}
+				<div 
+					class="fixed z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl p-4 pointer-events-none"
+					style="left: {tooltipPosition.x}px; top: {tooltipPosition.y - 100}px; transform: translateX(-50%);"
+				>
+					<!-- Tooltip arrow -->
+					<div class="absolute bottom-[-8px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-white dark:border-t-gray-800"></div>
+					
+					<div class="space-y-2 min-w-[200px]">
+						<!-- Trip duration -->
+						<div class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+							{data.duration}-day trip
+						</div>
+						
+						<!-- Date range -->
+						<div class="text-sm text-gray-900 dark:text-gray-100 font-medium">
+							{formatTooltipDate(data.departureDate)} - {formatTooltipDate(data.returnDate)}
+						</div>
+						
+						<!-- Price -->
+						<div class="text-lg font-bold text-blue-600 dark:text-blue-400">
+							From ${data.price}
+						</div>
 					</div>
 				</div>
 			{/if}
