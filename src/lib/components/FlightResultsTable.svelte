@@ -48,8 +48,8 @@
 		/^gpt-?4\.1-?mini$/i,
 		/^gpt-?5$/i,
 		/^gemini-?2\.5-?flash$/i,
-		/^gemini-?2\.5-?pro$/i,
-		/^gemini-?2\.0-?flash$/i
+		/^gemini-?2\.0-?flash$/i,
+		/^gemini-?2\.0-?flash-?live$/i
 	];
 
 	// Function to check if a model is allowed

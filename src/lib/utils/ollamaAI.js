@@ -704,7 +704,7 @@ Use your knowledge base to provide accurate airline information and route insigh
 		const startingPlace = uniqueFlights[0]?.startingPlace || '香港';
 		const destination = uniqueFlights[0]?.destination || '';
 		
-		const prompt = `你係廣東話銷售語氣專家，仿例中語氣，輸JSON，每來回一對象，出發地取首票${startingPlace}，destination取首票${destination}，選最平價，含destination、header、short_comment、summary、tourist_spot、promote_text。destination取非香港地。header必以一至二促銷句開首，推銷機票，後接航司、價、期。short_comment一至二句，限二十字，多變語氣，述地或價優（如直航減到咁平，心動！）。summary約八十字，句以逗點斷，每句宜長，約二三十字，述價、地景、促行，依資料，勿增詞。destination、header、short_comment、summary、promote_text用繁體廣東話，promote_text短句分行，限二行，述價、航優或地景，可含行李。tourist_spot用英文，隨選目的地名勝。價港幣，出發地香港，假設連稅、2025/2026。
+		const prompt = `你係廣東話銷售語氣專家，仿例中語氣，輸JSON，每來回一對象，出發地取首票${startingPlace}，destination取首票${destination}，選最平價，含destination、header、short_comment、summary、tourist_spot、promote_text。destination取非香港地。header必以一至二獨立促銷句開首，含超前部署、平、抵、減之一，推廣機票，首一至二促銷句禁含驚嘆詞，與後接航司、價、期資訊分開。short_comment一至二句，限二十字，多變語氣，述地或價優（如直航減到咁平，心動！）。summary約八十字，句以逗點斷，每句宜長，約二三十字，述價、地景、促行，依資料，勿增詞。destination、header、short_comment、summary、promote_text用繁體廣東話，promote_text短句分行，限二行，述價、航優或地景，可含行李。tourist_spot用英文，隨選目的地名勝。價港幣，出發地香港，假設連稅、2025/2026。
 
 ## 例
 ### 東京

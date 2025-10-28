@@ -193,6 +193,208 @@ class AmadeusApiService {
 	}
 
 	/**
+	 * Search for cheapest flight dates (Amadeus Flight Cheapest Date Search API)
+	 * https://developers.amadeus.com/self-service/category/flights/api-doc/flight-cheapest-date-search/api-reference
+	 * @param {Object} searchParams - Search parameters
+	 * @param {string} searchParams.originLocationCode - Origin airport code (IATA, required)
+	 * @param {string} searchParams.destinationLocationCode - Destination airport code (IATA, required)
+	 * @param {string} searchParams.departureDate - Departure date in YYYY-MM-DD format (required)
+	 * @param {boolean} searchParams.oneWay - One-way trip (default: false for round trip)
+	 * @param {number} searchParams.duration - Trip duration in days (1-15, optional)
+	 * @param {boolean} searchParams.nonStop - Direct flights only (default: false)
+	 * @param {string} searchParams.viewBy - View results by DATE, DESTINATION, DURATION, WEEK, COUNTRY (default: DATE)
+	 * @param {number} searchParams.maxPrice - Maximum price (optional)
+	 */
+	async searchCheapestDates(searchParams) {
+		try {
+			// Validate required parameters
+			if (!searchParams.originLocationCode) {
+				throw new Error('Origin location code is required');
+			}
+
+			// Validate origin code format (3-letter IATA code)
+			if (!/^[A-Z]{3}$/i.test(searchParams.originLocationCode)) {
+				throw new Error('Origin must be a valid 3-letter IATA airport code (e.g., HKG, NRT)');
+			}
+
+			// Validate destination if provided
+			if (searchParams.destinationLocationCode && !/^[A-Z]{3}$/i.test(searchParams.destinationLocationCode)) {
+				throw new Error('Destination must be a valid 3-letter IATA airport code (e.g., NRT, LAX)');
+			}
+
+			// Validate departure date (YYYY-MM-DD format required by API)
+			if (searchParams.departureDate) {
+				// Check if it's YYYY-MM-DD format
+				if (!/^\d{4}-\d{2}-\d{2}$/.test(searchParams.departureDate)) {
+					throw new Error('Invalid departure date format. Use YYYY-MM-DD (e.g., 2025-10-29)');
+				}
+
+				// Validate the date is not in the past
+				const departureDate = new Date(searchParams.departureDate);
+				if (isNaN(departureDate.getTime())) {
+					throw new Error('Invalid departure date');
+				}
+				
+				const today = new Date();
+				today.setHours(0, 0, 0, 0);
+				if (departureDate < today) {
+					throw new Error('Departure date cannot be in the past');
+				}
+			}
+
+			// Validate duration if provided
+			if (searchParams.duration !== undefined) {
+				const duration = parseInt(searchParams.duration);
+				if (isNaN(duration) || duration < 1 || duration > 15) {
+					throw new Error('Duration must be between 1 and 15 days');
+				}
+			}
+
+			// Validate viewBy if provided
+			const validViewBy = ['DATE', 'DESTINATION', 'DURATION', 'WEEK', 'COUNTRY'];
+			if (searchParams.viewBy && !validViewBy.includes(searchParams.viewBy.toUpperCase())) {
+				throw new Error(`viewBy must be one of: ${validViewBy.join(', ')}`);
+			}
+
+			const token = await this.getAccessToken();
+
+			// Build query parameters - API uses 'origin' and 'destination', not 'originLocationCode'
+			const queryParams = new URLSearchParams({
+				origin: searchParams.originLocationCode.toUpperCase(),
+			});
+
+			// Add optional parameters
+			if (searchParams.destinationLocationCode) {
+				queryParams.append('destination', searchParams.destinationLocationCode.toUpperCase());
+			}
+			if (searchParams.departureDate) {
+				queryParams.append('departureDate', searchParams.departureDate);
+			}
+			if (searchParams.oneWay !== undefined) {
+				queryParams.append('oneWay', searchParams.oneWay.toString());
+			}
+			if (searchParams.duration) {
+				queryParams.append('duration', searchParams.duration.toString());
+			}
+			if (searchParams.nonStop !== undefined) {
+				queryParams.append('nonStop', searchParams.nonStop.toString());
+			}
+			if (searchParams.viewBy) {
+				queryParams.append('viewBy', searchParams.viewBy.toUpperCase());
+			}
+			if (searchParams.maxPrice) {
+				queryParams.append('maxPrice', searchParams.maxPrice.toString());
+			}
+
+			console.log('Calling Amadeus Flight Cheapest Date Search API...');
+			console.log('Endpoint:', `${this.config.BASE_URL}/v1/shopping/flight-dates`);
+			console.log('Query params:', queryParams.toString());
+
+			const response = await fetch(
+				`${this.config.BASE_URL}/v1/shopping/flight-dates?${queryParams}`,
+				{
+					method: 'GET',
+					headers: {
+						'Authorization': `Bearer ${token}`,
+					},
+				}
+			);
+
+			console.log('Amadeus Cheapest Date Search response status:', response.status);
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				console.error('Amadeus API error response:', errorData);
+				
+				// Check if it's a "no results" response (valid, just no flights found)
+				if (response.status === 404 && errorData.errors?.[0]?.detail === 'No response found for this query') {
+					console.log('No flights found for this search criteria');
+					return { data: [], meta: { count: 0 } }; // Return empty results
+				}
+				
+				// Provide helpful error messages for actual errors
+				if (response.status === 400) {
+					const errorMsg = errorData.errors?.[0]?.detail || 'Invalid search parameters';
+					throw new Error(`Search error: ${errorMsg}`);
+				} else if (response.status === 401) {
+					throw new Error('Authentication failed. Please check API credentials.');
+				} else if (response.status === 404) {
+					const errorMsg = errorData.errors?.[0]?.detail || 'Resource not found';
+					throw new Error(`API error: ${errorMsg}`);
+				} else if (response.status === 500) {
+					throw new Error('Amadeus API service error. Please try again later.');
+				}
+				
+				throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+			}
+
+			const data = await response.json();
+			console.log('Amadeus Cheapest Date Search results:', data);
+			
+			// Return the raw data - the calling code can transform it as needed
+			return data;
+		} catch (error) {
+			console.error('Error searching cheapest dates:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Transform Amadeus cheapest date search data to match our UI structure
+	 * @param {Object} amadeusData - Raw data from Amadeus Flight Inspiration Search API
+	 */
+	transformCheapestDateData(amadeusData) {
+		if (!amadeusData.data || !Array.isArray(amadeusData.data)) {
+			return [];
+		}
+
+		return amadeusData.data.map((dateOffer, index) => {
+			// Extract basic information
+			const departureDate = dateOffer.departureDate;
+			const returnDate = dateOffer.returnDate;
+			const priceEuro = parseFloat(dateOffer.price?.total || 0);
+			
+			// Convert EUR to HKD
+			const EUR_TO_HKD = 9.02;
+			const priceHKD = Math.ceil(priceEuro * EUR_TO_HKD);
+
+			// Get origin and destination from the response
+			const origin = dateOffer.origin;
+			const destination = dateOffer.destination;
+			
+			// Get city names in Chinese
+			const originChinese = this.getCityName(origin) || origin;
+			const destinationChinese = this.getCityName(destination) || destination;
+
+			console.log(`Cheapest date ${index + 1} transformation:`, {
+				departureDate,
+				returnDate,
+				origin,
+				originChinese,
+				destination,
+				destinationChinese,
+				priceEUR: priceEuro,
+				priceHKD: priceHKD
+			});
+
+			return {
+				id: index + 1,
+				departureDate: departureDate,
+				returnDate: returnDate,
+				origin: origin,
+				originName: originChinese,
+				destination: destination,
+				destinationName: destinationChinese,
+				price: priceHKD,
+				priceEuro: priceEuro,
+				currency: 'HKD',
+				// Additional fields from the response
+				links: dateOffer.links || null
+			};
+		});
+	}
+
+	/**
 	 * Get airport/city suggestions for location search
 	 * @param {string} keyword - Search keyword
 	 * @param {string} subType - Type of location (AIRPORT, CITY, ANY)
