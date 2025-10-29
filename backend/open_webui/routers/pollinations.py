@@ -1093,17 +1093,235 @@ def _load_chinese_font(font_size: int, bold: bool = False):
     log.warning("Could not load any Chinese font, using default")
     return ImageFont.load_default()
 
-def _draw_text_on_image(draw, text: str, x: int, y: int, font, color=(0, 0, 0)):
+def draw_text_on_image(
+    image_or_draw,
+    text: str = None,
+    x: int = 0,
+    y: int = 0,
+    font_size: int = 30,
+    text_color: tuple = (0, 0, 0),
+    border_color: tuple = None,
+    border_width: int = 0,
+    bold: bool = False,
+    rotation_angle: int = 0,
+    center: bool = False,
+    align: str = "left",
+    max_width: int = None,
+    line_spacing: int = 5,
+    multipart: list = None,
+    align_baseline: bool = True,
+    line_styles: list = None
+):
     """
-    Helper function to draw text on an image
+    Comprehensive reusable function for drawing text on images with full customization
     
     Args:
-        draw: ImageDraw object
-        text: Text to draw
-        x: X coordinate
-        y: Y coordinate
-        font: Font object
-        color: RGB color tuple (default: black)
+        image_or_draw: PIL Image object or ImageDraw object
+        text: Text to draw (supports multiline with \n) - optional if using multipart
+        x: X coordinate (left edge or center depending on 'center' parameter)
+        y: Y coordinate (top edge or center depending on 'center' parameter)
+        font_size: Font size in pixels (default: 30)
+        text_color: RGB or RGBA tuple for text color (default: black)
+        border_color: RGB or RGBA tuple for border/outline (default: None = no border)
+        border_width: Width of the border in pixels (default: 0)
+        bold: Whether to use bold font (default: False)
+        rotation_angle: Rotation angle in degrees, positive = clockwise (default: 0)
+        center: Whether to center the text at (x, y) coordinates (default: False)
+        align: Text alignment for multiline text: "left", "center", "right" (default: "left")
+        max_width: Maximum width before text wrapping (default: None = no wrapping)
+        line_spacing: Spacing between lines in pixels for multiline text (default: 5)
+        multipart: List of dicts for multipart text (different sizes/colors in one line)
+                  Format: [{"text": "HK$ ", "font_size": 30, "color": (49, 98, 210)}, ...]
+        align_baseline: Align multipart text by baseline (default: True)
+        line_styles: List of style dicts for each line in multiline text
+                    Format: [{"line_index": 0, "font_size": 120, "text_color": (122, 40, 156),
+                             "border_color": (255, 255, 255), "border_width": 6, "bold": True}, ...]
+    
+    Returns:
+        PIL Image object with text drawn
+    
+    Example usage:
+        # Simple text
+        image = draw_text_on_image(image, text="Hello", x=100, y=100, font_size=40)
+        
+        # Text with white border
+        image = draw_text_on_image(image, text="Tokyo", x=200, y=150, font_size=80, 
+                                   text_color=(128, 0, 128), border_color=(255, 255, 255), 
+                                   border_width=4, bold=True)
+        
+        # Rotated text
+        image = draw_text_on_image(image, text="Special Offer", x=300, y=200, 
+                                   rotation_angle=-15, center=True)
+        
+        # Multiline centered text
+        image = draw_text_on_image(image, text="Line 1\nLine 2\nLine 3", x=400, y=300,
+                                   center=True, align="center")
+        
+        # Multipart text (different font sizes in one line)
+        image = draw_text_on_image(image, x=500, y=400, multipart=[
+            {"text": "HK$ ", "font_size": 30, "color": (49, 98, 210)},
+            {"text": "3,500", "font_size": 50, "color": (49, 98, 210)},
+            {"text": " /人", "font_size": 30, "color": (128, 128, 128)}
+        ])
+    """
+    # Determine if we're working with an Image or Draw object
+    if isinstance(image_or_draw, Image.Image):
+        image = image_or_draw
+        draw = ImageDraw.Draw(image)
+    else:
+        draw = image_or_draw
+        image = draw._image
+    
+    # Handle multipart text (different font sizes/colors in one line)
+    if multipart:
+        # Find the largest font size for baseline alignment
+        max_font_size = max(part.get("font_size", 30) for part in multipart)
+        
+        # Calculate total width for centering
+        total_width = 0
+        for part in multipart:
+            part_font = _load_chinese_font(part.get("font_size", 30), bold=True)
+            bbox = draw.textbbox((0, 0), part["text"], font=part_font)
+            total_width += bbox[2] - bbox[0]
+        
+        # Apply centering if requested
+        start_x = x
+        if center:
+            start_x = x - (total_width // 2)
+        
+        # Draw each part
+        current_x = start_x
+        for part in multipart:
+            part_text = part["text"]
+            part_font_size = part.get("font_size", 30)
+            part_color = part.get("color", (0, 0, 0))
+            part_bold = part.get("bold", True)
+            
+            # Load font for this part
+            part_font = _load_chinese_font(part_font_size, bold=part_bold)
+            
+            # Calculate y offset for baseline alignment
+            if align_baseline:
+                y_offset = (max_font_size - part_font_size) * 0.8  # 0.8 is baseline ratio
+                adjusted_y = y + y_offset
+            else:
+                adjusted_y = y
+            
+            # Draw this part
+            draw.text((current_x, adjusted_y), part_text, font=part_font, fill=part_color)
+            
+            # Calculate width to position next part
+            bbox = draw.textbbox((current_x, adjusted_y), part_text, font=part_font)
+            part_width = bbox[2] - bbox[0]
+            current_x += part_width
+            
+            log.info(f"Drew multipart '{part_text}' at ({current_x - part_width}, {adjusted_y}), size: {part_font_size}")
+        
+        return image
+    
+    # Load font for regular text
+    font = _load_chinese_font(font_size, bold=bold)
+    
+    # Handle multiline text
+    if text:
+        lines = text.split('\n')
+    else:
+        lines = []
+    
+    # Calculate text dimensions for positioning
+    if len(lines) == 1:
+        # Single line text
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # Apply centering if requested
+        if center:
+            x = x - (text_width // 2)
+            y = y - (text_height // 2)
+        
+        # Draw text with or without border and rotation
+        if border_color and border_width > 0:
+            _draw_text_with_border(draw, text, x, y, font, text_color, border_color, border_width, rotation_angle)
+        else:
+            if rotation_angle != 0:
+                # Use border function with transparent border for rotation
+                _draw_text_with_border(draw, text, x, y, font, text_color, text_color, 0, rotation_angle)
+            else:
+                draw.text((x, y), text, font=font, fill=text_color)
+        
+        log.info(f"Drew text '{text}' at ({x}, {y}), size: {font_size}, color: {text_color}, border: {border_width}, rotation: {rotation_angle}")
+    else:
+        # Multiline text with optional different styles per line
+        current_y = y
+        
+        for line_index, line in enumerate(lines):
+            if not line.strip():  # Skip empty lines
+                current_y += line_spacing
+                continue
+            
+            # Get style for this line if line_styles is provided
+            if line_styles:
+                line_style = None
+                for style in line_styles:
+                    if style.get("line_index") == line_index:
+                        line_style = style
+                        break
+                
+                if line_style:
+                    # Use specific style for this line
+                    line_font_size = line_style.get("font_size", font_size)
+                    line_text_color = line_style.get("text_color", text_color)
+                    line_border_color = line_style.get("border_color", border_color)
+                    line_border_width = line_style.get("border_width", border_width)
+                    line_bold = line_style.get("bold", bold)
+                    line_font = _load_chinese_font(line_font_size, bold=line_bold)
+                else:
+                    # Use default style
+                    line_font = font
+                    line_text_color = text_color
+                    line_border_color = border_color
+                    line_border_width = border_width
+            else:
+                # Use default style
+                line_font = font
+                line_text_color = text_color
+                line_border_color = border_color
+                line_border_width = border_width
+            
+            # Calculate line dimensions
+            bbox = draw.textbbox((0, 0), line, font=line_font)
+            line_width = bbox[2] - bbox[0]
+            line_height = bbox[3] - bbox[1]
+            
+            # Apply line alignment
+            line_x = x
+            if line_index > 0 and line_styles:  # Offset promote text lines slightly
+                line_x = x + 25
+            
+            # Draw this line with its specific style
+            if line_border_color and line_border_width > 0:
+                _draw_text_with_border(draw, line, line_x, current_y, line_font, line_text_color, line_border_color, line_border_width, rotation_angle)
+            else:
+                if rotation_angle != 0:
+                    _draw_text_with_border(draw, line, line_x, current_y, line_font, line_text_color, line_text_color, 0, rotation_angle)
+                else:
+                    draw.text((line_x, current_y), line, font=line_font, fill=line_text_color)
+            
+            # Move to next line with appropriate spacing
+            if line_index == 0:
+                current_y += line_height + 10  # More spacing after destination
+            else:
+                current_y += line_height + 8  # Normal spacing between promote text lines
+        
+        log.info(f"Drew multiline text ({len(lines)} lines) at ({x}, {y}), with line_styles: {bool(line_styles)}")
+    
+    return image
+
+def _draw_text_on_image(draw, text: str, x: int, y: int, font, color=(0, 0, 0)):
+    """
+    Legacy helper function - kept for backward compatibility
+    Use draw_text_on_image() instead for new code
     """
     draw.text((x, y), text, font=font, fill=color)
     log.info(f"Drew text '{text}' at position ({x}, {y}) with color {color}, font size: {getattr(font, 'size', 'default')}")
@@ -1474,29 +1692,26 @@ def _add_text_to_flight_info(image_data: bytes, flight_data: dict = None, ai_ana
         },
     ]
     
-    # Draw all regular texts
+    # Draw all regular texts using the new reusable function
     for text_config in texts_to_add:
-        # Get font size for this text (use default if not specified)
-        font_size = text_config.get("font_size", default_font_size)
-        # Load font with the specified size
-        font = _load_chinese_font(font_size)
-        
-        _draw_text_on_image(
-            draw, 
-            text_config["text"], 
-            text_config["x"], 
-            text_config["y"], 
-            font, 
-            text_config["color"]
+        image = draw_text_on_image(
+            image,
+            text=text_config["text"],
+            x=text_config["x"],
+            y=text_config["y"],
+            font_size=text_config.get("font_size", default_font_size),
+            text_color=text_config["color"],
+            bold=False
         )
     
-    # Draw all multipart texts
+    # Draw all multipart texts using the new reusable function
     for multipart_config in multipart_texts:
-        _draw_multipart_text(
-            draw,
-            multipart_config["parts"],
-            multipart_config["x"],
-            multipart_config["y"]
+        image = draw_text_on_image(
+            image,
+            x=multipart_config["x"],
+            y=multipart_config["y"],
+            multipart=multipart_config["parts"],
+            align_baseline=True
         )
     
     # Convert back to bytes
@@ -1660,43 +1875,29 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
         }
     ]
     
-    # Add all regular texts using the helper function with bold fonts
+    # Add all regular texts using the new reusable function
     for text_config in texts_to_add:
-        font = _load_chinese_font(text_config['font_size'], bold=True)
-        
-        # Calculate text dimensions to center properly
-        text = text_config['text']
-        bbox = draw.textbbox((0, 0), text, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-        
-        # Adjust coordinates to center the text
-        centered_x = text_config['x'] - (text_width // 2)
-        centered_y = text_config['y'] - (text_height // 2)
-        
-        _draw_text_on_image(draw, text, centered_x, centered_y, font, text_config['color'])
-        log.info(f"Added text: '{text}' at ({centered_x}, {centered_y}) - centered from ({text_config['x']}, {text_config['y']})")
-    
-    # Add multipart texts using the helper function
-    for multipart_config in multipart_texts:
-        # Calculate total width to center the entire multipart text
-        total_width = 0
-        for part in multipart_config["parts"]:
-            font = _load_chinese_font(part["font_size"], bold=True)
-            bbox = draw.textbbox((0, 0), part["text"], font=font)
-            total_width += bbox[2] - bbox[0]
-        
-        # Center the multipart text
-        start_x = multipart_config["x"] - (total_width // 2)
-        
-        _draw_multipart_text(
-            draw,
-            multipart_config["parts"],
-            start_x,
-            multipart_config["y"],
-            align_baseline=True
+        final_image = draw_text_on_image(
+            final_image,
+            text=text_config['text'],
+            x=text_config['x'],
+            y=text_config['y'],
+            font_size=text_config['font_size'],
+            text_color=text_config['color'],
+            bold=True,
+            center=True
         )
-        log.info(f"Added multipart text at ({start_x}, {multipart_config['y']}) - centered from ({multipart_config['x']}, {multipart_config['y']})")
+    
+    # Add multipart texts using the new reusable function
+    for multipart_config in multipart_texts:
+        final_image = draw_text_on_image(
+            final_image,
+            x=multipart_config["x"],
+            y=multipart_config["y"],
+            multipart=multipart_config["parts"],
+            align_baseline=True,
+            center=True
+        )
     
     # Add flyagainla_icon.png to the banner
     try:
@@ -1809,13 +2010,13 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
     lines = [display_destination] + promote_text.split('\n')
     
     try:
-        final_image = _add_multiline_text_with_styles(
+        final_image = draw_text_on_image(
             final_image,
-            '\n'.join(lines),  # Rejoin with single \n
-            30,  # X position: 50px from left edge
-            110,  # Y position: 70px from top edge (moved down by 20)
-            -7,  # Same rotation as destination
-            [
+            text='\n'.join(lines),
+            x=30,  # X position: 30px from left edge
+            y=110,  # Y position: 110px from top edge
+            rotation_angle=-7,  # Counter-clockwise rotation
+            line_styles=[
                 {
                     "line_index": 0,  # First line (destination)
                     "font_size": 160,  # Increased by 1/3 (120 * 1.33)
@@ -1842,7 +2043,7 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
                 }
             ]
         )
-        log.info("Successfully added multiline text with different styles")
+        log.info("Successfully added multiline text with different styles using new reusable function")
     except Exception as e:
         log.error(f"Failed to add multiline text: {e}")
     
