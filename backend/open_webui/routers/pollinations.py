@@ -1523,6 +1523,151 @@ def _draw_multipart_text(draw, parts: list, x: int, y: int, align_baseline: bool
         
         log.info(f"Drew multipart text '{text}' at ({current_x - text_width}, {adjusted_y}), size: {font_size}, color: {color}")
 
+def _parse_flight_data_for_display(flight_data: dict) -> dict:
+    """
+    Parse flight data and determine display format.
+    
+    Returns a dict with standardized flight information for display:
+    - outbound: {date, time, place, arrival_time, gmt}
+    - return: {date, time, place, arrival_time, gmt}
+    - price: str
+    """
+    if not flight_data:
+        flight_data = {}
+    
+    # Check if flight_data contains multiple flights
+    flights_list = flight_data.get("flights", [])
+    is_multiple_flights = len(flights_list) > 0
+    
+    if is_multiple_flights:
+        log.info(f"Processing multiple flights: {len(flights_list)} flights")
+        
+        # Get all unique places involved
+        all_places = set()
+        for flight in flights_list:
+            all_places.add(flight.get("startingPlace"))
+            all_places.add(flight.get("destination"))
+        
+        log.info(f"Unique places involved: {all_places}")
+        
+        if len(all_places) == 2:
+            # Two places: treat as round trip
+            log.info("Two places detected - treating as round trip")
+            first_flight = flights_list[0]
+            second_flight = flights_list[1] if len(flights_list) > 1 else flights_list[0]
+            
+            outbound = {
+                "date": first_flight.get("departureDate", "2026年2月18日"),
+                "time": first_flight.get("departureTime", "09:30"),
+                "place": first_flight.get("startingPlace", "香港"),
+                "arrival_time": first_flight.get("arrivalTime", "12:50"),
+                "destination": first_flight.get("destination", "東京")
+            }
+            
+            return_trip = {
+                "date": second_flight.get("departureDate", outbound["date"]),
+                "time": second_flight.get("departureTime", "15:30"),
+                "place": second_flight.get("startingPlace", outbound["destination"]),
+                "arrival_time": second_flight.get("arrivalTime", "19:45"),
+                "destination": second_flight.get("destination", outbound["place"])
+            }
+            
+            price = str(sum(f.get("cost", 0) for f in flights_list))
+        else:
+            # 3+ places: use only first flight
+            log.info(f"3+ places detected ({len(all_places)} places) - using first flight only")
+            first_flight = flights_list[0]
+            
+            outbound = {
+                "date": first_flight.get("departureDate", "2026年2月18日"),
+                "time": first_flight.get("departureTime", "09:30"),
+                "place": first_flight.get("startingPlace", "香港"),
+                "arrival_time": first_flight.get("arrivalTime", "12:50"),
+                "destination": first_flight.get("destination", "東京")
+            }
+            
+            return_trip = {
+                "date": first_flight.get("returnDate", outbound["date"]),
+                "time": first_flight.get("returnDepartureTime", "15:30"),
+                "place": outbound["destination"],
+                "arrival_time": first_flight.get("returnArrivalTime", "19:45"),
+                "destination": outbound["place"]
+            }
+            
+            price = str(first_flight.get("cost", 3500))
+    else:
+        # Single flight scenario - treat as round trip
+        log.info("Processing single flight as round trip")
+        
+        outbound = {
+            "date": flight_data.get("departureDate", "2026年2月18日"),
+            "time": flight_data.get("departureTime", "09:30"),
+            "place": flight_data.get("startingPlace", "香港"),
+            "arrival_time": flight_data.get("arrivalTime", "12:50"),
+            "destination": flight_data.get("destination", "東京")
+        }
+        
+        return_trip = {
+            "date": flight_data.get("returnDate", outbound["date"]),
+            "time": flight_data.get("returnDepartureTime", "15:30"),
+            "place": outbound["destination"],
+            "arrival_time": flight_data.get("returnArrivalTime", "19:45"),
+            "destination": outbound["place"]
+        }
+        
+        price = str(flight_data.get("cost", 3500))
+    
+    # Get GMT timezone strings for all locations
+    outbound["gmt"] = get_city_gmt_string(translate_destination(outbound["place"])) or ""
+    outbound["dest_gmt"] = get_city_gmt_string(translate_destination(outbound["destination"])) or ""
+    return_trip["gmt"] = get_city_gmt_string(translate_destination(return_trip["place"])) or ""
+    return_trip["dest_gmt"] = get_city_gmt_string(translate_destination(return_trip["destination"])) or ""
+    
+    log.info(f"GMT timezones - Outbound: {outbound['place']}={outbound['gmt']}, Return: {return_trip['place']}={return_trip['gmt']}")
+    
+    return {
+        "outbound": outbound,
+        "return": return_trip,
+        "price": price
+    }
+
+def _build_flight_text_config(flight_info: dict) -> list:
+    """Build text configuration for flight information display"""
+    outbound = flight_info["outbound"]
+    return_trip = flight_info["return"]
+    
+    return [
+        {"text": "出發", "x": 60, "y": 20, "color": (0, 0, 0), "font_size": 30},
+        {"text": outbound["date"], "x": 150, "y": 20, "color": (0, 0, 0), "font_size": 30},
+        {"text": "回程", "x": 60, "y": 270, "color": (0, 0, 0), "font_size": 30},
+        {"text": return_trip["date"], "x": 150, "y": 270, "color": (0, 0, 0), "font_size": 30},
+        {"text": outbound["time"], "x": 60, "y": 70, "color": (0, 0, 0), "font_size": 30},
+        {"text": outbound["gmt"], "x": 62, "y": 105, "color": (222, 103, 18), "font_size": 20},
+        {"text": outbound["place"], "x": 160, "y": 70, "color": (0, 0, 0), "font_size": 30},
+        {"text": outbound["arrival_time"], "x": 60, "y": 190, "color": (0, 0, 0), "font_size": 30},
+        {"text": outbound["dest_gmt"], "x": 62, "y": 225, "color": (222, 103, 18), "font_size": 20},
+        {"text": outbound["destination"], "x": 160, "y": 190, "color": (0, 0, 0), "font_size": 30},
+        {"text": return_trip["time"], "x": 60, "y": 330, "color": (0, 0, 0), "font_size": 30},
+        {"text": return_trip["gmt"], "x": 62, "y": 365, "color": (222, 103, 18), "font_size": 20},
+        {"text": return_trip["place"], "x": 160, "y": 330, "color": (0, 0, 0), "font_size": 30},
+        {"text": return_trip["arrival_time"], "x": 60, "y": 445, "color": (0, 0, 0), "font_size": 30},
+        {"text": return_trip["dest_gmt"], "x": 62, "y": 480, "color": (222, 103, 18), "font_size": 20},
+        {"text": return_trip["destination"], "x": 160, "y": 445, "color": (0, 0, 0), "font_size": 30},
+        {"text": "1", "x": 190, "y": 592, "color": (0, 0, 0), "font_size": 25},
+    ]
+
+def _build_price_multipart_config(price: str, x: int, y: int) -> dict:
+    """Build multipart text configuration for price display"""
+    return {
+        "x": x,
+        "y": y,
+        "parts": [
+            {"text": "HK$ ", "font_size": 30, "color": (49, 98, 210)},
+            {"text": price, "font_size": 50, "color": (49, 98, 210)},
+            {"text": " /人", "font_size": 30, "color": (128, 128, 128)},
+        ]
+    }
+
 def _add_text_to_flight_info(image_data: bytes, flight_data: dict = None, ai_analysis: dict = None) -> bytes:
     """
     Add text overlays to the flight info image
@@ -1539,188 +1684,292 @@ def _add_text_to_flight_info(image_data: bytes, flight_data: dict = None, ai_ana
     - Multiple flights with 3+ places: Use only first flight as round trip
     """
     log.info(f"Adding text overlays to flight info image")
-    log.info(f"Flight data received: {flight_data}")
-    log.info(f"AI analysis received: {ai_analysis}")
     
-    default_font_size = 30
-
-    # Load image from bytes
+    # Load and prepare image
     image = Image.open(io.BytesIO(image_data))
-    log.info(f"Loaded flight info image: size {image.size}, mode: {image.mode}")
-    
-    # Convert to RGB if needed
     if image.mode != 'RGB':
         image = image.convert('RGB')
+    log.info(f"Loaded flight info image: size {image.size}, mode: {image.mode}")
     
-    # Create a drawing context
-    draw = ImageDraw.Draw(image)
+    # Parse flight data into display format
+    flight_info = _parse_flight_data_for_display(flight_data)
     
-    # Extract data from flight_data and ai_analysis with fallbacks
-    if not flight_data:
-        flight_data = {}
-    if not ai_analysis:
-        ai_analysis = {}
+    # Build text configurations
+    texts_to_add = _build_flight_text_config(flight_info)
+    price_config = _build_price_multipart_config(flight_info["price"], 40, 510)
     
-    # Check if flight_data contains multiple flights (as a list/array indicator)
-    flights_list = flight_data.get("flights", [])
-    is_multiple_flights = len(flights_list) > 0
-    
-    if is_multiple_flights:
-        # Multiple flights scenario
-        log.info(f"Processing multiple flights: {len(flights_list)} flights")
-        
-        # Get all unique places involved
-        all_places = set()
-        for flight in flights_list:
-            all_places.add(flight.get("startingPlace"))
-            all_places.add(flight.get("destination"))
-        
-        log.info(f"Unique places involved: {all_places}")
-        
-        if len(all_places) == 2:
-            # Two places: treat as round trip (first flight = outbound, second flight = return)
-            log.info("Two places detected - treating as round trip")
-            first_flight = flights_list[0]
-            second_flight = flights_list[1] if len(flights_list) > 1 else flights_list[0]
-            
-            # Outbound trip (first flight)
-            start_date = first_flight.get("departureDate", "2026年2月18日")
-            start_time = first_flight.get("departureTime", "09:30")
-            start_place = first_flight.get("startingPlace", "香港")
-            start_arrival_time = first_flight.get("arrivalTime", "12:50")
-            destination = first_flight.get("destination", "東京")
-            
-            # Return trip (second flight)
-            return_date = second_flight.get("departureDate", start_date)
-            return_time = second_flight.get("departureTime", "15:30")
-            return_start_place = second_flight.get("startingPlace", destination)
-            return_arrival_time = second_flight.get("arrivalTime", "19:45")
-            return_destination = second_flight.get("destination", start_place)
-            
-            # Total cost
-            flight_price = str(sum(f.get("cost", 0) for f in flights_list))
-            
-        else:
-            # 3+ places: use only first flight and treat as round trip
-            log.info(f"3+ places detected ({len(all_places)} places) - using first flight only")
-            first_flight = flights_list[0]
-            
-            # Outbound trip
-            start_date = first_flight.get("departureDate", "2026年2月18日")
-            start_time = first_flight.get("departureTime", "09:30")
-            start_place = first_flight.get("startingPlace", "香港")
-            start_arrival_time = first_flight.get("arrivalTime", "12:50")
-            destination = first_flight.get("destination", "東京")
-            
-            # Return trip (reverse of first flight)
-            return_date = first_flight.get("returnDate", start_date)
-            return_time = first_flight.get("returnDepartureTime", "15:30")
-            return_start_place = destination
-            return_arrival_time = first_flight.get("returnArrivalTime", "19:45")
-            return_destination = start_place
-            
-            # Use first flight cost
-            flight_price = str(first_flight.get("cost", 3500))
-    else:
-        # Single flight scenario - treat as round trip
-        log.info("Processing single flight as round trip")
-        
-        # Outbound trip
-        start_date = flight_data.get("departureDate", "2026年2月18日")
-        start_time = flight_data.get("departureTime", "09:30")
-        start_place = flight_data.get("startingPlace", "香港")
-        start_arrival_time = flight_data.get("arrivalTime", "12:50")
-        destination = flight_data.get("destination", "東京")
-        
-        # Return trip
-        return_date = flight_data.get("returnDate", start_date)
-        return_time = flight_data.get("returnDepartureTime", "15:30")
-        return_start_place = destination  # Return starts from the destination
-        return_arrival_time = flight_data.get("returnArrivalTime", "19:45")
-        return_destination = start_place  # Return ends at starting place
-        
-        flight_price = str(flight_data.get("cost", 3500))
-    
-    # Get GMT timezone strings for all locations
-    # Translate Chinese city names to English for timezone lookup
-    start_place_en = translate_destination(start_place)
-    destination_en = translate_destination(destination)
-    return_start_place_en = translate_destination(return_start_place)
-    return_destination_en = translate_destination(return_destination)
-    
-    start_place_gmt = get_city_gmt_string(start_place_en) or ""
-    destination_gmt = get_city_gmt_string(destination_en) or ""
-    return_start_place_gmt = get_city_gmt_string(return_start_place_en) or ""
-    return_destination_gmt = get_city_gmt_string(return_destination_en) or ""
-    
-    log.info(f"GMT timezones - Start: {start_place_en}={start_place_gmt}, Dest: {destination_en}={destination_gmt}, Return Start: {return_start_place_en}={return_start_place_gmt}, Return Dest: {return_destination_en}={return_destination_gmt}")
-    
-    # Define text configurations (text, x, y, color, font_size)
-    # font_size is optional, defaults to default_font_size if not specified
-    texts_to_add = [
-        {"text": "出發", "x": 60, "y": 20, "color": (0, 0, 0), "font_size": 30}, #do not change this text
-        {"text": start_date, "x": 150, "y": 20, "color": (0, 0, 0), "font_size": 30}, #start date
-        {"text": "回程", "x": 60, "y": 270, "color": (0, 0, 0), "font_size": 30}, #do not change this text
-        {"text": return_date, "x": 150, "y": 270, "color": (0, 0, 0), "font_size": 30},#return date
-        {"text": start_time, "x": 60, "y": 70, "color": (0, 0, 0), "font_size": 30},#start time
-        {"text": start_place_gmt, "x": 62, "y": 105, "color": (222, 103, 18), "font_size": 20},#GMT of start_place
-        {"text": start_place, "x": 160, "y": 70, "color": (0, 0, 0), "font_size": 30},#start place
-        {"text": start_arrival_time, "x": 60, "y": 190, "color": (0, 0, 0), "font_size": 30},#start arrival time
-        {"text": destination_gmt, "x": 62, "y": 225, "color": (222, 103, 18), "font_size": 20},#GMT of destination
-        {"text": destination, "x": 160, "y": 190, "color": (0, 0, 0), "font_size": 30},#start destination place
-
-        {"text": return_time, "x": 60, "y": 330, "color": (0, 0, 0), "font_size": 30},#return time
-        {"text": return_start_place_gmt, "x": 62, "y": 365, "color": (222, 103, 18), "font_size": 20},#GMT of return_start_place
-        {"text": return_start_place, "x": 160, "y": 330, "color": (0, 0, 0), "font_size": 30},#return start place
-        {"text": return_arrival_time, "x": 60, "y": 445, "color": (0, 0, 0), "font_size": 30},#return arrival time
-        {"text": return_destination_gmt, "x": 62, "y": 480, "color": (222, 103, 18), "font_size": 20},#GMT of return_destination
-        {"text": return_destination, "x": 160, "y": 445, "color": (0, 0, 0), "font_size": 30},#return destination place
-
-        {"text": "1", "x": 190, "y": 592, "color": (0, 0, 0), "font_size": 25},#do not change this text
-    ]
-    
-    # Define multipart text configurations (for text with different sizes/colors in one line)
-    multipart_texts = [
-        {
-            "x": 40, 
-            "y": 510, 
-            "parts": [
-                {"text": "HK$ ", "font_size": 30, "color": (49, 98, 210)}, #do not change this text
-                {"text": flight_price, "font_size": 50, "color": (49, 98, 210)}, #flight price
-                {"text": " /人", "font_size": 30, "color": (128, 128, 128)}, #do not change this text
-            ]
-        },
-    ]
-    
-    # Draw all regular texts using the new reusable function
+    # Draw all text overlays
     for text_config in texts_to_add:
         image = draw_text_on_image(
             image,
             text=text_config["text"],
             x=text_config["x"],
             y=text_config["y"],
-            font_size=text_config.get("font_size", default_font_size),
+            font_size=text_config.get("font_size", 30),
             text_color=text_config["color"],
             bold=False
         )
     
-    # Draw all multipart texts using the new reusable function
-    for multipart_config in multipart_texts:
-        image = draw_text_on_image(
-            image,
-            x=multipart_config["x"],
-            y=multipart_config["y"],
-            multipart=multipart_config["parts"],
-            align_baseline=True
-        )
+    # Draw price
+    image = draw_text_on_image(
+        image,
+        x=price_config["x"],
+        y=price_config["y"],
+        multipart=price_config["parts"],
+        align_baseline=True
+    )
     
-    # Convert back to bytes
-    result = io.BytesIO()
-    image.save(result, format='PNG')
-    result_bytes = result.getvalue()
+    # Convert to bytes and return
+    with io.BytesIO() as output:
+        image.save(output, format='PNG')
+        result_bytes = output.getvalue()
     
     log.info(f"Flight info image with text: {len(result_bytes)} bytes")
     return result_bytes
+
+def _prepare_canvas_with_image(image_data: bytes, target_width: int = 1024, target_height: int = 1024) -> Image.Image:
+    """
+    Prepare a 1024x1024 canvas with the generated image pasted at the top.
+    
+    Args:
+        image_data: Raw image bytes
+        target_width: Canvas width (default: 1024)
+        target_height: Canvas height (default: 1024)
+        
+    Returns:
+        PIL Image with generated image pasted on canvas
+    """
+    # Load generated image
+    generated_image = Image.open(io.BytesIO(image_data))
+    log.info(f"Loaded generated image: size {generated_image.size}, mode: {generated_image.mode}")
+    
+    # Convert to RGB
+    if generated_image.mode != 'RGB':
+        generated_image = generated_image.convert('RGB')
+    
+    # Create canvas
+    canvas = Image.new('RGB', (target_width, target_height), (255, 255, 255))
+    log.info(f"Created {target_width}x{target_height} canvas")
+    
+    # Resize generated image width if needed
+    gen_width, gen_height = generated_image.size
+    if gen_width != target_width:
+        generated_image = generated_image.resize((target_width, gen_height), Image.Resampling.LANCZOS)
+        gen_width = target_width
+    
+    # Paste image on canvas
+    if gen_height > target_height:
+        cropped = generated_image.crop((0, 0, target_width, target_height))
+        canvas.paste(cropped, (0, 0))
+        log.info(f"Cropped and pasted {target_width}x{target_height}")
+    else:
+        canvas.paste(generated_image, (0, 0))
+        log.info(f"Pasted {gen_width}x{gen_height} at (0, 0)")
+    
+    return canvas
+
+def _add_blue_banner_area(image: Image.Image, banner_y: int, banner_height: int) -> Image.Image:
+    """Add light blue banner rectangle at specified position"""
+    light_blue = (135, 206, 250)
+    banner_width = image.size[0]
+    banner_area = Image.new('RGB', (banner_width, banner_height), light_blue)
+    image.paste(banner_area, (0, banner_y))
+    log.info(f"Added blue banner: {banner_width}x{banner_height} at y={banner_y}")
+    return image
+
+def _add_purple_airline_rectangle(
+    image: Image.Image, 
+    airline: str, 
+    purple_y: int, 
+    banner_width: int, 
+    banner_height: int
+) -> Image.Image:
+    """
+    Add purple rectangle with airline name.
+    
+    Rectangle width is calculated dynamically based on airline text length.
+    """
+    draw = ImageDraw.Draw(image)
+    
+    # Calculate rectangle dimensions
+    airline_font_size = 80
+    airline_font = _load_chinese_font(airline_font_size, bold=True)
+    temp_bbox = draw.textbbox((0, 0), airline, font=airline_font)
+    airline_text_width = temp_bbox[2] - temp_bbox[0]
+    
+    # Add padding and ensure minimum width
+    text_padding = 40
+    purple_width = max(airline_text_width + text_padding, int(banner_width * 0.35))
+    purple_height = int(banner_height * 0.45)
+    
+    # Position from right edge
+    right_padding = 25
+    purple_x = image.size[0] - purple_width - right_padding
+    
+    # Draw purple rectangle
+    purple = (128, 0, 128)
+    draw.rectangle(
+        [(purple_x, purple_y), (purple_x + purple_width, purple_y + purple_height)],
+        fill=purple
+    )
+    log.info(f"Added purple rectangle at ({purple_x}, {purple_y}) size {purple_width}x{purple_height}")
+    
+    # Draw airline text (centered in rectangle)
+    image = draw_text_on_image(
+        image,
+        text=airline,
+        x=purple_x + (purple_width // 2),
+        y=purple_y + (purple_height // 2) - 20,
+        font_size=airline_font_size,
+        text_color=(255, 255, 255),
+        bold=True,
+        center=True
+    )
+    
+    return image
+
+def _calculate_price_font_size(price: str) -> int:
+    """Calculate appropriate font size for price prefix/suffix based on price length"""
+    price_length = len(price)
+    
+    if price_length <= 5:
+        return 88
+    elif price_length <= 6:
+        return 76
+    elif price_length <= 7:
+        return 69
+    else:
+        return 64
+
+def _add_price_display(
+    image: Image.Image,
+    price: str,
+    banner_y: int,
+    banner_height: int
+) -> Image.Image:
+    """Add price display in the center of the banner"""
+    prefix_suffix_size = _calculate_price_font_size(price)
+    
+    price_multipart = {
+        "x": image.size[0] // 2,
+        "y": banner_y + (banner_height // 2) - 65,
+        "parts": [
+            {"text": "來回連稅$", "font_size": prefix_suffix_size, "color": (255, 255, 255)},
+            {"text": price, "font_size": 133, "color": (255, 255, 255)},
+            {"text": "起", "font_size": prefix_suffix_size, "color": (255, 255, 255)},
+        ]
+    }
+    
+    image = draw_text_on_image(
+        image,
+        x=price_multipart["x"],
+        y=price_multipart["y"],
+        multipart=price_multipart["parts"],
+        align_baseline=True,
+        center=True
+    )
+    
+    log.info(f"Added price display: {price}")
+    return image
+
+def _add_flyagain_icon(image: Image.Image) -> Image.Image:
+    """Add flyagainla icon to top-right corner"""
+    try:
+        icon_path = Path(__file__).parent.parent.parent.parent / "flyagainla_icon.png"
+        if icon_path.exists():
+            icon = Image.open(icon_path).convert("RGBA")
+            
+            # Resize icon
+            icon_height = int(image.size[1] * 0.11)
+            icon_width = int(icon.width * (icon_height / icon.height))
+            icon = icon.resize((icon_width, icon_height), Image.Resampling.LANCZOS)
+            
+            # Position in top-right corner
+            padding = 15
+            icon_x = image.size[0] - icon_width - padding - 10
+            icon_y = padding + 15
+            
+            image.paste(icon, (icon_x, icon_y), icon)
+            log.info(f"Added flyagainla icon at ({icon_x}, {icon_y})")
+        else:
+            log.warning(f"Icon not found: {icon_path}")
+    except Exception as e:
+        log.error(f"Failed to add icon: {e}")
+    
+    return image
+
+def _add_destination_overlay(
+    image: Image.Image,
+    destination: str,
+    ai_analysis: dict
+) -> Image.Image:
+    """Add destination and promotional text overlay"""
+    # Extract promotional text
+    if ai_analysis and ai_analysis.get("promote_text"):
+        promote_text = ai_analysis.get("promote_text")
+    else:
+        promote_text = "多航班及日子選擇！\n凌晨去晚返都有！"
+    
+    # Combine destination and promote text
+    lines = [destination] + promote_text.split('\n')
+    
+    # Create line-specific styles
+    line_styles = [
+        {
+            "line_index": 0,
+            "font_size": 160,
+            "text_color": (122, 40, 156),
+            "border_color": (255, 255, 255),
+            "border_width": 8,
+            "bold": True
+        },
+        {
+            "line_index": 1,
+            "font_size": 47,
+            "text_color": (79, 201, 226),
+            "border_color": (255, 255, 255),
+            "border_width": 5,
+            "bold": True
+        },
+        {
+            "line_index": 2,
+            "font_size": 47,
+            "text_color": (79, 201, 226),
+            "border_color": (255, 255, 255),
+            "border_width": 5,
+            "bold": True
+        }
+    ]
+    
+    image = draw_text_on_image(
+        image,
+        text='\n'.join(lines),
+        x=30,
+        y=110,
+        rotation_angle=-7,
+        line_styles=line_styles
+    )
+    
+    log.info(f"Added destination overlay: {destination}")
+    return image
+
+def _add_border_frame(image: Image.Image, border_width: int = 8, margin: int = 15) -> Image.Image:
+    """Add white border frame around the image"""
+    draw = ImageDraw.Draw(image)
+    border_color = (255, 255, 255)
+    
+    x1, y1 = margin, margin
+    x2, y2 = image.size[0] - margin, image.size[1] - margin
+    
+    for i in range(border_width):
+        draw.rectangle(
+            [(x1 + i, y1 + i), (x2 - i, y2 - i)],
+            outline=border_color,
+            width=1
+        )
+    
+    log.info(f"Added border frame: margin={margin}px, width={border_width}px")
+    return image
 
 def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: str = None, airline: str = None, price: str = None, special_text_config: dict = None, ai_analysis: dict = None) -> bytes:
     """
@@ -1736,370 +1985,45 @@ def _add_bottom_banner(image_data: bytes, width: int, height: int, destination: 
         price: Flight price to display in blue banner
         special_text_config: Optional custom text configuration
     """
-    log.info(f"Adding bottom banner: requested {width}x{height} image")
-    log.info(f"Destination for special text: {destination}")
-    log.info(f"Airline: {airline}, Price: {price}")
+    log.info(f"Adding bottom banner: {width}x{height}, dest={destination}, airline={airline}, price={price}")
     
-    # Load generated image from bytes
-    generated_image = Image.open(io.BytesIO(image_data))
-    log.info(f"Loaded generated image: size {generated_image.size}, mode: {generated_image.mode}")
+    # Use defaults if values not provided
+    destination = destination or "東京"
+    airline = airline or "中華航空"
+    price = price or "3,222"
     
-    # Convert to RGB for simpler handling
-    if generated_image.mode != 'RGB':
-        generated_image = generated_image.convert('RGB')
-        log.info(f"Converted to RGB: {generated_image.size}, mode: {generated_image.mode}")
+    # Banner configuration
+    banner_height = 256  # 1/4 of 1024
+    banner_y = 768  # 1024 - 256
+    purple_y = banner_y - 35
     
-    # Create FIXED 1024x1024 canvas
-    target_width = 1024
-    target_height = 1024
-    actual_width = target_width
-    actual_height = target_height
+    # Step 1: Prepare canvas with image
+    final_image = _prepare_canvas_with_image(image_data, 1024, 1024)
     
-    # Create empty white canvas
-    final_image = Image.new('RGB', (target_width, target_height), (255, 255, 255))
-    log.info(f"Created 1024x1024 canvas")
+    # Step 2: Add blue banner
+    final_image = _add_blue_banner_area(final_image, banner_y, banner_height)
     
-    # Paste the generated image at the very top of the canvas
-    # The generated image is always 1024px wide, only height varies
-    generated_width, generated_height = generated_image.size
+    # Step 3: Add purple airline rectangle
+    final_image = _add_purple_airline_rectangle(final_image, airline, purple_y, 1024, banner_height)
     
-    # Resize generated image to exactly 1024px width if needed (should already be 1024)
-    if generated_width != target_width:
-        generated_image = generated_image.resize((target_width, generated_height), Image.Resampling.LANCZOS)
-        log.info(f"Resized generated image width from {generated_width} to {target_width}")
-        generated_width = target_width
+    # Step 4: Add price display
+    final_image = _add_price_display(final_image, price, banner_y, banner_height)
     
-    # Paste the generated image at the top, full width (0, 0)
-    # If generated height is less than 1024, it will show on white background
-    # If generated height is more than 1024, it will be cropped at bottom (banner will overlay)
-    paste_height = min(generated_height, target_height)
-    if generated_height > target_height:
-        # Crop to fit canvas height
-        cropped_image = generated_image.crop((0, 0, target_width, target_height))
-        final_image.paste(cropped_image, (0, 0))
-        log.info(f"Cropped generated image to {target_width}x{target_height} and pasted at (0, 0)")
-    else:
-        # Paste as-is from top
-        final_image.paste(generated_image, (0, 0))
-        log.info(f"Pasted generated image {generated_width}x{generated_height} at (0, 0)")
+    # Step 5: Add flyagain icon
+    final_image = _add_flyagain_icon(final_image)
     
-    # Fixed banner dimensions (always the same on 1024x1024 canvas)
-    banner_height = 256  # Fixed 256px (1/4 of 1024)
-    banner_width = 1024  # Fixed 1024px (full width)
-    banner_y = 768  # Fixed position (1024 - 256)
+    # Step 6: Add destination overlay
+    final_image = _add_destination_overlay(final_image, destination, ai_analysis)
     
-    log.info(f"Using FIXED canvas: {actual_width}x{actual_height}")
-    log.info(f"Fixed banner: {banner_width}x{banner_height} at y={banner_y}")
+    # Step 7: Add border frame
+    final_image = _add_border_frame(final_image)
     
-    # Create light blue banner area and overlay it on top of the canvas
-    light_blue = (135, 206, 250)  # LightSkyBlue RGB
-    banner_area = Image.new('RGB', (banner_width, banner_height), light_blue)
-    final_image.paste(banner_area, (0, banner_y))
-    log.info(f"Added banner area: {banner_area.size} at y={banner_y}")
+    # Convert to bytes and return
+    with io.BytesIO() as output:
+        final_image.save(output, format='JPEG', quality=95)
+        result_bytes = output.getvalue()
     
-    # Add a small purple rectangle on top of the blue banner
-    draw = ImageDraw.Draw(final_image)
-    
-    # Use provided airline or fallback to "中華航空"
-    display_airline = airline if airline else "中華航空"
-    
-    # Use provided price or fallback to "3,222"
-    display_price = price if price else "3,222"
-    
-    # Calculate purple rectangle width dynamically based on airline text length
-    # Load font first to measure text width
-    airline_font_size = 80  # Increased by 1/3 (60 * 1.33)
-    airline_font = _load_chinese_font(airline_font_size, bold=True)
-    
-    # Measure airline text width
-    temp_bbox = draw.textbbox((0, 0), display_airline, font=airline_font)
-    airline_text_width = temp_bbox[2] - temp_bbox[0]
-    
-    # Add padding to the text width (20px on each side)
-    text_padding = 40
-    purple_width = airline_text_width + text_padding
-    
-    # Ensure minimum width (at least 35% of banner width)
-    min_purple_width = int(banner_width * 0.35)
-    purple_width = max(purple_width, min_purple_width)
-    
-    # Purple rectangle dimensions
-    purple_height = int(banner_height * 0.45)
-    right_padding = 25  # Fixed distance from right edge
-    purple_x = actual_width - purple_width - right_padding  # Extends left based on text width
-    purple_y = banner_y - 35  # Small padding from top of banner
-    
-    purple = (128, 0, 128)  # Purple RGB
-    draw.rectangle(
-        [(purple_x, purple_y), (purple_x + purple_width, purple_y + purple_height)],
-        fill=purple
-    )
-    log.info(f"Added purple rectangle at ({purple_x}, {purple_y}) size {purple_width}x{purple_height} for airline '{display_airline}' (text width: {airline_text_width})")
-    
-    # Define texts to add (reusable configuration)
-    texts_to_add = [
-        {
-            "text": display_airline, #change this airline name
-            "x": purple_x + (purple_width // 2),  # Center horizontally in purple rectangle
-            "y": purple_y + (purple_height // 2) - 20,  # Center vertically in purple rectangle, moved up 15px
-            "color": (255, 255, 255),  # White
-            "font_size": 80  # Increased by 1/3 (60 * 1.33)
-        }
-    ]
-    
-    # Calculate dynamic font size for prefix/suffix based on price length
-    # Longer prices need smaller prefix/suffix to prevent touching border
-    price_length = len(display_price)
-    
-    if price_length <= 5:  # e.g., "3,222" or "12,345"
-        prefix_suffix_font_size = 88  # Reduced by 5% (93 * 0.95)
-    elif price_length <= 6:  # e.g., "123,456"
-        prefix_suffix_font_size = 76  # Reduced by 5% (80 * 0.95)
-    elif price_length <= 7:  # e.g., "1,234,567"
-        prefix_suffix_font_size = 69  # Reduced by 5% (73 * 0.95)
-    else:  # Very long prices
-        prefix_suffix_font_size = 64  # Reduced by 5% (67 * 0.95)
-    
-    log.info(f"Price length: {price_length}, using prefix/suffix font size: {prefix_suffix_font_size}")
-    
-    # Define multipart texts (for text with different sizes in one line)
-    multipart_texts = [
-        {
-            "x": actual_width // 2,  # Center of entire image width
-            "y": banner_y + (banner_height // 2) - 65,  # Center vertically in blue banner, moved up 5px more
-            "parts": [
-                {"text": "來回連稅$", "font_size": prefix_suffix_font_size, "color": (255, 255, 255)}, #smaller this size if display_price is longer
-                {"text": display_price, "font_size": 133, "color": (255, 255, 255)}, #Reduced by 5% (140 * 0.95)
-                {"text": "起", "font_size": prefix_suffix_font_size, "color": (255, 255, 255)}, #smaller this size if display_price is longer
-            ]
-        }
-    ]
-    
-    # Add all regular texts using the new reusable function
-    for text_config in texts_to_add:
-        final_image = draw_text_on_image(
-            final_image,
-            text=text_config['text'],
-            x=text_config['x'],
-            y=text_config['y'],
-            font_size=text_config['font_size'],
-            text_color=text_config['color'],
-            bold=True,
-            center=True
-        )
-    
-    # Add multipart texts using the new reusable function
-    for multipart_config in multipart_texts:
-        final_image = draw_text_on_image(
-            final_image,
-            x=multipart_config["x"],
-            y=multipart_config["y"],
-            multipart=multipart_config["parts"],
-            align_baseline=True,
-            center=True
-        )
-    
-    # Add flyagainla_icon.png to the banner
-    try:
-        icon_path = Path(__file__).parent.parent.parent.parent / "flyagainla_icon.png"
-        if icon_path.exists():
-            icon = Image.open(icon_path).convert("RGBA")  # Convert to RGBA to handle transparency
-            
-            # Resize icon to be appropriately sized for the scenic area (increased by 1/3)
-            icon_height = int(actual_height * 0.11)  # Increased from 0.08 to 0.11 (8% * 1.33)
-            icon_width = int(icon.width * (icon_height / icon.height))
-            icon = icon.resize((icon_width, icon_height), Image.Resampling.LANCZOS)
-            
-            # Position icon in the top-right corner of the entire image with padding
-            padding = 15
-            icon_x = actual_width - icon_width - padding - 10
-            icon_y = padding + 15  # Top of the entire image, not just banner
-            
-            # Paste the icon onto the final image, using its alpha channel for transparency
-            final_image.paste(icon, (icon_x, icon_y), icon)
-            log.info(f"Added flyagainla_icon.png at ({icon_x}, {icon_y}) with size {icon.size}")
-        else:
-            log.warning(f"flyagainla_icon.png not found at {icon_path}")
-    except Exception as e:
-        log.error(f"Failed to add flyagainla_icon.png: {e}")
-    
-    # Add special text with destination name, with border and rotation
-    # Calculate safe positioning to ensure text stays within image bounds
-    # Account for larger font size (120) and rotation
-    safe_margin = 100  # Extra margin to account for rotation and border
-    
-    # Use provided destination or fallback to "東京"
-    display_destination = destination if destination else "東京"
-    
-    # Calculate safe x position for destination text to prevent it from going outside left edge
-    destination_font_size = 160  # Increased by 1/3 (120 * 1.33)
-    destination_font = _load_chinese_font(destination_font_size, bold=True)
-    temp_draw = ImageDraw.Draw(final_image)
-    dest_bbox = temp_draw.textbbox((0, 0), display_destination, font=destination_font)
-    dest_text_width = dest_bbox[2] - dest_bbox[0]
-    
-    # Calculate minimum safe x position (accounting for rotation and border)
-    rotation_margin = int(max(dest_text_width, destination_font_size) * 0.3)  # 30% margin for rotation
-    border_width = 6
-    min_safe_x = rotation_margin + border_width + 50  # Extra 50px buffer
-    
-    # Calculate desired center position
-    desired_center_x = (actual_width // 2) - 100
-    
-    # Use the larger of desired position or minimum safe position
-    safe_dest_center_x = max(desired_center_x, min_safe_x + (dest_text_width // 2))
-    
-    log.info(f"Destination text width: {dest_text_width}, min_safe_x: {min_safe_x}, using center_x: {safe_dest_center_x}")
-    
-    special_text_config = {
-        "text": display_destination, #destination change here
-        "x": safe_dest_center_x,  # Safe center position that keeps text within bounds
-        "y": actual_height // 5,  # Move higher up in the image (was // 3, now // 5)
-        "font_size": 120,
-        "text_color": (122, 40, 156),  # #7a289c color
-        "border_color": (255, 255, 255),  # White border
-        "border_width": 6,
-        "center": True,
-        "bold": True,
-        "rotation_angle": -7  # 10 degrees counter-clockwise (positive value)
-    }
-    
-    # Skip adding the original destination text since we'll add it as part of the combined text
-    # try:
-    #     final_image = _add_special_text_to_image(final_image, special_text_config)
-    #     log.info(f"Successfully added special text '{display_destination}' with border")
-    # except Exception as e:
-    #     log.error(f"Failed to add special text '{display_destination}': {e}")
-    
-    # Add combined text with different styling for destination and promote_text
-    # Extract promote_text from ai_analysis, fallback to default text
-    if ai_analysis and ai_analysis.get("promote_text"):
-        promote_text = ai_analysis.get("promote_text")
-        log.info(f"Using promote_text from AI analysis: {promote_text}")
-    else:
-        promote_text = "多航班及日子選擇！\n凌晨去晚返都有！"
-        log.info("Using default promote_text")
-    
-    # Combine destination and promote_text into one text with different styling
-    # Use \n to separate them visually (reduced spacing)
-    combined_text = f"{display_destination}\n{promote_text}"
-    
-    # Calculate safe x position for the combined text
-    combined_font_size = 160  # Increased by 1/3 (120 * 1.33)
-    combined_font = _load_chinese_font(combined_font_size, bold=True)
-    combined_bbox = temp_draw.textbbox((0, 0), combined_text, font=combined_font)
-    combined_text_width = combined_bbox[2] - combined_bbox[0]
-    
-    # Calculate minimum safe x position for combined text (accounting for rotation and border)
-    combined_rotation_margin = int(max(combined_text_width, combined_font_size) * 0.3)  # 30% margin for rotation
-    combined_border_width = 6
-    min_safe_combined_x = combined_rotation_margin + combined_border_width + 50  # Extra 50px buffer
-    
-    # Use the exact same x position as the destination text for perfect alignment
-    # Calculate the destination's left edge from its safe center position
-    dest_left_edge = safe_dest_center_x - (dest_text_width // 2)
-    
-    # Use the destination's left edge as the x position for all lines
-    combined_text_x = dest_left_edge
-    
-    log.info(f"Combined text: '{combined_text}'")
-    log.info(f"Combined text width: {combined_text_width}, min_safe_x: {min_safe_combined_x}, using combined_text x: {combined_text_x}")
-    
-    # Create custom multiline text with different styling for each line
-    # Split the combined text and handle promote_text's internal line breaks
-    lines = [display_destination] + promote_text.split('\n')
-    
-    try:
-        final_image = draw_text_on_image(
-            final_image,
-            text='\n'.join(lines),
-            x=30,  # X position: 30px from left edge
-            y=110,  # Y position: 110px from top edge
-            rotation_angle=-7,  # Counter-clockwise rotation
-            line_styles=[
-                {
-                    "line_index": 0,  # First line (destination)
-                    "font_size": 160,  # Increased by 1/3 (120 * 1.33)
-                    "text_color": (122, 40, 156),  # Purple color for destination
-                    "border_color": (255, 255, 255),  # White border
-                    "border_width": 8,  # Increased by 1/3 (6 * 1.33)
-                    "bold": True
-                },
-                {
-                    "line_index": 1,  # Second line (first line of promote_text)
-                    "font_size": 47,  # Increased by 1/3 (35 * 1.33)
-                    "text_color": (79, 201, 226),  # Light blue color for promote_text
-                    "border_color": (255, 255, 255),  # White border
-                    "border_width": 5,  # Increased by 1/3 (4 * 1.33)
-                    "bold": True
-                },
-                {
-                    "line_index": 2,  # Third line (second line of promote_text if exists)
-                    "font_size": 47,  # Increased by 1/3 (35 * 1.33)
-                    "text_color": (79, 201, 226),  # Light blue color for promote_text
-                    "border_color": (255, 255, 255),  # White border
-                    "border_width": 5,  # Increased by 1/3 (4 * 1.33)
-                    "bold": True
-                }
-            ]
-        )
-        log.info("Successfully added multiline text with different styles using new reusable function")
-    except Exception as e:
-        log.error(f"Failed to add multiline text: {e}")
-    
-    # # Add third special text "brah brah 2" under "Brah brah 1"
-    # special_text_config_3 = {
-    #     "text": "凌晨去晚返都有！",
-    #     "x": (actual_width // 2) - 150,  # Same horizontal position as "Brah brah 1"
-    #     "y": (actual_height // 5) + 140,  # Under "Brah brah 1" with spacing
-    #     "font_size": 45,
-    #     "text_color": (79, 201, 226),  # #4fc9e2 color
-    #     "border_color": (255, 255, 255),  # White border
-    #     "border_width": 4,
-    #     "center": False,  # Don't center, use exact positioning
-    #     "bold": True,
-    #     "rotation_angle": -7  # Same rotation as others
-    # }
-    
-    # try:
-    #     final_image = _add_special_text_to_image(final_image, special_text_config_3)
-    #     log.info("Successfully added special text 'brah brah 2' with border")
-    # except Exception as e:
-    #     log.error(f"Failed to add special text 'brah brah 2': {e}")
-    
-    # Add thin white rectangular border around the content
-    # Create a new draw object to ensure we're working with the latest image
-    draw = ImageDraw.Draw(final_image)
-    
-    # Define border properties
-    border_width = 8  # Thin border (3 pixels)
-    border_margin = 15  # Small space between image edge and border
-    border_color = (255, 255, 255)  # White
-    
-    # Calculate border coordinates (inset from edges by margin)
-    border_x1 = border_margin
-    border_y1 = border_margin
-    border_x2 = actual_width - border_margin
-    border_y2 = actual_height - border_margin
-    
-    # Draw the border rectangle (outline only, no fill)
-    for i in range(border_width):
-        draw.rectangle(
-            [(border_x1 + i, border_y1 + i), (border_x2 - i, border_y2 - i)],
-            outline=border_color,
-            width=1
-        )
-    
-    log.info(f"Added white border: margin={border_margin}px, width={border_width}px")
-    
-    # Save to bytes
-    output = io.BytesIO()
-    final_image.save(output, format='JPEG', quality=95)
-    output.seek(0)
-    
-    result_bytes = output.getvalue()
-    log.info(f"Saved edited image: {len(result_bytes)} bytes")
-    
+    log.info(f"Completed banner: {len(result_bytes)} bytes")
     return result_bytes
 
 def _parse_color(color_name: str, opacity: float = 1.0) -> tuple:
