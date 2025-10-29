@@ -1,0 +1,267 @@
+<script>
+	import { getContext, createEventDispatcher } from 'svelte';
+	import { filterCities, getLocationCode } from '$lib/utils/cityCodes';
+
+	const i18n = getContext('i18n');
+	const dispatch = createEventDispatcher();
+
+	// Form state
+	let newSearchForm = {
+		departure: '',
+		destination: '',
+		autoSearchTime: '09:00', // Default 9 AM
+		enabled: true
+	};
+
+	// UI state
+	let isAddingSearch = false;
+	let searchError = '';
+
+	// Autocomplete state
+	let departureInput = '';
+	let destinationInput = '';
+	let filteredDepartures = [];
+	let filteredDestinations = [];
+	let showDepartureDropdown = false;
+	let showDestinationDropdown = false;
+
+	// Handle departure input
+	const handleDepartureInput = (e) => {
+		departureInput = e.target.value;
+		newSearchForm.departure = departureInput;
+		filteredDepartures = filterCities(departureInput);
+		showDepartureDropdown = true;
+	};
+
+	// Handle destination input
+	const handleDestinationInput = (e) => {
+		destinationInput = e.target.value;
+		newSearchForm.destination = destinationInput;
+		filteredDestinations = filterCities(destinationInput);
+		showDestinationDropdown = true;
+	};
+
+	// Select departure from dropdown
+	const selectDeparture = (city) => {
+		departureInput = city.display;
+		newSearchForm.departure = city.code;
+		showDepartureDropdown = false;
+	};
+
+	// Select destination from dropdown
+	const selectDestination = (city) => {
+		destinationInput = city.display;
+		newSearchForm.destination = city.code;
+		showDestinationDropdown = false;
+	};
+
+	// Close dropdowns when clicking outside
+	const handleClickOutside = (e) => {
+		if (!e.target.closest('.autocomplete-container')) {
+			showDepartureDropdown = false;
+			showDestinationDropdown = false;
+		}
+	};
+
+	// Add new search configuration
+	const handleAddSearch = async () => {
+		searchError = '';
+		isAddingSearch = true;
+		
+		try {
+			// Validate inputs
+			let originCode = newSearchForm.departure;
+			if (!/^[A-Z]{3}$/i.test(originCode)) {
+				originCode = getLocationCode(newSearchForm.departure);
+			}
+			
+			if (!originCode) {
+				searchError = 'Please enter a valid departure location';
+				isAddingSearch = false;
+				return;
+			}
+			
+			let destinationCode = null;
+			if (newSearchForm.destination) {
+				destinationCode = newSearchForm.destination;
+				if (!/^[A-Z]{3}$/i.test(destinationCode)) {
+					destinationCode = getLocationCode(newSearchForm.destination);
+				}
+			}
+			
+			// Create new search entry
+			const newSearch = {
+				id: Date.now(),
+				departure: originCode,
+				departureDisplay: departureInput,
+				destination: destinationCode,
+				destinationDisplay: destinationInput,
+				autoSearchTime: newSearchForm.autoSearchTime,
+				enabled: newSearchForm.enabled,
+				lastSearched: null,
+				results: null,
+				priceGrid: null,
+				chartData: []
+			};
+			
+			// Emit event to parent component
+			dispatch('addSearch', newSearch);
+			
+			// Reset form
+			newSearchForm = {
+				departure: '',
+				destination: '',
+				autoSearchTime: '09:00',
+				enabled: true
+			};
+			departureInput = '';
+			destinationInput = '';
+			
+		} catch (error) {
+			console.error('Error adding search:', error);
+			searchError = error.message || 'Failed to add search';
+		} finally {
+			isAddingSearch = false;
+		}
+	};
+</script>
+
+<svelte:window on:click={handleClickOutside} />
+
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+	<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+		Add New Auto Search
+	</h2>
+
+	<!-- Error Display -->
+	{#if searchError}
+		<div class="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+			<div class="flex">
+				<svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+				</svg>
+				<div class="ml-3">
+					<h3 class="text-sm font-medium text-red-800 dark:text-red-200">
+						Error
+					</h3>
+					<div class="mt-2 text-sm text-red-700 dark:text-red-300">
+						{searchError}
+					</div>
+				</div>
+			</div>
+		</div>
+	{/if}
+	
+	<form on:submit|preventDefault={handleAddSearch} class="space-y-6">
+		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+			<!-- Departure -->
+			<div class="autocomplete-container relative">
+				<label for="departure" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					{$i18n.t('Departure')}
+				</label>
+				<input
+					id="departure"
+					type="text"
+					class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+					placeholder="e.g., Hong Kong, 香港, HKG..."
+					value={departureInput}
+					on:input={handleDepartureInput}
+					on:focus={() => {
+						filteredDepartures = filterCities(departureInput);
+						showDepartureDropdown = true;
+					}}
+					autocomplete="off"
+					required
+				/>
+				{#if showDepartureDropdown && filteredDepartures.length > 0}
+					<div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+						{#each filteredDepartures as city}
+							<button
+								type="button"
+								class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-900 dark:text-gray-100"
+								on:click={() => selectDeparture(city)}
+							>
+								{city.display}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+
+			<!-- Destination -->
+			<div class="autocomplete-container relative">
+				<label for="destination" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					{$i18n.t('Destination')}
+				</label>
+				<input
+					id="destination"
+					type="text"
+					class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+					placeholder="e.g., Seoul, Tokyo, 首爾..."
+					value={destinationInput}
+					on:input={handleDestinationInput}
+					on:focus={() => {
+						filteredDestinations = filterCities(destinationInput);
+						showDestinationDropdown = true;
+					}}
+					autocomplete="off"
+				/>
+				{#if showDestinationDropdown && filteredDestinations.length > 0}
+					<div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+						{#each filteredDestinations as city}
+							<button
+								type="button"
+								class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-900 dark:text-gray-100"
+								on:click={() => selectDestination(city)}
+							>
+								{city.display}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+
+			<!-- Auto Search Time -->
+			<div>
+				<label for="auto-search-time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					Daily Search Time
+				</label>
+				<input
+					id="auto-search-time"
+					type="time"
+					class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+					bind:value={newSearchForm.autoSearchTime}
+					required
+				/>
+				<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+					Search will run automatically every day at this time
+				</p>
+			</div>
+		</div>
+
+		<!-- Action Button -->
+		<div class="flex gap-4 pt-4">
+			<button
+				type="submit"
+				class="flex-1 bg-black hover:bg-gray-800 text-white font-medium py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+				disabled={isAddingSearch}
+			>
+				{#if isAddingSearch}
+					<div class="flex items-center justify-center">
+						<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+						</svg>
+						Adding...
+					</div>
+				{:else}
+					<svg class="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+					</svg>
+					Add Auto Search
+				{/if}
+			</button>
+		</div>
+	</form>
+</div>
+
