@@ -6,7 +6,7 @@
 // Default configuration values
 const DEFAULT_CONFIG = {
 	// API Base URLs
-	BASE_URL: 'https://test.api.amadeus.com',
+	BASE_URL: 'https://api.amadeus.com',
 	
 	// API Credentials (will be overridden by environment variables)
 	API_KEY: '',
