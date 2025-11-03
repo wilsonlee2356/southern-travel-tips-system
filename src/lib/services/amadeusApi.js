@@ -136,30 +136,73 @@ class AmadeusApiService {
 
 			const token = await this.getAccessToken();
 
-			// Build query parameters
-			const queryParams = new URLSearchParams({
+			// For flexible dates, use POST body with originDestinations and dateWindow (±3 days)
+			// Ref: https://developers.amadeus.com/self-service/category/flights/api-doc/flight-offers-search/api-reference
+			const originDestinations = [];
+			const outbound = {
+				id: '1',
 				originLocationCode: searchParams.originLocationCode,
 				destinationLocationCode: searchParams.destinationLocationCode,
-				departureDate: searchParams.departureDate,
-				adults: searchParams.adults || this.config.DEFAULT_ADULTS,
-				travelClass: searchParams.travelClass || this.config.DEFAULT_TRAVEL_CLASS,
-				max: searchParams.max || this.config.DEFAULT_MAX_RESULTS,
-			});
-
-			// Add return date if provided
+				departureDateTimeRange: {
+					date: searchParams.departureDate,
+					dateWindow: 'P3D'
+				}
+			};
+			originDestinations.push(outbound);
 			if (searchParams.returnDate) {
-				queryParams.append('returnDate', searchParams.returnDate);
+				originDestinations.push({
+					id: '2',
+					originLocationCode: searchParams.destinationLocationCode,
+					destinationLocationCode: searchParams.originLocationCode,
+					departureDateTimeRange: {
+						date: searchParams.returnDate,
+						dateWindow: 'P3D'
+					}
+				});
 			}
 
-			const requestUrl = `${this.config.BASE_URL}/v2/shopping/flight-offers?${queryParams}`;
-			console.log('Amadeus API Request URL:', requestUrl);
+			const travelers = [
+				{ id: '1', travelerType: 'ADULT' }
+			];
+
+			const maxFlightOffers = searchParams.max || this.config.DEFAULT_MAX_RESULTS;
+			console.log(`Setting maxFlightOffers: ${maxFlightOffers} (searchParams.max=${searchParams.max}, config.DEFAULT_MAX_RESULTS=${this.config.DEFAULT_MAX_RESULTS})`);
+			
+			const searchCriteria = {
+				maxFlightOffers: maxFlightOffers
+			};
+
+			// Map travelClass if provided
+			if (searchParams.travelClass) {
+				searchCriteria.flightFilters = {
+					cabinRestrictions: [
+						{
+							cabin: (searchParams.travelClass || 'ECONOMY'),
+							coverage: 'MOST_SEGMENTS',
+							originDestinationIds: originDestinations.map(od => od.id)
+						}
+					]
+				};
+			}
+
+			const body = {
+				currencyCode: 'HKD',
+				originDestinations,
+				travelers,
+				sources: ['GDS'],
+				searchCriteria
+			};
+
+			const requestUrl = `${this.config.BASE_URL}/v2/shopping/flight-offers`;
+			console.log('Amadeus API Request URL (POST flex):', requestUrl, body);
 
 			const response = await fetch(requestUrl, {
-				method: 'GET',
+				method: 'POST',
 				headers: {
 					'Authorization': `Bearer ${token}`,
 					'Content-Type': 'application/json',
 				},
+				body: JSON.stringify(body)
 			});
 
 			console.log('Amadeus API Response Status:', response.status, response.statusText);
@@ -184,7 +227,11 @@ class AmadeusApiService {
 			}
 
 			const data = await response.json();
-			console.log('Amadeus API Response Data:', data);
+			const resultCount = data?.data?.length || 0;
+			console.log(`Amadeus API Response: ${resultCount} flight offers returned (requested maxFlightOffers: ${maxFlightOffers})`);
+			if (data?.data) {
+				console.log('Amadeus API Response Data:', data);
+			}
 			return data;
 		} catch (error) {
 			console.error('Error searching flights:', error);
@@ -287,6 +334,7 @@ class AmadeusApiService {
 			}
 
 			console.log('Calling Amadeus Flight Cheapest Date Search API...');
+			console.log('Environment: PRODUCTION (api.amadeus.com)');
 			console.log('Endpoint:', `${this.config.BASE_URL}/v1/shopping/flight-dates`);
 			console.log('Query params:', queryParams.toString());
 
@@ -309,6 +357,7 @@ class AmadeusApiService {
 				// Check if it's a "no results" response (valid, just no flights found)
 				if (response.status === 404 && errorData.errors?.[0]?.detail === 'No response found for this query') {
 					console.log('No flights found for this search criteria');
+					console.log('Note: This route/date combination may not have data available in the API.');
 					return { data: [], meta: { count: 0 } }; // Return empty results
 				}
 				
@@ -352,11 +401,15 @@ class AmadeusApiService {
 			// Extract basic information
 			const departureDate = dateOffer.departureDate;
 			const returnDate = dateOffer.returnDate;
-			const priceEuro = parseFloat(dateOffer.price?.total || 0);
-			
-			// Convert EUR to HKD
+			const rawTotal = parseFloat(dateOffer.price?.total || 0);
+			const apiCurrency = (dateOffer.price?.currency || '').toUpperCase();
 			const EUR_TO_HKD = 9.02;
-			const priceHKD = Math.ceil(priceEuro * EUR_TO_HKD);
+			let price = Math.ceil(rawTotal);
+			let currency = apiCurrency || 'EUR';
+			if (apiCurrency === 'EUR') {
+				price = Math.ceil(rawTotal * EUR_TO_HKD);
+				currency = 'HKD';
+			}
 
 			// Get origin and destination from the response
 			const origin = dateOffer.origin;
@@ -373,8 +426,8 @@ class AmadeusApiService {
 				originChinese,
 				destination,
 				destinationChinese,
-				priceEUR: priceEuro,
-				priceHKD: priceHKD
+				apiCurrency,
+				price
 			});
 
 			return {
@@ -385,9 +438,8 @@ class AmadeusApiService {
 				originName: originChinese,
 				destination: destination,
 				destinationName: destinationChinese,
-				price: priceHKD,
-				priceEuro: priceEuro,
-				currency: 'HKD',
+				price: price,
+				currency: currency,
 				// Additional fields from the response
 				links: dateOffer.links || null
 			};
@@ -443,14 +495,32 @@ class AmadeusApiService {
 			const firstSegment = segments[0];
 			const lastSegment = segments[segments.length - 1];
 
+			// Derive return date if round-trip itinerary exists
+			let returnDate = null;
+			if (offer.itineraries && offer.itineraries.length > 1) {
+				const returnItinerary = offer.itineraries[1];
+				if (returnItinerary && returnItinerary.segments && returnItinerary.segments.length > 0) {
+					const returnFirstSegment = returnItinerary.segments[0];
+					if (returnFirstSegment && returnFirstSegment.departure && returnFirstSegment.departure.at) {
+						returnDate = returnFirstSegment.departure.at.split('T')[0];
+					}
+				}
+			}
+
 			// Get airline information
 			const airlineCode = firstSegment.carrierCode;
 			const airlineName = this.getAirlineName(airlineCode);
 
-			// Calculate total price and convert to HKD
-			const totalPriceEuro = parseFloat(offer.price.total);
+			// Calculate total price and apply conversion only if needed
+			const rawTotal = parseFloat(offer.price.total);
+			const apiCurrency = (offer.price.currency || '').toUpperCase();
 			const EUR_TO_HKD = 9.02; // Exchange rate
-			const totalPriceHKD = Math.ceil(totalPriceEuro * EUR_TO_HKD); // Round up to integer
+			let cost = Math.ceil(rawTotal);
+			let currency = apiCurrency || 'EUR';
+			if (apiCurrency === 'EUR') {
+				cost = Math.ceil(rawTotal * EUR_TO_HKD);
+				currency = 'HKD';
+			}
 
 			// Get travel class
 			const travelClass = this.mapTravelClass(offer.travelerPricings[0].fareOption);
@@ -461,17 +531,7 @@ class AmadeusApiService {
 			const startingPlaceChinese = this.getCityName(startingPlaceCode);
 			const destinationChinese = this.getCityName(destinationCode);
 
-			console.log(`Flight ${index + 1} transformation:`, {
-				airlineCode,
-				airlineName,
-				startingPlaceCode,
-				startingPlaceChinese,
-				destinationCode,
-				destinationChinese,
-				travelClass,
-				priceEUR: totalPriceEuro,
-				priceHKD: totalPriceHKD
-			});
+			// Removed verbose per-flight transformation logging
 
 			return {
 				id: `amadeus_${index}`,
@@ -481,13 +541,14 @@ class AmadeusApiService {
 				startingPlaceCode: startingPlaceCode,
 				destination: destinationChinese,
 				destinationCode: destinationCode,
-				cost: totalPriceHKD,
-				currency: 'HKD',
+				cost: cost,
+				currency: currency,
 				seatClass: travelClass,
 				departureDate: firstSegment.departure.at.split('T')[0],
 				departureTime: firstSegment.departure.at.split('T')[1].substring(0, 5),
 				arrivalDate: lastSegment.arrival.at.split('T')[0],
 				arrivalTime: lastSegment.arrival.at.split('T')[1].substring(0, 5),
+				returnDate: returnDate,
 				ticketValidDate: lastSegment.arrival.at.split('T')[0],
 				duration: this.formatDuration(itinerary.duration),
 				segments: segments.length,

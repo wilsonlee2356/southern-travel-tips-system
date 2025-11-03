@@ -11,6 +11,96 @@
 	export let selectedModel = null;
 	export let loadingSearches = new Set();
 
+// Airline tabs (group results by airline)
+let selectedAirline = null;
+$: airlineGroups = selectedSearch && selectedSearch.results
+    ? selectedSearch.results.reduce((acc, f) => {
+        const key = f.airline || f.airlineCode || 'Unknown';
+        (acc[key] ||= []).push(f);
+        return acc;
+      }, {})
+    : {};
+$: airlineList = Object.keys(airlineGroups);
+$: airlineListWithAll = ['All', ...airlineList];
+$: selectedAirline = selectedAirline || (airlineListWithAll[0] || null);
+	
+	// Filter flights by selected airline
+$: currentFlights = selectedAirline && selectedAirline !== 'All' ? (airlineGroups[selectedAirline] || []) : [];
+	
+	// Build price grid from flights (cheapest for each departure/return date pair)
+	function buildPriceGrid(flights) {
+		if (!flights || flights.length === 0) return null;
+		const depSet = new Set();
+		const retSet = new Set();
+		const cells = {};
+		let cheapest = Infinity;
+		
+		for (const f of flights) {
+			const dep = f.departureDate;
+			const ret = f.returnDate || f.arrivalDate;
+			if (!dep || !ret) continue;
+			depSet.add(dep);
+			retSet.add(ret);
+			const key = `${dep}_${ret}`;
+			const price = Number(f.cost || f.price || 0);
+			if (!cells[key] || price < cells[key].price) {
+				cells[key] = { price, flight: f };
+			}
+			if (price > 0 && price < cheapest) cheapest = price;
+		}
+		
+		const departureDates = Array.from(depSet).sort();
+		const returnDates = Array.from(retSet).sort();
+		return {
+			departureDates,
+			returnDates,
+			cells,
+			cheapestPrice: isFinite(cheapest) ? cheapest : null
+		};
+	}
+	
+	// Build chart data (cheapest per day)
+	function buildChartData(flights) {
+		if (!flights || flights.length === 0) return [];
+		const byDay = new Map();
+		for (const f of flights) {
+			const day = f.departureDate;
+			if (!day) continue;
+			const price = Number(f.cost || f.price || 0);
+			const prev = byDay.get(day);
+			if (!prev || price < prev.price) {
+				byDay.set(day, { date: day, price, flight: f });
+			}
+		}
+		return Array.from(byDay.values()).sort((a, b) => a.date.localeCompare(b.date));
+	}
+	
+	$: currentPriceGrid = buildPriceGrid(currentFlights);
+	$: currentChartData = buildChartData(currentFlights);
+
+// Aggregate series for "All" tab (cheapest per day per airline)
+$: allAirlineSeries = Object.entries(airlineGroups).map(([airline, flights]) => ({
+    airline,
+    data: buildChartData(flights)
+}));
+$: allDates = Array.from(new Set(allAirlineSeries.flatMap(s => s.data.map(d => d.date)))).sort();
+
+function colorForIndex(index) {
+    const palette = [
+        '#2563eb', // blue-600
+        '#16a34a', // green-600
+        '#dc2626', // red-600
+        '#7c3aed', // purple-600
+        '#ca8a04', // yellow-600
+        '#0891b2', // cyan-600
+        '#ea580c', // orange-600
+        '#0ea5e9', // sky-500
+        '#f43f5e', // rose-500
+        '#10b981'  // emerald-500
+    ];
+    return palette[index % palette.length];
+}
+
 	// Format date for grid display
 	const formatGridDate = (dateString) => {
 		const date = new Date(dateString);
@@ -87,21 +177,118 @@
 		</div>
 
 		<!-- Search Results -->
-		{#if selectedSearch.results && selectedSearch.results.length > 0}
+		{#if selectedSearch && loadingSearches.has(selectedSearch.id)}
+			<!-- Loading Screen (only covers the results box) -->
+			<div class="text-center py-12">
+				<svg class="animate-spin mx-auto h-12 w-12 text-blue-500 mb-4" fill="none" viewBox="0 0 24 24">
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+					<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+				</svg>
+				<p class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+					Searching flights...
+				</p>
+			</div>
+		{:else if selectedSearch && selectedSearch.results && selectedSearch.results.length > 0}
+			<!-- Airline Tabs -->
+			{#if airlineListWithAll && airlineListWithAll.length > 0}
+				<div class="mb-4 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+					<div class="flex gap-2 w-max">
+						{#each airlineListWithAll as airline}
+							<button
+								class="px-5 py-3 text-sm rounded-t-md border-b-2 transition-colors min-w-[140px] whitespace-nowrap {selectedAirline === airline ? 'border-black text-black dark:border-white dark:text-white' : 'border-transparent text-gray-600 hover:text-black dark:text-gray-300 dark:hover:text-white'}"
+								on:click={() => selectedAirline = airline}
+							>
+								{airline}
+							</button>
+						{/each}
+                    </div>
+                </div>
+            {/if}
 			<!-- Grid and Chart Container (Vertical Layout) -->
-			<div class="space-y-6 mb-4">
+			{#if selectedAirline === 'All'}
+				<!-- Multi-line chart for all airlines -->
+				{#if allAirlineSeries && allAirlineSeries.length > 0 && allDates.length > 0}
+					{@const allMaxPrice = Math.max(...allAirlineSeries.flatMap(s => s.data.map(d => Number(d.price) || 0)))}
+					{@const allMinPrice = Math.min(...allAirlineSeries.flatMap(s => s.data.map(d => Number(d.price) || 0)))}
+					{@const yMaxAll = Math.max(Math.ceil(allMaxPrice * 1.4), 1)}
+					{@const chartHeight = 250}
+                    {@const stepX = 40}
+					{@const chartWidth = allDates.length * stepX}
+					{@const labelHeight = 80}
+
+					<div class="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4 mb-4">
+						<h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">All Airlines — {allDates.length} days</h4>
+                    <div class="relative overflow-x-auto bg-blue-50 dark:bg-gray-900 p-4 rounded-lg">
+							<svg
+								width="100%"
+								height={chartHeight + labelHeight}
+								viewBox={`0 0 ${chartWidth + 60} ${chartHeight + labelHeight}`}
+                            class="w-full"
+                            style={`min-width: ${chartWidth + 60}px;`}
+                        >
+								<!-- Axes grid -->
+								<line x1="50" y1="0" x2={chartWidth + 50} y2="0" stroke="#e5e7eb" stroke-width="1" />
+								<line x1="50" y1={chartHeight / 2} x2={chartWidth + 50} y2={chartHeight / 2} stroke="#e5e7eb" stroke-width="1" stroke-dasharray="4" />
+								<line x1="50" y1={chartHeight} x2={chartWidth + 50} y2={chartHeight} stroke="#e5e7eb" stroke-width="1" />
+
+								<!-- Y labels -->
+								<text x="5" y="20" class="text-xs fill-gray-600 dark:fill-gray-400" text-anchor="start">${yMaxAll}</text>
+								<text x="5" y={chartHeight / 2} class="text-xs fill-gray-600 dark:fill-gray-400" text-anchor="start">${Math.ceil(yMaxAll / 2)}</text>
+								<text x="5" y={chartHeight - 10} class="text-xs fill-gray-600 dark:fill-gray-400" text-anchor="start">$0</text>
+
+								<!-- X labels (dates) -->
+								{#each allDates as dateStr, idx}
+									{@const x = 50 + idx * stepX}
+									{@const date = new Date(dateStr)}
+									<text x={x} y={chartHeight + 20} class="text-xs fill-gray-600 dark:fill-gray-400" text-anchor="middle" transform={`rotate(-45 ${x} ${chartHeight + 20})`}>
+										{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+									</text>
+								{/each}
+
+								<!-- Lines per airline -->
+								{#each allAirlineSeries as series, si}
+									{@const color = colorForIndex(si)}
+									{@const points = series.data
+										.sort((a,b) => a.date.localeCompare(b.date))
+										.map(d => {
+											const idx = allDates.indexOf(d.date);
+											const x = 50 + idx * stepX;
+											const price = Number(d.price) || 0;
+									const hRaw = (price / yMaxAll) * chartHeight;
+											const h = isNaN(hRaw) || hRaw < 0 ? 0 : hRaw;
+											const y = chartHeight - h;
+											return `${x},${y}`;
+										}).join(' ')}
+									<polyline points={points} fill="none" stroke={color} stroke-width="2" />
+								{/each}
+							</svg>
+						</div>
+
+						<!-- Legend -->
+						<div class="mt-3 flex flex-wrap gap-3">
+							{#each allAirlineSeries as series, si}
+								<div class="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
+									<span class="inline-block w-3 h-3 rounded-sm" style={`background-color: ${colorForIndex(si)}`}></span>
+									{series.airline}
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			{:else}
+				<div class="space-y-6 mb-4">
 				<!-- Price Grid Calendar -->
-				{#if selectedSearch.priceGrid}
+				{#if currentPriceGrid}
 					<div class="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4">
 						<h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-							Price Calendar
+							Price Calendar — {selectedAirline}
 						</h4>
 						<div class="overflow-x-auto">
 							<table class="border-collapse w-full text-xs">
 								<thead>
 									<tr>
 										<th class="border border-gray-300 dark:border-gray-600 px-2 py-1 bg-gray-50 dark:bg-gray-700 text-xs"></th>
-										{#each selectedSearch.priceGrid.departureDates as depDate}
+										{#each currentPriceGrid.departureDates as depDate}
 											<th class="border border-gray-300 dark:border-gray-600 px-2 py-1 bg-gray-50 dark:bg-gray-700 text-xs text-center">
 												{new Date(depDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
 											</th>
@@ -109,16 +296,16 @@
 									</tr>
 								</thead>
 								<tbody>
-									{#each selectedSearch.priceGrid.returnDates as retDate}
+									{#each currentPriceGrid.returnDates as retDate}
 										<tr>
 											<td class="border border-gray-300 dark:border-gray-600 px-2 py-1 bg-gray-50 dark:bg-gray-700 text-xs text-center">
 												{new Date(retDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
 											</td>
-											{#each selectedSearch.priceGrid.departureDates as depDate}
+											{#each currentPriceGrid.departureDates as depDate}
 												{@const key = `${depDate}_${retDate}`}
-												{@const cell = selectedSearch.priceGrid.cells[key]}
-												{@const isCheapest = cell && cell.price === selectedSearch.priceGrid.cheapestPrice}
-												{@const isHighPrice = cell && cell.price > selectedSearch.priceGrid.cheapestPrice * 2}
+												{@const cell = currentPriceGrid.cells[key]}
+												{@const isCheapest = cell && currentPriceGrid.cheapestPrice && (cell.price === currentPriceGrid.cheapestPrice)}
+												{@const isHighPrice = cell && currentPriceGrid.cheapestPrice && (cell.price > currentPriceGrid.cheapestPrice * 2)}
 												
 												<td 
 													class="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center cursor-pointer transition-colors text-xs
@@ -150,35 +337,31 @@
 				{/if}
 				
 				<!-- Price Bar Chart -->
-				{#if selectedSearch.chartData && selectedSearch.chartData.length > 0}
-					{@const maxPrice = Math.max(...selectedSearch.chartData.map(d => d.price))}
-					{@const minPrice = Math.min(...selectedSearch.chartData.map(d => d.price))}
-					{@const priceRange = maxPrice - minPrice}
+				{#if currentChartData && currentChartData.length > 0}
+				{@const maxPrice = Math.max(...currentChartData.map(d => Number(d.price) || 0))}
+				{@const yMax = Math.max(Math.ceil(maxPrice * 1.4), 1)}
 					{@const chartHeight = 250}
 					{@const barWidth = 8}
-					{@const barGap = 2}
-					{@const chartWidth = selectedSearch.chartData.length * (barWidth + barGap)}
+					{@const barGap = 20}
+					{@const chartWidth = currentChartData.length * (barWidth + barGap)}
+					{@const labelHeight = 80}
 					
 					<div class="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4">
 						<h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-							Price Graph ({selectedSearch.chartData.length} days)
+							Price Graph — {selectedAirline} ({currentChartData.length} days)
 						</h4>
 						
 						<div class="relative overflow-x-auto bg-blue-50 dark:bg-gray-900 p-4 rounded-lg">
 							<svg 
 								width="100%" 
-								height={chartHeight + 60}
-								viewBox="0 0 {chartWidth + 60} {chartHeight + 60}"
+								height={chartHeight + labelHeight}
+								viewBox="0 0 {chartWidth + 60} {chartHeight + labelHeight}"
 								class="w-full"
 								style="min-width: {chartWidth + 60}px;"
 							>
 								<!-- Y-axis labels -->
-								<text x="5" y="20" class="text-xs fill-gray-600 dark:fill-gray-400" text-anchor="start">
-									${Math.ceil(maxPrice)}
-								</text>
-								<text x="5" y={chartHeight / 2} class="text-xs fill-gray-600 dark:fill-gray-400" text-anchor="start">
-									${Math.ceil(maxPrice / 2)}
-								</text>
+					<text x="5" y="20" class="text-xs fill-gray-600 dark:fill-gray-400" text-anchor="start">${yMax}</text>
+					<text x="5" y={chartHeight / 2} class="text-xs fill-gray-600 dark:fill-gray-400" text-anchor="start">${Math.ceil(yMax / 2)}</text>
 								<text x="5" y={chartHeight - 10} class="text-xs fill-gray-600 dark:fill-gray-400" text-anchor="start">
 									$0
 								</text>
@@ -189,10 +372,12 @@
 								<line x1="50" y1={chartHeight} x2={chartWidth + 50} y2={chartHeight} stroke="#e5e7eb" stroke-width="1" />
 								
 								<!-- Bars -->
-								{#each selectedSearch.chartData as data, i}
-									{@const barHeight = ((data.price - minPrice) / priceRange) * chartHeight}
+								{#each currentChartData as data, i}
+					{@const price = Number(data.price) || 0}
+					{@const calculatedHeight = (price / yMax) * chartHeight}
+									{@const barHeight = isNaN(calculatedHeight) || calculatedHeight < 0 ? 10 : Math.max(calculatedHeight, 10)}
 									{@const x = 50 + i * (barWidth + barGap)}
-									{@const y = chartHeight - barHeight}
+									{@const y = isNaN(chartHeight - barHeight) ? chartHeight - 10 : Math.max(0, chartHeight - barHeight)}
 									{@const isHovered = hoveredBar === i}
 									
 									<rect
@@ -208,38 +393,28 @@
 										on:mouseleave={handleBarLeave}
 									/>
 									
-									<!-- Date labels at intervals -->
-									{#if i % 7 === 0}
-										{@const date = new Date(data.date)}
-										<text 
-											x={x - 10} 
-											y={chartHeight + 20} 
-											class="text-xs fill-gray-600 dark:fill-gray-400"
-											text-anchor="start"
-										>
-											{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-										</text>
-									{/if}
+									<!-- Date labels for each departure date -->
+									{@const date = new Date(data.date)}
+									{@const labelX = x + barWidth / 2}
+									{@const labelY = chartHeight + 20}
+									<text 
+										x={labelX} 
+										y={labelY} 
+										class="text-xs fill-gray-600 dark:fill-gray-400"
+										text-anchor="middle"
+										transform={`rotate(-45 ${labelX} ${labelY})`}
+									>
+										{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+									</text>
 								{/each}
 								
-								<!-- Month labels -->
-								{#if selectedSearch.chartData.length > 0}
-									{@const firstDate = new Date(selectedSearch.chartData[0].date)}
-									{@const lastDate = new Date(selectedSearch.chartData[selectedSearch.chartData.length - 1].date)}
-									<text x={50 + chartWidth / 4} y={chartHeight + 45} class="text-sm fill-gray-700 dark:fill-gray-300 font-medium">
-										{firstDate.toLocaleDateString('en-US', { month: 'long' })}
-									</text>
-									{#if firstDate.getMonth() !== lastDate.getMonth()}
-										<text x={50 + chartWidth * 3 / 4} y={chartHeight + 45} class="text-sm fill-gray-700 dark:fill-gray-300 font-medium">
-											{lastDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-										</text>
-									{/if}
-								{/if}
+								<!-- Month labels (optional - dates are already shown) -->
 							</svg>
 						</div>
 					</div>
 				{/if}
 			</div>
+			{/if}
 			
 			<!-- Selected Flights List -->
 			{#if selectedFlights.length > 0}

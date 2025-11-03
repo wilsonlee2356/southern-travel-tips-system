@@ -1,7 +1,7 @@
 <script>
 	import { mobile, showSidebar, user, showArchivedChats, models } from '$lib/stores';
 	import { getContext, onMount } from 'svelte';
-	import { amadeusApi } from '$lib/services/amadeusApi.js';
+	import googleFlightsApi from '$lib/services/googleApi.js';
 
 	const i18n = getContext('i18n');
 
@@ -97,31 +97,97 @@
 		loadingSearches = loadingSearches; // Trigger reactivity
 		
 		try {
-			// Build search parameters
+			// Build search parameters - only include parameters that have values
 			const searchParams = {
 				originLocationCode: search.departure,
 			};
 
-			if (search.destination) {
+			// Add destination if provided
+			if (search.destination && typeof search.destination === 'string' && search.destination.trim() !== '') {
 				searchParams.destinationLocationCode = search.destination;
+			}
+			
+			// Add departure date if provided
+			if (search.departureDate && typeof search.departureDate === 'string' && search.departureDate.trim() !== '') {
+				searchParams.departureDate = search.departureDate;
+			}
+			
+			// Add oneWay only if explicitly set to true
+			if (search.oneWay === true) {
+				searchParams.oneWay = true;
+			}
+			
+			// Add duration if provided and valid (stored as number or string)
+			if (search.duration !== null && search.duration !== undefined && search.duration !== '') {
+				const durationNum = typeof search.duration === 'number' ? search.duration : parseInt(search.duration);
+				if (!isNaN(durationNum) && durationNum > 0 && durationNum <= 15) {
+					searchParams.duration = durationNum;
+				}
+			}
+			
+			// Add nonStop only if explicitly set to true
+			if (search.nonStop === true) {
+				searchParams.nonStop = true;
+			}
+			
+			// Add viewBy if provided (default is 'DATE', so always include it)
+			if (search.viewBy && typeof search.viewBy === 'string' && search.viewBy.trim() !== '') {
+				searchParams.viewBy = search.viewBy;
+			}
+			
+			// Add maxPrice if provided and valid (stored as number or string)
+			if (search.maxPrice !== null && search.maxPrice !== undefined && search.maxPrice !== '') {
+				const priceNum = typeof search.maxPrice === 'number' ? search.maxPrice : parseFloat(search.maxPrice);
+				if (!isNaN(priceNum) && priceNum > 0) {
+					searchParams.maxPrice = priceNum;
+				}
 			}
 			
 			console.log(`Running search ${searchId}:`, searchParams);
 
-			// Call the cheapest date search API
-			const amadeusResponse = await amadeusApi.searchCheapestDates(searchParams);
-			
-			// Transform the results
-			const transformedResults = amadeusApi.transformCheapestDateData(amadeusResponse);
-			
-			// Build price grid and chart data
-			const priceGrid = buildPriceGrid(transformedResults);
-			const chartData = buildChartData(transformedResults);
+            // Use dates directly from search (YYYY-MM-DD format)
+            const departureDate = search.departureDate;
+            const returnDate = search.oneWay ? null : (search.returnDate || null);
+
+            // Call Google Flights API (SerpApi)
+            // Ensure required params: departure_id, arrival_id, outbound_date
+            if (!searchParams.originLocationCode) {
+                throw new Error('Departure airport/city code is required');
+            }
+            if (!searchParams.destinationLocationCode) {
+                throw new Error('Arrival airport/city code is required');
+            }
+            if (!departureDate) {
+                throw new Error('Departure date is required');
+            }
+
+            const googleFlightsParams = {
+                departure_id: searchParams.originLocationCode,
+                arrival_id: searchParams.destinationLocationCode,
+                outbound_date: departureDate,
+                adults: search.adults && Number(search.adults) > 0 ? Number(search.adults) : 1,
+                currency: 'HKD' // Set currency to HKD
+            };
+
+            if (returnDate && !search.oneWay) {
+                googleFlightsParams.return_date = returnDate;
+            }
+
+            // Make API call to Google Flights API
+            const response = await googleFlightsApi.searchFlights(googleFlightsParams);
+            console.log('Google Flights API raw response:', response);
+            
+            const transformed = googleFlightsApi.transformFlightData(response);
+            console.log('Google Flights transformed results:', transformed);
+            
+            // Group results by airline for display
+            const priceGrid = null;
+            const chartData = [];
 			
 			// Update the search with results
 			savedSearches[searchIndex] = {
 				...search,
-				results: transformedResults,
+                results: transformed,
 				priceGrid: priceGrid,
 				chartData: chartData,
 				lastSearched: new Date().toISOString()

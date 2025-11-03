@@ -9,7 +9,12 @@
 	let newSearchForm = {
 		departure: '',
 		destination: '',
-		autoSearchTime: '09:00', // Default 9 AM
+		departureDate: '', // YYYY-MM-DD (required)
+		returnDate: '', // YYYY-MM-DD (optional; ignored if oneWay)
+		adults: 1,
+		travelClass: 'ECONOMY',
+		oneWay: false, // One-way trip
+		nonStop: false, // Direct flights only
 		enabled: true
 	};
 
@@ -96,7 +101,12 @@
 				departureDisplay: departureInput,
 				destination: destinationCode,
 				destinationDisplay: destinationInput,
-				autoSearchTime: newSearchForm.autoSearchTime,
+				departureDate: newSearchForm.departureDate || null,
+				returnDate: newSearchForm.oneWay ? null : (newSearchForm.returnDate || null),
+				adults: Number(newSearchForm.adults) || 1,
+				travelClass: newSearchForm.travelClass || 'ECONOMY',
+				oneWay: newSearchForm.oneWay,
+				nonStop: newSearchForm.nonStop,
 				enabled: newSearchForm.enabled,
 				lastSearched: null,
 				results: null,
@@ -111,7 +121,12 @@
 			newSearchForm = {
 				departure: '',
 				destination: '',
-				autoSearchTime: '09:00',
+				departureDate: '',
+				returnDate: '',
+				adults: 1,
+				travelClass: 'ECONOMY',
+				oneWay: false,
+				nonStop: false,
 				enabled: true
 			};
 			departureInput = '';
@@ -157,7 +172,7 @@
 			<!-- Departure -->
 			<div class="autocomplete-container relative">
 				<label for="departure" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-					{$i18n.t('Departure')}
+					{$i18n.t('Departure')} <span class="text-red-500">*</span>
 				</label>
 				<input
 					id="departure"
@@ -191,7 +206,7 @@
 			<!-- Destination -->
 			<div class="autocomplete-container relative">
 				<label for="destination" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-					{$i18n.t('Destination')}
+					{$i18n.t('Destination')} <span class="text-red-500">*</span>
 				</label>
 				<input
 					id="destination"
@@ -221,22 +236,117 @@
 				{/if}
 			</div>
 
-			<!-- Auto Search Time -->
+			<!-- Days/Months until Departure -->
 			<div>
-				<label for="auto-search-time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-					Daily Search Time
+				<label for="departure-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					Departure Date <span class="text-red-500">*</span>
 				</label>
 				<input
-					id="auto-search-time"
-					type="time"
+					id="departure-date"
+					type="date"
 					class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-					bind:value={newSearchForm.autoSearchTime}
+					bind:value={newSearchForm.departureDate}
 					required
 				/>
-				<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-					Search will run automatically every day at this time
-				</p>
 			</div>
+            <!-- Return Date (ignored for one-way) -->
+            <div class="{newSearchForm.oneWay ? 'opacity-50 pointer-events-none' : ''}">
+                <label for="return-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Return Date
+                </label>
+                <input
+                    id="return-date"
+                    type="date"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+                    bind:value={newSearchForm.returnDate}
+                    disabled={newSearchForm.oneWay}
+                />
+            </div>
+
+            <!-- Adults -->
+            <div>
+                <label for="adults" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Adults
+                </label>
+                <input
+                    id="adults"
+                    type="number"
+                    min="1"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+                    bind:value={newSearchForm.adults}
+                />
+            </div>
+
+            <!-- Travel Class -->
+            <div>
+                <label for="travel-class" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Travel Class
+                </label>
+                <select
+                    id="travel-class"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+                    bind:value={newSearchForm.travelClass}
+                >
+                    <option value="ECONOMY">Economy</option>
+                    <option value="PREMIUM_ECONOMY">Premium Economy</option>
+                    <option value="BUSINESS">Business</option>
+                    <option value="FIRST">First</option>
+                </select>
+            </div>
+
+		</div>
+
+		<!-- Trip Type, Flight Options, and Daily Search Time on same row -->
+		<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+			<!-- One Way -->
+			<div>
+				<div class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					Trip Type
+				</div>
+				<div class="flex items-center gap-4">
+					<label class="flex items-center cursor-pointer">
+						<div class="relative">
+							<input
+								type="checkbox"
+								class="w-6 h-6 bg-white dark:bg-gray-800 rounded outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 checked:bg-black dark:checked:bg-white appearance-none cursor-pointer transition-all"
+								bind:checked={newSearchForm.oneWay}
+							/>
+							{#if newSearchForm.oneWay}
+								<svg class="absolute left-0.5 top-0.5 w-5 h-5 pointer-events-none fill-white dark:fill-black" viewBox="0 0 20 20">
+									<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+								</svg>
+							{/if}
+						</div>
+						<span class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-100">One-way</span>
+					</label>
+				</div>
+			</div>
+
+			<!-- Non Stop -->
+			<div>
+				<div class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					Flight Options
+				</div>
+				<div class="flex items-center gap-4">
+					<label class="flex items-center cursor-pointer">
+						<div class="relative">
+							<input
+								type="checkbox"
+								class="w-6 h-6 bg-white dark:bg-gray-800 rounded outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 checked:bg-black dark:checked:bg-white appearance-none cursor-pointer transition-all"
+								bind:checked={newSearchForm.nonStop}
+							/>
+							{#if newSearchForm.nonStop}
+								<svg class="absolute left-0.5 top-0.5 w-5 h-5 pointer-events-none fill-white dark:fill-black" viewBox="0 0 20 20">
+									<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+								</svg>
+							{/if}
+						</div>
+						<span class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-100">Direct flights only</span>
+					</label>
+				</div>
+			</div>
+
+            <!-- Removed Daily Search Time as per new requirements -->
 		</div>
 
 		<!-- Action Button -->

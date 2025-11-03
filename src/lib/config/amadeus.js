@@ -103,12 +103,12 @@ export function getDevConfig() {
 	// For development, provide fallback values if not configured
 	if (!config.API_KEY) {
 		console.warn('AMADEUS_API_KEY not found in environment variables. Using fallback for development.');
-		config.API_KEY = 'L3Papij5FlBLEjB3kq8GZrUWXhA9o5A8'; // Fallback for development
+		config.API_KEY = 'Jqw7LkuKMaxLSTFLCJAvKfl4JwhWrDWu'; // Fallback for development
 	}
 	
 	if (!config.API_SECRET) {
 		console.warn('AMADEUS_API_SECRET not found in environment variables. Using fallback for development.');
-		config.API_SECRET = '5GOvq2urVxZ9fdf5'; // Fallback for development
+		config.API_SECRET = 'GZGmwJsBDKRKr6Fg'; // Fallback for development
 	}
 	
 	return config;
