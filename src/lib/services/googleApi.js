@@ -27,68 +27,72 @@ class GoogleFlightsApiService {
 	}
 
 	/**
-	 * Search for flights using Google Flights API (SerpApi)
-	 * @param {Object} searchParams - Search parameters
-	 * @param {string} searchParams.departure_id - Departure airport/city IATA code (e.g., "LAX", "HKG")
-	 * @param {string} searchParams.arrival_id - Arrival airport/city IATA code (e.g., "AUS", "ICN")
-	 * @param {string} searchParams.outbound_date - Departure date in YYYY-MM-DD format (required)
-	 * @param {string} searchParams.return_date - Return date in YYYY-MM-DD format (optional, for round trips)
-	 * @param {number} searchParams.adults - Number of adult passengers (default: 1)
-	 * @param {string} searchParams.currency - Currency code (default: "USD")
-	 * @returns {Promise<Object>} Flight search results from SerpApi
+	 * Search for flights using Google Flights API (SearchAPI.io)
+	 * @param {Object} searchParams - Search parameters (supports all Google Flights API parameters)
+	 * @returns {Promise<Object>} Flight search results from SearchAPI
 	 */
 	async searchFlights(searchParams) {
 		try {
-			// Validate required parameters
-			if (!searchParams.departure_id) {
-				throw new Error('Departure airport/city code is required');
-			}
-			if (!searchParams.arrival_id) {
-				throw new Error('Arrival airport/city code is required');
-			}
-			if (!searchParams.outbound_date) {
-				throw new Error('Departure date (outbound_date) is required');
-			}
+			// Validate based on engine type
+			const engine = searchParams.engine || 'google_flights';
+			const flightType = searchParams.flight_type || 'round_trip';
+			const isCalendar = engine === 'google_flights_calendar';
+			
+			if (flightType !== 'multi_city') {
+				// Validate required parameters
+				if (!searchParams.departure_id) {
+					throw new Error('Departure airport/city code is required');
+				}
+				if (!searchParams.arrival_id) {
+					throw new Error('Arrival airport/city code is required');
+				}
 
-			// Validate date format
-			const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-			if (!dateRegex.test(searchParams.outbound_date)) {
-				throw new Error('Invalid departure date format. Use YYYY-MM-DD');
-			}
-			if (searchParams.return_date && !dateRegex.test(searchParams.return_date)) {
-				throw new Error('Invalid return date format. Use YYYY-MM-DD');
-			}
+				if (isCalendar) {
+					// Calendar mode validation - requires both anchor dates and ranges
+					if (!searchParams.outbound_date || !searchParams.outbound_date_start || !searchParams.outbound_date_end) {
+						throw new Error('Outbound date and date range (start and end) are required for calendar view');
+					}
+					if (flightType === 'round_trip' && (!searchParams.return_date || !searchParams.return_date_start || !searchParams.return_date_end)) {
+						throw new Error('Return date and date range (start and end) are required for round trip calendar view');
+					}
+				} else {
+					// Standard mode validation
+					if (!searchParams.outbound_date) {
+						throw new Error('Departure date (outbound_date) is required');
+					}
 
-			// Validate return date is after departure date
-			if (searchParams.return_date) {
-				const departureDate = new Date(searchParams.outbound_date);
-				const returnDate = new Date(searchParams.return_date);
-				if (returnDate <= departureDate) {
-					throw new Error('Return date must be after departure date');
+					// Validate date format
+					const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+					if (!dateRegex.test(searchParams.outbound_date)) {
+						throw new Error('Invalid departure date format. Use YYYY-MM-DD');
+					}
+					if (searchParams.return_date && !dateRegex.test(searchParams.return_date)) {
+						throw new Error('Invalid return date format. Use YYYY-MM-DD');
+					}
+
+					// Validate return date is after departure date
+					if (searchParams.return_date) {
+						const departureDate = new Date(searchParams.outbound_date);
+						const returnDate = new Date(searchParams.return_date);
+						if (returnDate <= departureDate) {
+							throw new Error('Return date must be after departure date');
+						}
+					}
 				}
 			}
 
-			// Build query parameters for proxy endpoint (no api_key on client)
-			const queryParams = new URLSearchParams({
-				departure_id: searchParams.departure_id,
-				arrival_id: searchParams.arrival_id,
-				outbound_date: searchParams.outbound_date,
+			// Build query parameters - pass ALL parameters to the backend proxy
+			const queryParams = new URLSearchParams();
+			
+			// Add all provided parameters
+			Object.keys(searchParams).forEach(key => {
+				const value = searchParams[key];
+				if (value !== null && value !== undefined && value !== '') {
+					queryParams.append(key, value.toString());
+				}
 			});
 
-			// Add optional parameters
-			if (searchParams.return_date) {
-				queryParams.append('return_date', searchParams.return_date);
-			}
-
-			if (searchParams.adults && Number(searchParams.adults) > 0) {
-				queryParams.append('adults', searchParams.adults.toString());
-			}
-
-			if (searchParams.currency) {
-				queryParams.append('currency', searchParams.currency);
-			}
-
-			// Call local proxy to avoid CORS and hide key
+			// Call local proxy to avoid CORS and hide API key
 			const requestUrl = `/api/google-flights?${queryParams}`;
 			console.log('Google Flights Proxy Request URL:', requestUrl);
 
@@ -119,8 +123,6 @@ class GoogleFlightsApiService {
 			}
 
 			const data = await response.json();
-			const resultCount = data?.flights?.length || 0;
-			console.log(`Google Flights API Response: ${resultCount} flight offers returned`);
 			console.log('Google Flights API Response Data:', data);
 			
 			return data;
