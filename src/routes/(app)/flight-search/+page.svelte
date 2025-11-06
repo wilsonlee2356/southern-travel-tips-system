@@ -9,9 +9,10 @@
 	import Sidebar from '$lib/components/icons/Sidebar.svelte';
 	import { navigateToPostWithFlightData } from '$lib/utils/flightPostHandler.js';
 	import { goto } from '$app/navigation';
-	import { amadeusApi } from '$lib/services/amadeusApi.js';
+	import googleFlightsApi from '$lib/services/googleApi.js';
 	import { cityList, locationCodeMap, getLocationCode, filterCities } from '$lib/utils/cityCodes';
-	import FlightResultsTable from '$lib/components/FlightResultsTable.svelte';
+	import SearchBox from './components/search-box.svelte';
+	import ResultBox from './components/result-box.svelte';
 	// No longer need adapter merging imports since we only use pre-existing merged models
 
 	// Form state
@@ -19,7 +20,14 @@
 		startingPlace: '',
 		destination: '',
 		cost: '',
+		tripType: 'round-trip',
+		adults: 1,
+		children: 0,
 		seatClass: 'economy',
+		stops: 'any',
+		airlines: [],
+		maxPrice: 2000,
+		maxDuration: 12,
 		departureDate: '',
 		returnDate: ''
 	};
@@ -33,7 +41,6 @@
 	let isPosting = false;
 	let aiStage = ''; // Track which AI stage is running
 	let searchError = ''; // Track search errors
-	let useAmadeusApi = true; // Toggle between mock and real API
 	let searchCounter = 0; // Counter to create unique IDs across searches
 	
 	// Autocomplete state
@@ -67,30 +74,51 @@
 	// Handle starting place input
 	const handleStartingPlaceInput = (e) => {
 		startingPlaceInput = e.target.value;
-		searchForm.startingPlace = startingPlaceInput;
+	updateSearchForm({ startingPlace: startingPlaceInput });
 		filteredStartingPlaces = filterCities(startingPlaceInput);
 		showStartingPlaceDropdown = true;
 	};
 
+const updateSearchForm = (updates) => {
+	searchForm = {
+		...searchForm,
+		...updates
+	};
+};
+
 	// Handle destination input
 	const handleDestinationInput = (e) => {
 		destinationInput = e.target.value;
-		searchForm.destination = destinationInput;
+	updateSearchForm({ destination: destinationInput });
 		filteredDestinations = filterCities(destinationInput);
 		showDestinationDropdown = true;
 	};
 
+$: if (searchForm.tripType === 'one-way' && searchForm.returnDate) {
+	updateSearchForm({ returnDate: '' });
+}
+
+const handleStartingPlaceFocus = () => {
+	filteredStartingPlaces = filterCities(startingPlaceInput);
+	showStartingPlaceDropdown = true;
+};
+
+const handleDestinationFocus = () => {
+	filteredDestinations = filterCities(destinationInput);
+	showDestinationDropdown = true;
+};
+
 	// Select starting place from dropdown
 	const selectStartingPlace = (city) => {
 		startingPlaceInput = city.display;
-		searchForm.startingPlace = city.code;
+	updateSearchForm({ startingPlace: city.code });
 		showStartingPlaceDropdown = false;
 	};
 
 	// Select destination from dropdown
 	const selectDestination = (city) => {
 		destinationInput = city.display;
-		searchForm.destination = city.code;
+	updateSearchForm({ destination: city.code });
 		showDestinationDropdown = false;
 	};
 
@@ -222,110 +250,75 @@
 		searchCounter++;
 
 		try {
-			if (useAmadeusApi) {
-				// Use Amadeus API for real flight search
-				console.log('Looking up origin code for:', searchForm.startingPlace);
-				const originCode = getLocationCode(searchForm.startingPlace);
-				console.log('Origin code result:', originCode);
-				
-				console.log('Looking up destination code for:', searchForm.destination);
-				const destinationCode = getLocationCode(searchForm.destination);
-				console.log('Destination code result:', destinationCode);
+			console.log('Looking up origin code for:', searchForm.startingPlace);
+			const originCode = getLocationCode(searchForm.startingPlace);
+			console.log('Origin code result:', originCode);
 
-				if (!originCode || !destinationCode) {
-					const missingFields = [];
-					if (!originCode) missingFields.push('origin');
-					if (!destinationCode) missingFields.push('destination');
-					throw new Error(`Please enter valid ${missingFields.join(' and ')} cities. Use specific city names or airport codes (e.g., "Tokyo", "NRT", "Osaka", "KIX").`);
-				}
+			console.log('Looking up destination code for:', searchForm.destination);
+			const destinationCode = getLocationCode(searchForm.destination);
+			console.log('Destination code result:', destinationCode);
 
-				if (!searchForm.departureDate) {
-					throw new Error('Please select a departure date');
-				}
-
-				// Validate return date if provided
-				if (searchForm.returnDate) {
-					const departureDate = new Date(searchForm.departureDate);
-					const returnDate = new Date(searchForm.returnDate);
-					
-					if (returnDate <= departureDate) {
-						throw new Error('Return date must be after departure date');
-					}
-					
-					// Check if return date is not too far in the future (Amadeus has limits)
-					const maxReturnDate = new Date();
-					maxReturnDate.setFullYear(maxReturnDate.getFullYear() + 1);
-					if (returnDate > maxReturnDate) {
-						throw new Error('Return date cannot be more than 1 year in the future');
-					}
-				}
-
-				// Map seat class to Amadeus format
-				const travelClassMap = {
-					'economy': 'ECONOMY',
-					'business': 'BUSINESS'
-				};
-
-				const searchParams = {
-					originLocationCode: originCode,
-					destinationLocationCode: destinationCode,
-					departureDate: searchForm.departureDate,
-					adults: 1,
-					travelClass: travelClassMap[searchForm.seatClass] || 'ECONOMY',
-					max: 20
-				};
-
-				// Add return date if provided and valid
-				if (searchForm.returnDate) {
-					searchParams.returnDate = searchForm.returnDate;
-				}
-
-				console.log('Amadeus API Search Parameters:', searchParams);
-
-				// Call Amadeus API
-				const amadeusResponse = await amadeusApi.searchFlightOffers(searchParams);
-				
-				// Transform the response to match our UI structure
-				let transformedResults = amadeusApi.transformFlightData(amadeusResponse);
-
-				// Apply cost filter if specified
-				if (searchForm.cost) {
-					const maxCost = parseFloat(searchForm.cost);
-					transformedResults = transformedResults.filter(flight => flight.cost <= maxCost);
-				}
-
-				// Make IDs unique across searches by prefixing with search counter
-				transformedResults = transformedResults.map((flight, index) => ({
-					...flight,
-					id: `${searchCounter}_${index + 1}`
-				}));
-
-				searchResults = transformedResults;
-			} else {
-				// Use mock data (fallback)
-				await new Promise(resolve => setTimeout(resolve, 1000));
-
-				let filteredResults = sampleFlights.filter(flight => {
-					const matchesStartingPlace = !searchForm.startingPlace || 
-						flight.startingPlace.toLowerCase().includes(searchForm.startingPlace.toLowerCase());
-					const matchesDestination = !searchForm.destination || 
-						flight.destination.toLowerCase().includes(searchForm.destination.toLowerCase());
-					const matchesSeatClass = !searchForm.seatClass || 
-						flight.seatClass.toLowerCase() === searchForm.seatClass.toLowerCase();
-					const matchesCost = !searchForm.cost || 
-						flight.cost <= parseInt(searchForm.cost);
-
-					return matchesStartingPlace && matchesDestination && matchesSeatClass && matchesCost;
-				});
-
-				// Make IDs unique across searches by prefixing with search counter
-				filteredResults = filteredResults.map((flight, index) => ({
-					...flight,
-					id: `${searchCounter}_${index + 1}`
-				}));
-
-				searchResults = filteredResults;
+			if (!originCode || !destinationCode) {
+				const missingFields = [];
+				if (!originCode) missingFields.push('origin');
+				if (!destinationCode) missingFields.push('destination');
+				throw new Error(`Please enter valid ${missingFields.join(' and ')} cities. Use specific city names or airport codes (e.g., "Tokyo", "NRT", "Osaka", "KIX").`);
 			}
+
+			if (!searchForm.departureDate) {
+				throw new Error('Please select a departure date');
+			}
+
+			if (searchForm.tripType !== 'one-way' && searchForm.returnDate) {
+				const departureDate = new Date(searchForm.departureDate);
+				const returnDate = new Date(searchForm.returnDate);
+				if (returnDate <= departureDate) {
+					throw new Error('Return date must be after departure date');
+				}
+			}
+
+			const flightTypeMap = {
+				'round-trip': 'round_trip',
+				'one-way': 'one_way',
+				'multi-city': 'multi_city'
+			};
+
+			const travelClassMap = {
+				'economy': 'economy',
+				'premium economy': 'premium_economy',
+				'business': 'business',
+				'first class': 'first'
+			};
+
+			const normalizedSeatClass = (searchForm.seatClass || 'economy').toLowerCase();
+			const adultsCount = Math.max(1, Number(searchForm.adults) || 1);
+			const childrenCount = Math.max(0, Number(searchForm.children) || 0);
+
+			const searchParams = {
+				engine: 'google_flights',
+				flight_type: flightTypeMap[searchForm.tripType] || 'round_trip',
+				departure_id: originCode,
+				arrival_id: destinationCode,
+				outbound_date: searchForm.departureDate,
+				travel_class: travelClassMap[normalizedSeatClass] || 'economy',
+				adults: adultsCount
+			};
+
+			if (childrenCount > 0) {
+				searchParams.children = childrenCount;
+			}
+
+			if (searchForm.tripType !== 'one-way' && searchForm.returnDate) {
+				searchParams.return_date = searchForm.returnDate;
+			}
+
+			console.log('Google Flights API Search Parameters:', searchParams);
+
+			const googleFlightsResponse = await googleFlightsApi.searchFlights(searchParams);
+			console.log('Google Flights API raw response:', googleFlightsResponse);
+
+			// Temporarily disable displaying results until transformation is ready
+			searchResults = [];
 		} catch (error) {
 			console.error('Search error:', error);
 			searchError = error.message || 'An error occurred while searching for flights';
@@ -337,14 +330,21 @@
 
 	// Reset search
 	const resetSearch = () => {
-		searchForm = {
-			startingPlace: '',
-			destination: '',
-			cost: '',
-			seatClass: 'economy',
-			departureDate: '',
-			returnDate: ''
-		};
+	updateSearchForm({
+		startingPlace: '',
+		destination: '',
+		cost: '',
+		tripType: 'round-trip',
+		adults: 1,
+		children: 0,
+		seatClass: 'economy',
+		stops: 'any',
+		airlines: [],
+		maxPrice: 2000,
+		maxDuration: 12,
+		departureDate: '',
+		returnDate: ''
+	});
 		startingPlaceInput = '';
 		destinationInput = '';
 		filteredStartingPlaces = [];
@@ -591,210 +591,36 @@
 			</div>
 
 			<!-- Search Form -->
-			<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
-				<div class="flex items-center justify-between mb-6">
-					<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
-						{$i18n.t('Search Flights')}
-					</h2>
-					<div class="flex items-center gap-2">
-						<label for="api-mode-toggle" class="text-sm text-gray-600 dark:text-gray-400">API Mode:</label>
-						<label for="api-mode-toggle" class="inline-flex items-center cursor-pointer">
-							<input
-								id="api-mode-toggle"
-								type="checkbox"
-								class="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
-								bind:checked={useAmadeusApi}
-							/>
-							<span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
-								{useAmadeusApi ? 'Amadeus API' : 'Mock Data'}
-							</span>
-						</label>
-					</div>
-				</div>
-
-				<!-- Error Display -->
-				{#if searchError}
-					<div class="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-						<div class="flex">
-							<svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-								<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-							</svg>
-							<div class="ml-3">
-								<h3 class="text-sm font-medium text-red-800 dark:text-red-200">
-									Search Error
-								</h3>
-								<div class="mt-2 text-sm text-red-700 dark:text-red-300">
-									{searchError}
-								</div>
-							</div>
-						</div>
-					</div>
-				{/if}
-				
-				<form on:submit|preventDefault={handleSearch} class="space-y-6">
-					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-						<!-- Starting Place -->
-						<div class="autocomplete-container relative">
-							<label for="starting-place" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								{$i18n.t('Starting Place')}
-							</label>
-							<input
-								id="starting-place"
-								type="text"
-								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-								placeholder="e.g., Hong Kong, Seoul, Tokyo..."
-								value={startingPlaceInput}
-								on:input={handleStartingPlaceInput}
-								on:focus={() => {
-									filteredStartingPlaces = filterCities(startingPlaceInput);
-									showStartingPlaceDropdown = true;
-								}}
-								autocomplete="off"
-								required
-							/>
-							{#if showStartingPlaceDropdown && filteredStartingPlaces.length > 0}
-								<div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-									{#each filteredStartingPlaces as city}
-										<button
-											type="button"
-											class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-900 dark:text-gray-100"
-											on:click={() => selectStartingPlace(city)}
-										>
-											{city.display}
-										</button>
-									{/each}
-								</div>
-							{/if}
-						</div>
-
-						<!-- Destination -->
-						<div class="autocomplete-container relative">
-							<label for="destination" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								{$i18n.t('Destination')}
-							</label>
-							<input
-								id="destination"
-								type="text"
-								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-								placeholder="e.g., Seoul, Tokyo, Singapore..."
-								value={destinationInput}
-								on:input={handleDestinationInput}
-								on:focus={() => {
-									filteredDestinations = filterCities(destinationInput);
-									showDestinationDropdown = true;
-								}}
-								autocomplete="off"
-								required
-							/>
-							{#if showDestinationDropdown && filteredDestinations.length > 0}
-								<div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-									{#each filteredDestinations as city}
-										<button
-											type="button"
-											class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-900 dark:text-gray-100"
-											on:click={() => selectDestination(city)}
-										>
-											{city.display}
-										</button>
-									{/each}
-								</div>
-							{/if}
-						</div>
-
-						<!-- Cost -->
-						<div>
-							<label for="cost" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								{$i18n.t('Max Cost ($)')}
-							</label>
-							<input
-								id="cost"
-								type="number"
-								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-								placeholder="e.g., 500"
-								bind:value={searchForm.cost}
-								min="0"
-							/>
-						</div>
-
-						<!-- Seat Class -->
-						<div>
-							<label for="seat-class" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								{$i18n.t('Seat Class')}
-							</label>
-							<select
-								id="seat-class"
-								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-								bind:value={searchForm.seatClass}
-							>
-								<option value="economy">{$i18n.t('Economy')}</option>
-								<option value="business">{$i18n.t('Business')}</option>
-							</select>
-						</div>
-
-						<!-- Departure Date -->
-						<div>
-							<label for="departure-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								{$i18n.t('Departure Date')}
-							</label>
-							<input
-								id="departure-date"
-								type="date"
-								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-								bind:value={searchForm.departureDate}
-							/>
-						</div>
-
-						<!-- Return Date -->
-						<div>
-							<label for="return-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								{$i18n.t('Return Date')}
-							</label>
-							<input
-								id="return-date"
-								type="date"
-								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-								bind:value={searchForm.returnDate}
-							/>
-						</div>
-					</div>
-
-					<!-- Action Buttons -->
-					<div class="flex flex-col sm:flex-row gap-4 pt-4">
-						<button
-							type="submit"
-							class="flex-1 bg-black hover:bg-gray-800 text-white font-medium py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-							disabled={isSearching}
-						>
-							{#if isSearching}
-								<div class="flex items-center justify-center">
-									<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-									</svg>
-									{$i18n.t('Searching...')}
-								</div>
-							{:else}
-								<svg class="w-5 h-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-								</svg>
-								{$i18n.t('Search Flights')}
-							{/if}
-						</button>
-						<button
-							type="button"
-							on:click={resetSearch}
-							class="flex-1 sm:flex-none bg-gray-500 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-lg transition"
-						>
-							{$i18n.t('Reset')}
-						</button>
-					</div>
-				</form>
-			</div>
+			<SearchBox
+				{searchError}
+				{searchForm}
+				{isSearching}
+				{startingPlaceInput}
+				{destinationInput}
+				{filteredStartingPlaces}
+				{filteredDestinations}
+				{showStartingPlaceDropdown}
+				{showDestinationDropdown}
+				onSearch={handleSearch}
+				onReset={resetSearch}
+				onStartingPlaceInput={handleStartingPlaceInput}
+				onDestinationInput={handleDestinationInput}
+				onStartingPlaceFocus={handleStartingPlaceFocus}
+				onDestinationFocus={handleDestinationFocus}
+				onSelectStartingPlace={selectStartingPlace}
+				onSelectDestination={selectDestination}
+				on:passengerschange={(event) => {
+					const { adults, children } = event.detail;
+					updateSearchForm({ adults, children });
+				}}
+				on:filterschange={(event) => {
+					updateSearchForm(event.detail);
+				}}
+			/>
 
 			<!-- Search Results -->
-			{#if searchResults.length > 0}
-			<FlightResultsTable
-				flights={searchResults}
+			<ResultBox
+				{searchResults}
 				{selectedFlights}
 				{selectedFlightObjects}
 				onToggleFlight={toggleFlightSelection}
@@ -807,22 +633,6 @@
 				bind:selectedAdapter
 				bind:selectedModel
 			/>
-			{:else}
-				<!-- No Results -->
-				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-					<div class="text-center py-12">
-						<svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-1.009-5.824-2.709M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-						</svg>
-						<h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-							{$i18n.t('No flights found')}
-						</h3>
-						<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-							{$i18n.t('Try adjusting your search criteria')}
-						</p>
-					</div>
-				</div>
-			{/if}
 		</div>
 	</div>
 </div>
