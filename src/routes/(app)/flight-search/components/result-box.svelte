@@ -17,23 +17,70 @@
   export let selectedBaseModel = null;
   export let selectedAdapter = null;
   export let selectedModel = null;
+export let showCalendarButton = false;
+export let onOpenCalendar = () => {};
+export let otherFlights = [];
 </script>
 
 {#if searchResults.length > 0}
-  <FlightResultsTable
-    flights={searchResults}
-    {selectedFlights}
-    {selectedFlightObjects}
-    {onToggleFlight}
-    {onToggleSelectAll}
-    {onPost}
-    {isPosting}
-    {aiStage}
-    bind:selectedRAGModel
-    bind:selectedBaseModel
-    bind:selectedAdapter
-    bind:selectedModel
-  />
+  <div class="space-y-4">
+    <FlightResultsTable
+      flights={searchResults}
+      {selectedFlights}
+      {selectedFlightObjects}
+      {onToggleFlight}
+      {onToggleSelectAll}
+      {onPost}
+      {isPosting}
+      {aiStage}
+      bind:selectedRAGModel
+      bind:selectedBaseModel
+      bind:selectedAdapter
+      bind:selectedModel
+      title={$i18n.t('Best flight')}
+    />
+
+    {#if showCalendarButton}
+      <div class="flex justify-end">
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+          on:click={() => {
+            console.log('View Price Calendar button clicked');
+            if (typeof onOpenCalendar === 'function') {
+              onOpenCalendar();
+            }
+          }}
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          {$i18n.t('View Price Calendar')}
+        </button>
+      </div>
+    {/if}
+
+    {#if otherFlights.length}
+      <FlightResultsTable
+        flights={otherFlights}
+        {selectedFlights}
+        {selectedFlightObjects}
+        {onToggleFlight}
+        {onToggleSelectAll}
+        {onPost}
+        {isPosting}
+        {aiStage}
+        bind:selectedRAGModel
+        bind:selectedBaseModel
+        bind:selectedAdapter
+        bind:selectedModel
+        title={$i18n.t('Other flights')}
+      />
+    {/if}
+  </div>
 {:else}
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
     <div class="text-center py-12">

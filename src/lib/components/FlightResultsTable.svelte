@@ -20,6 +20,7 @@
 	export let selectedRAGModel = null;
 	export let selectedBaseModel = null;
 	export let selectedModel = null; // For any model (including external APIs)
+	export let title = 'Best flight';
 	
 const sanitizeString = (value) => (typeof value === 'string' ? value.trim() : null);
 
@@ -154,7 +155,7 @@ const toggleRowExpansion = (flightId) => {
 		next.add(flightId);
 	}
 	expandedRows = next;
-};
+	};
 	
 	// Track previous flights to detect new searches
 	let previousFlightsLength = 0;
@@ -394,14 +395,10 @@ const toggleRowExpansion = (flightId) => {
 					</svg>
 					<span>Refreshing results...</span>
 				{:else}
-					<span>
-						{$i18n.t('Showing')} {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, sortedFlights.length)} 
-						{$i18n.t('of')} {sortedFlights.length} {$i18n.t('flights')}
+					<span class="text-black dark:text-gray-100 font-bold">
+						{title}
 					</span>
 				{/if}
-			</div>
-			<div class="text-sm text-gray-600 dark:text-gray-400">
-				{$i18n.t('Page')} {currentPage} {$i18n.t('of')} {totalPages}
 			</div>
 		</div>
 	</div>
@@ -416,7 +413,7 @@ const toggleRowExpansion = (flightId) => {
 							type="checkbox"
 							class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
 							checked={paginatedFlights.length > 0 && paginatedFlights.every(flight => selectedFlights.has(flight.id))}
-							on:change={onToggleSelectAll}
+							on:change={() => onToggleSelectAll(paginatedFlights)}
 						/>
 					</th>
 					<th 
@@ -484,21 +481,21 @@ const toggleRowExpansion = (flightId) => {
 					</th>
 				<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
 					<span class="sr-only">{$i18n.t('Details')}</span>
-				</th>
+					</th>
 				</tr>
 			</thead>
 			<tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
 				{#each paginatedFlights as flight (flight.id)}
 					<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-					<td class="px-4 py-4 whitespace-nowrap">
-						<input
-							type="checkbox"
-							class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-							checked={selectedFlights.has(flight.id)}
-							on:change={() => onToggleFlight(flight.id)}
-						/>
-					</td>
-					<td class="px-4 py-4 whitespace-nowrap">
+						<td class="px-4 py-4 whitespace-nowrap">
+							<input
+								type="checkbox"
+								class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+								checked={selectedFlights.has(flight.id)}
+								on:change={() => onToggleFlight(flight.id)}
+							/>
+						</td>
+						<td class="px-4 py-4 whitespace-nowrap">
 						<div class="flex items-center gap-3">
 							{#if flight.airlineLogo}
 								<img
@@ -509,17 +506,17 @@ const toggleRowExpansion = (flightId) => {
 								/>
 							{/if}
 							<div>
-								<div class="text-sm font-medium text-gray-900 dark:text-gray-100">
-									{flight.airline}
+							<div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+								{flight.airline}
+							</div>
+							{#if flight.airlineCode}
+								<div class="text-xs text-gray-500 dark:text-gray-400">
+									{flight.airlineCode}
 								</div>
-								{#if flight.airlineCode}
-									<div class="text-xs text-gray-500 dark:text-gray-400">
-										{flight.airlineCode}
-									</div>
-								{/if}
+							{/if}
 							</div>
 						</div>
-					</td>
+						</td>
 						<td class="px-4 py-4 whitespace-nowrap">
 							<div class="text-sm text-gray-900 dark:text-gray-100">
 								{flight.startingPlace}
@@ -545,7 +542,7 @@ const toggleRowExpansion = (flightId) => {
 								{#if flight.displayPrice}
 									{flight.displayPrice}
 								{:else if flight.cost != null}
-									{flight.currency || '$'}{flight.cost}
+								{flight.currency || '$'}{flight.cost}
 								{:else}
 									—
 								{/if}
@@ -736,7 +733,7 @@ const toggleRowExpansion = (flightId) => {
 								{#if flight.displayPrice}
 									{flight.displayPrice}
 								{:else if flight.cost != null}
-									{flight.currency || '$'}{flight.cost}
+								{flight.currency || '$'}{flight.cost}
 								{:else}
 									—
 								{/if}
@@ -744,9 +741,9 @@ const toggleRowExpansion = (flightId) => {
 						</div>
 						<div>
 							<div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Departure')}</div>
-					<div class="text-sm text-gray-900 dark:text-gray-100">
+							<div class="text-sm text-gray-900 dark:text-gray-100">
 						{formatDateTimeInline(flight.departureDateTimeLabel, flight.departureLocalDate, flight.departureTime)}
-					</div>
+							</div>
 						</div>
 						<div>
 							<div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Duration')}</div>

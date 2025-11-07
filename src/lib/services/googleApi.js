@@ -125,10 +125,81 @@ class GoogleFlightsApiService {
 			const data = await response.json();
 			console.log('Google Flights API Response Data:', data);
 			
-			return data;
+			const calendarData = await this.fetchCalendarData(searchParams);
+
+			return {
+				data,
+				calendarData
+			};
 		} catch (error) {
 			console.error('Error searching flights:', error);
 			throw error;
+		}
+	}
+
+	async fetchCalendarData(searchParams) {
+		try {
+			const outboundDate = searchParams.outbound_date;
+			if (!outboundDate) {
+				return null;
+			}
+
+			const calendarParams = new URLSearchParams();
+			const calendarSearchParams = {
+				...searchParams,
+				engine: 'google_flights_calendar',
+			};
+
+			calendarSearchParams.outbound_date_start = this.adjustDate(outboundDate, -3);
+			calendarSearchParams.outbound_date_end = this.adjustDate(outboundDate, 3);
+
+			if (searchParams.return_date) {
+				calendarSearchParams.return_date_start = this.adjustDate(searchParams.return_date, -3);
+				calendarSearchParams.return_date_end = this.adjustDate(searchParams.return_date, 3);
+			}
+
+			Object.keys(calendarSearchParams).forEach((key) => {
+				const value = calendarSearchParams[key];
+				if (value !== null && value !== undefined && value !== '') {
+					calendarParams.append(key, value.toString());
+				}
+			});
+
+			const calendarRequestUrl = `/api/google-flights?${calendarParams}`;
+			console.log('Google Flights Calendar Request URL:', calendarRequestUrl);
+
+			const calendarResponse = await fetch(calendarRequestUrl, {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+			});
+
+			if (!calendarResponse.ok) {
+				console.warn('Google Flights calendar request failed:', calendarResponse.status, calendarResponse.statusText);
+				return null;
+			}
+
+			const calendarData = await calendarResponse.json();
+			console.log('Google Flights Calendar Data:', calendarData);
+			return calendarData;
+		} catch (error) {
+			console.warn('Failed to fetch Google Flights calendar data:', error);
+			return null;
+		}
+	}
+
+	adjustDate(dateString, offsetDays) {
+		try {
+			const date = new Date(dateString);
+			if (Number.isNaN(date.getTime())) {
+				return dateString;
+			}
+			date.setDate(date.getDate() + offsetDays);
+			return date.toISOString().slice(0, 10);
+		} catch (error) {
+			console.warn('Failed to adjust date:', dateString, error);
+			return dateString;
 		}
 	}
 

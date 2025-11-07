@@ -1,6 +1,7 @@
 <script>
 	import { mobile, showSidebar, user, showArchivedChats } from '$lib/stores';
-import { getContext, onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
+	import { writable } from 'svelte/store';
 
 	const i18n = getContext('i18n');
 
@@ -13,6 +14,7 @@ import { getContext, onMount } from 'svelte';
 	import { cityList, locationCodeMap, getLocationCode, filterCities } from '$lib/utils/cityCodes';
 import SearchBox from './components/search-box.svelte';
 import ResultBox from './components/result-box.svelte';
+import CalendarGridModal from './components/calendar-grid-modal.svelte';
 	// No longer need adapter merging imports since we only use pre-existing merged models
 
 	// Form state
@@ -26,7 +28,7 @@ import ResultBox from './components/result-box.svelte';
 		seatClass: 'economy',
 		stops: 'any',
 		airlines: [],
-		maxPrice: 2000000,
+		maxPrice: 200000,
 		maxDuration: 12,
 		departureDate: '',
 		returnDate: ''
@@ -43,6 +45,21 @@ let allSearchResults = [];
 	let aiStage = ''; // Track which AI stage is running
 	let searchError = ''; // Track search errors
 	let searchCounter = 0; // Counter to create unique IDs across searches
+let calendarData = null;
+let otherFlightResults = [];
+const showCalendarModal = writable(false);
+
+const openCalendarModal = () => {
+	console.log('openCalendarModal invoked', calendarData);
+	if (!calendarData) {
+		console.warn('Price calendar data not available yet. Displaying placeholder modal.');
+	}
+	showCalendarModal.set(true);
+};
+
+const closeCalendarModal = () => {
+	showCalendarModal.set(false);
+};
 	
 	// Autocomplete state
 	let startingPlaceInput = '';
@@ -84,7 +101,7 @@ const updateSearchForm = (updates) => {
 		...searchForm,
 		...updates
 	};
-};
+	};
 
 	// Handle destination input
 	const handleDestinationInput = (e) => {
@@ -104,9 +121,9 @@ const handleStartingPlaceFocus = () => {
 };
 
 const handleDestinationFocus = () => {
-	filteredDestinations = filterCities(destinationInput);
-	showDestinationDropdown = true;
-};
+		filteredDestinations = filterCities(destinationInput);
+		showDestinationDropdown = true;
+	};
 
 	// Select starting place from dropdown
 	const selectStartingPlace = (city) => {
@@ -500,37 +517,40 @@ $: if (!isSearching && allSearchResults.length > 0) {
 		isSearching = true;
 		hasSearched = true;
 		searchError = '';
+		calendarData = null;
+		showCalendarModal.set(false);
+		otherFlightResults = [];
 		
 		// Keep selected flights when starting new search (don't clear)
 		// Increment search counter to create unique IDs
 		searchCounter++;
 
 		try {
-			console.log('Looking up origin code for:', searchForm.startingPlace);
-			const originCode = getLocationCode(searchForm.startingPlace);
-			console.log('Origin code result:', originCode);
+				console.log('Looking up origin code for:', searchForm.startingPlace);
+				const originCode = getLocationCode(searchForm.startingPlace);
+				console.log('Origin code result:', originCode);
+				
+				console.log('Looking up destination code for:', searchForm.destination);
+				const destinationCode = getLocationCode(searchForm.destination);
+				console.log('Destination code result:', destinationCode);
 
-			console.log('Looking up destination code for:', searchForm.destination);
-			const destinationCode = getLocationCode(searchForm.destination);
-			console.log('Destination code result:', destinationCode);
+				if (!originCode || !destinationCode) {
+					const missingFields = [];
+					if (!originCode) missingFields.push('origin');
+					if (!destinationCode) missingFields.push('destination');
+					throw new Error(`Please enter valid ${missingFields.join(' and ')} cities. Use specific city names or airport codes (e.g., "Tokyo", "NRT", "Osaka", "KIX").`);
+				}
 
-			if (!originCode || !destinationCode) {
-				const missingFields = [];
-				if (!originCode) missingFields.push('origin');
-				if (!destinationCode) missingFields.push('destination');
-				throw new Error(`Please enter valid ${missingFields.join(' and ')} cities. Use specific city names or airport codes (e.g., "Tokyo", "NRT", "Osaka", "KIX").`);
-			}
-
-			if (!searchForm.departureDate) {
-				throw new Error('Please select a departure date');
-			}
+				if (!searchForm.departureDate) {
+					throw new Error('Please select a departure date');
+				}
 
 			if (searchForm.tripType !== 'one-way' && searchForm.returnDate) {
-				const departureDate = new Date(searchForm.departureDate);
-				const returnDate = new Date(searchForm.returnDate);
-				if (returnDate <= departureDate) {
-					throw new Error('Return date must be after departure date');
-				}
+					const departureDate = new Date(searchForm.departureDate);
+					const returnDate = new Date(searchForm.returnDate);
+					if (returnDate <= departureDate) {
+						throw new Error('Return date must be after departure date');
+					}
 			}
 
 			const flightTypeMap = {
@@ -539,18 +559,18 @@ $: if (!isSearching && allSearchResults.length > 0) {
 				'multi-city': 'multi_city'
 			};
 
-			const travelClassMap = {
+				const travelClassMap = {
 				'economy': 'economy',
 				'premium economy': 'premium_economy',
 				'business': 'business',
 				'first class': 'first'
-			};
+				};
 
 			const normalizedSeatClass = (searchForm.seatClass || 'economy').toLowerCase();
 			const adultsCount = Math.max(1, Number(searchForm.adults) || 1);
 			const childrenCount = Math.max(0, Number(searchForm.children) || 0);
 
-			const searchParams = {
+				const searchParams = {
 				engine: 'google_flights',
 				flight_type: flightTypeMap[searchForm.tripType] || 'round_trip',
 				departure_id: originCode,
@@ -568,19 +588,27 @@ $: if (!isSearching && allSearchResults.length > 0) {
 
 			if (searchForm.tripType !== 'one-way' && searchForm.returnDate) {
 				searchParams.return_date = searchForm.returnDate;
-			}
+				}
 
 			console.log('Google Flights API Search Parameters:', searchParams);
 
-			const googleFlightsResponse = await googleFlightsApi.searchFlights(searchParams);
+			const { data: googleFlightsResponse, calendarData: googleFlightsCalendarData } =
+				await googleFlightsApi.searchFlights(searchParams);
 			console.log('Google Flights API raw response:', googleFlightsResponse);
+			calendarData = googleFlightsCalendarData;
 
 			const bestFlights = Array.isArray(googleFlightsResponse?.best_flights)
 				? googleFlightsResponse.best_flights
 				: [];
+			const otherFlightsRaw = Array.isArray(googleFlightsResponse?.other_flights)
+				? googleFlightsResponse.other_flights
+				: [];
 
 			const mappedResults = mapBestFlightsToResults(bestFlights, searchCounter);
-			allSearchResults = mappedResults;
+			const mappedOtherFlights = mapBestFlightsToResults(otherFlightsRaw, `${searchCounter}_other`);
+			otherFlightResults = mappedOtherFlights;
+
+			const allSearchResults = [...mappedResults, ...otherFlightResults];
 			const filteredResults = applyResultFilters(allSearchResults);
 
 			if (!mappedResults.length) {
@@ -599,6 +627,8 @@ $: if (!isSearching && allSearchResults.length > 0) {
 			searchError = error.message || 'An error occurred while searching for flights';
 			searchResults = [];
 			allSearchResults = [];
+			calendarData = null;
+			otherFlightResults = [];
 		} finally {
 			isSearching = false;
 		}
@@ -607,19 +637,19 @@ $: if (!isSearching && allSearchResults.length > 0) {
 	// Reset search
 	const resetSearch = () => {
 	updateSearchForm({
-		startingPlace: '',
-		destination: '',
-		cost: '',
+			startingPlace: '',
+			destination: '',
+			cost: '',
 		tripType: 'round-trip',
 		adults: 1,
 		children: 0,
-		seatClass: 'economy',
+			seatClass: 'economy',
 		stops: 'any',
 		airlines: [],
-		maxPrice: 20000,
+		maxPrice: 200000,
 		maxDuration: 12,
-		departureDate: '',
-		returnDate: ''
+			departureDate: '',
+			returnDate: ''
 	});
 		startingPlaceInput = '';
 		destinationInput = '';
@@ -628,14 +658,15 @@ $: if (!isSearching && allSearchResults.length > 0) {
 		showStartingPlaceDropdown = false;
 		showDestinationDropdown = false;
 		searchCounter = 0;
-		searchResults = sampleFlights.map((flight, index) => ({
-			...flight,
-			id: `0_${index + 1}`
-		}));
+		searchResults = [];
+		allSearchResults = [];
 		hasSearched = false;
 		selectedFlights.clear();
 		selectedFlightObjects = [];
 		searchError = '';
+		calendarData = null;
+		otherFlightResults = [];
+		showCalendarModal.set(false);
 	};
 
 	// Handle checkbox selection
@@ -647,7 +678,10 @@ $: if (!isSearching && allSearchResults.length > 0) {
 		} else {
 			selectedFlights.add(flightId);
 			// Add to selected flight objects
-			const flight = searchResults.find(f => f.id === flightId);
+			let flight = searchResults.find(f => f.id === flightId);
+			if (!flight) {
+				flight = otherFlightResults.find(f => f.id === flightId);
+			}
 			if (flight && !selectedFlightObjects.find(f => f.id === flightId)) {
 				selectedFlightObjects = [...selectedFlightObjects, flight];
 			}
@@ -656,20 +690,21 @@ $: if (!isSearching && allSearchResults.length > 0) {
 	};
 
 	// Handle select all checkbox
-	const toggleSelectAll = () => {
-		// Check if all current search results are selected
-		const allCurrentSelected = searchResults.every(flight => selectedFlights.has(flight.id));
+	const toggleSelectAll = (flightsList = searchResults) => {
+		const list = Array.isArray(flightsList) && flightsList.length ? flightsList : searchResults;
+		// Check if all current flights are selected
+		const allCurrentSelected = list.every(flight => selectedFlights.has(flight.id));
 		
 		if (allCurrentSelected) {
-			// Deselect all current search results (but keep others)
-			searchResults.forEach(flight => selectedFlights.delete(flight.id));
+			// Deselect all current flights (but keep others)
+			list.forEach(flight => selectedFlights.delete(flight.id));
 			// Remove from selected flight objects
 			selectedFlightObjects = selectedFlightObjects.filter(
-				f => !searchResults.find(sr => sr.id === f.id)
+				f => !list.find(sr => sr.id === f.id)
 			);
 		} else {
-			// Select all current search results (add to existing selections)
-			searchResults.forEach(flight => {
+			// Select all current flights (add to existing selections)
+			list.forEach(flight => {
 				selectedFlights.add(flight.id);
 				// Add to selected flight objects if not already there
 				if (!selectedFlightObjects.find(f => f.id === flight.id)) {
@@ -868,7 +903,7 @@ $: if (!isSearching && allSearchResults.length > 0) {
 
 			<!-- Search Form -->
 			<SearchBox
-				{searchError}
+									{searchError}
 				{searchForm}
 				{isSearching}
 				{startingPlaceInput}
@@ -908,6 +943,15 @@ $: if (!isSearching && allSearchResults.length > 0) {
 				bind:selectedBaseModel
 				bind:selectedAdapter
 				bind:selectedModel
+				showCalendarButton={Boolean(calendarData)}
+				onOpenCalendar={openCalendarModal}
+				otherFlights={otherFlightResults}
+			/>
+
+			<CalendarGridModal
+				open={$showCalendarModal}
+				calendarData={calendarData}
+				on:close={closeCalendarModal}
 			/>
 		</div>
 	</div>
