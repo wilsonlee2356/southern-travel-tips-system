@@ -12,6 +12,8 @@
 	import SavedSearchesList from './components/SavedSearchesList.svelte';
 	import SearchResults from './components/SearchResults.svelte';
 	
+	const is_developing = true;
+
 	// List of saved search configurations
 	let savedSearches = [];
 	
@@ -27,6 +29,13 @@
 	
 	// Track selected flights (multiple selection allowed)
 	let selectedFlights = [];
+
+	// Placeholder event handlers (page in development)
+	const toggleFlight = () => {};
+	const selectFlight = () => {};
+	const toggleCompare = () => {};
+	const updateHoveredBar = () => {};
+	const deselectFlight = () => {};
 	
 	// Model selection
 	let selectedModel = null;
@@ -502,71 +511,103 @@
 	</nav>
 
 	<div class="pb-1 flex-1 max-h-full overflow-y-auto @container">
-		<div class="max-w-7xl mx-auto p-6">
-			<!-- Page Header -->
-			<div class="mb-8">
-				<h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-					{$i18n.t('Auto Flight Search')}
-				</h1>
-				<p class="text-gray-600 dark:text-gray-400">
-					{$i18n.t('AI-powered automated flight search and deal monitoring')}
-				</p>
+		{#if is_developing}
+			<div class="max-w-7xl mx-auto p-8">
+				<div class="min-h-[60vh] w-full bg-gradient-to-br from-gray-50 via-white to-gray-200 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl flex flex-col items-center justify-center text-center px-8 py-16">
+					<div class="flex items-center justify-center mb-8">
+						<div class="relative">
+							<div class="h-20 w-20 rounded-full border border-gray-300 dark:border-gray-700 flex items-center justify-center">
+								<svg class="h-10 w-10 text-gray-500 dark:text-gray-400" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+									<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+								</svg>
+							</div>
+							<div class="absolute inset-0 flex items-center justify-center">
+								<div class="h-24 w-24 rounded-full border border-dashed border-gray-300 dark:border-gray-700 animate-spin" style="animation-duration: 8s;"></div>
+							</div>
+						</div>
+					</div>
+					<h2 class="text-3xl font-semibold text-gray-900 dark:text-gray-100 tracking-tight mb-3">
+						{$i18n.t('We’re polishing the experience')}
+					</h2>
+					<p class="text-base text-gray-600 dark:text-gray-300 max-w-2xl leading-relaxed">
+						{$i18n.t('Our team is putting the finishing touches on Auto Flight Search. Thank you for your patience while we prepare a better journey planning assistant for you.')}
+					</p>
+					<div class="mt-10 flex flex-col items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+						<div class="font-medium uppercase tracking-[0.25em] text-gray-500 dark:text-gray-500">{$i18n.t('Status')}</div>
+						<div class="h-px w-24 bg-gradient-to-r from-transparent via-gray-400 to-transparent dark:via-gray-600"></div>
+						<div class="text-gray-700 dark:text-gray-300">{$i18n.t('Under Maintenance')}</div>
+					</div>
+				</div>
 			</div>
-
-			<!-- Add New Search Form -->
-			<div class="mb-8">
-				<SearchForm on:addSearch={handleAddSearch} />
-			</div>
-
-			<!-- 2-Column Layout: Searches List + Results -->
-			{#if savedSearches.length === 0}
-				<!-- Empty State -->
-				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-12 text-center">
-					<svg class="mx-auto h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-					</svg>
-					<h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">
-						No Auto Searches Yet
-					</h3>
-					<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-						Add your first auto search above to start monitoring flight prices automatically.
+		{:else}
+			<div class="max-w-7xl mx-auto p-6">
+				<!-- Page Header -->
+				<div class="mb-8">
+					<h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+						{$i18n.t('Auto Flight Search')}
+					</h1>
+					<p class="text-gray-600 dark:text-gray-400">
+						{$i18n.t('AI-powered automated flight search and deal monitoring')}
 					</p>
 				</div>
-			{:else}
-				<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-					<!-- Left Column: Saved Searches List (1/3 width) -->
-					<div class="lg:col-span-1">
-						<SavedSearchesList 
-							{savedSearches}
-							{selectedSearchId}
-							{loadingSearches}
-							on:selectSearch={(e) => selectSearch(e.detail)}
-							on:runSearch={(e) => runSearch(e.detail)}
-							on:deleteSearch={(e) => deleteSearch(e.detail)}
-						/>
-					</div>
-					
-					<!-- Right Column: Results Display (2/3 width) -->
-					<div class="lg:col-span-2">
-						<SearchResults
-							selectedSearch={savedSearches.find(s => s.id === selectedSearchId)}
-							{selectedFlights}
-							{selectedFlightKeys}
-							{hoveredBar}
-							{filteredModels}
-							{selectedModel}
-							{loadingSearches}
-							on:toggleSearch={(e) => toggleSearch(e.detail)}
-							on:cellClick={(e) => handleCellClick(e.detail.depDate, e.detail.retDate, e.detail.cell)}
-							on:barHover={(e) => handleBarHover(e.detail.event, e.detail.data, e.detail.index)}
-							on:barLeave={handleBarLeave}
-							on:removeSelectedFlight={(e) => removeSelectedFlight(e.detail)}
-							on:post={(e) => console.log('Post flight deals:', e.detail.flights, 'with model', e.detail.model)}
-						/>
-					</div>
+
+				<!-- Add New Search Form -->
+				<div class="mb-8">
+					<SearchForm on:addSearch={handleAddSearch} />
 				</div>
-			{/if}
-			
+
+				<!-- 2-Column Layout: Searches List + Results -->
+				{#if savedSearches.length === 0}
+					<!-- Empty State -->
+					<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-12 text-center">
+						<svg class="mx-auto h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+						</svg>
+						<h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">
+							No Auto Searches Yet
+						</h3>
+						<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+							Add your first auto search above to start monitoring flight prices automatically.
+						</p>
+					</div>
+				{:else}
+					<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+						<!-- Left Column: Saved Searches List (1/3 width) -->
+						<div class="lg:col-span-1">
+							<SavedSearchesList 
+								{savedSearches}
+								{selectedSearchId}
+								{loadingSearches}
+								on:selectSearch={(e) => selectSearch(e.detail)}
+								on:runSearch={(e) => runSearch(e.detail)}
+								on:deleteSearch={(e) => deleteSearch(e.detail)}
+							/>
+						</div>
+						
+						<!-- Right Column: Results Display (2/3 width) -->
+						<div class="lg:col-span-2">
+							<SearchResults
+								selectedSearch={savedSearches.find(s => s.id === selectedSearchId)}
+								{selectedFlights}
+								{selectedFlightKeys}
+								{hoveredBar}
+								{filteredModels}
+								{selectedModel}
+								{loadingSearches}
+								on:toggleSearch={(e) => toggleSearch(e.detail)}
+								on:toggleFlight={(e) => toggleFlight(e.detail)}
+								on:selectFlight={(e) => selectFlight(e.detail)}
+								on:toggleCompare={(e) => toggleCompare(e.detail)}
+								on:updateModel={(e) => (selectedModel = e.detail)}
+								on:updateHoveredBar={(e) => updateHoveredBar(e.detail)}
+								on:deselectFlight={(e) => deselectFlight(e.detail)}
+							/>
+						</div>
+					</div>
+				{/if}
+			</div>
+
 			<!-- Hover Tooltip -->
 			{#if hoveredBar !== null && selectedSearchId}
 				{@const selectedSearch = savedSearches.find(s => s.id === selectedSearchId)}
@@ -592,7 +633,7 @@
 					</div>
 				{/if}
 			{/if}
-		</div>
+		{/if}
 	</div>
 </div>
 
