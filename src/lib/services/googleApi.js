@@ -180,7 +180,7 @@ class GoogleFlightsApiService {
 			};
 
 			const buildWindow = (baseDate) => {
-				const candidateStart = shiftDate(baseDate, -6);
+				const candidateStart = shiftDate(baseDate, -3);
 				let extraDays = 0;
 				let startDate = candidateStart;
 
@@ -189,7 +189,7 @@ class GoogleFlightsApiService {
 					startDate = new Date(today);
 				}
 
-				const endDate = shiftDate(baseDate, 6 + extraDays);
+				const endDate = shiftDate(baseDate, 3 + extraDays);
 
 				return {
 					start: startDate,
