@@ -122,15 +122,18 @@ class GoogleFlightsApiService {
 				throw new Error(errorMessage);
 			}
 
-			const data = await response.json();
-			console.log('Google Flights API Response Data:', data);
-			
-			const calendarData = await this.fetchCalendarData(searchParams);
+		const data = await response.json();
+		console.log('Google Flights API Response Data:', data);
+		
+		let calendarData = null;
+		if (!isCalendar) {
+			calendarData = await this.fetchCalendarData(searchParams);
+		}
 
-			return {
-				data,
-				calendarData
-			};
+		return {
+			data,
+			calendarData
+		};
 		} catch (error) {
 			console.error('Error searching flights:', error);
 			throw error;
@@ -177,7 +180,7 @@ class GoogleFlightsApiService {
 			};
 
 			const buildWindow = (baseDate) => {
-				const candidateStart = shiftDate(baseDate, -3);
+				const candidateStart = shiftDate(baseDate, -6);
 				let extraDays = 0;
 				let startDate = candidateStart;
 
@@ -186,7 +189,7 @@ class GoogleFlightsApiService {
 					startDate = new Date(today);
 				}
 
-				const endDate = shiftDate(baseDate, 3 + extraDays);
+				const endDate = shiftDate(baseDate, 6 + extraDays);
 
 				return {
 					start: startDate,
