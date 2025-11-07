@@ -25,11 +25,11 @@ import CalendarGridModal from './components/calendar-grid-modal.svelte';
 		tripType: 'round-trip',
 		adults: 1,
 		children: 0,
-		seatClass: 'economy',
-		stops: 'any',
-		airlines: [],
-		maxPrice: 200000,
-		maxDuration: 12,
+	seatClass: 'economy',
+	stops: 'any',
+	excludedAirlines: [],
+	maxPrice: null,
+	maxDuration: null,
 		departureDate: '',
 		returnDate: ''
 	};
@@ -498,10 +498,22 @@ const mapBestFlightsToResults = (bestFlights, counter, airportsMetaList = []) =>
 const applyResultFilters = (results) => {
 	let filtered = Array.isArray(results) ? [...results] : [];
 
-	if (searchForm.airlines?.length) {
+	if (searchForm.excludedAirlines?.length) {
+		const excludedSet = new Set(searchForm.excludedAirlines.map((code) => code?.toString()?.toUpperCase?.() ?? code));
 		filtered = filtered.filter((flight) => {
-			if (!flight.airlines?.length) return false;
-			return flight.airlines.some((code) => searchForm.airlines.includes(code));
+			const candidateCodes = new Set();
+			if (flight.airlineCode) {
+				candidateCodes.add(flight.airlineCode.toUpperCase());
+			}
+			if (Array.isArray(flight.airlines)) {
+				flight.airlines.forEach((code) => {
+					if (code) candidateCodes.add(code.toString().toUpperCase());
+				});
+			}
+			if (candidateCodes.size === 0) {
+				return true;
+			}
+			return !Array.from(candidateCodes).some((code) => excludedSet.has(code));
 		});
 	}
 
@@ -619,6 +631,10 @@ $: if (!isSearching && allSearchResults.length > 0) {
 				currency: 'HKD'
 			};
 
+			if (Array.isArray(searchForm.excludedAirlines) && searchForm.excludedAirlines.length) {
+				searchParams.excluded_airlines = searchForm.excludedAirlines.join(',');
+			}
+
 			if (childrenCount > 0) {
 				searchParams.children = childrenCount;
 			}
@@ -677,19 +693,19 @@ $: if (!isSearching && allSearchResults.length > 0) {
 	// Reset search
 	const resetSearch = () => {
 	updateSearchForm({
-			startingPlace: '',
-			destination: '',
-			cost: '',
+		startingPlace: '',
+		destination: '',
+		cost: '',
 		tripType: 'round-trip',
 		adults: 1,
 		children: 0,
-			seatClass: 'economy',
+		seatClass: 'economy',
 		stops: 'any',
-		airlines: [],
-		maxPrice: 200000,
-		maxDuration: 12,
-			departureDate: '',
-			returnDate: ''
+		excludedAirlines: [],
+		maxPrice: null,
+		maxDuration: null,
+		departureDate: '',
+		returnDate: ''
 	});
 		startingPlaceInput = '';
 		destinationInput = '';

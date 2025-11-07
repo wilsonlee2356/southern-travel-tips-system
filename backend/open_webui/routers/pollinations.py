@@ -295,7 +295,7 @@ async def generate_scenic_image(
         seed = int(time.time() * 1000)  # Use milliseconds for more uniqueness
         
         encoded_prompt = quote(scenic_prompt)
-        full_url = f"{POLLINATIONS_BASE_URL}/prompt/{encoded_prompt}?seed={seed}&width={width}&height={height}&nologo=true"
+        full_url = f"{POLLINATIONS_BASE_URL}/prompt/{encoded_prompt}?seed={seed}&width={width}&height={800}&nologo=true"
         
         log.info(f"Generating scenic image for destination: {original_destination} (translated to: {destination_en})")
         log.info(f"Tourist spot received: '{tourist_spot}' (empty: {not tourist_spot})")
@@ -1742,30 +1742,33 @@ def _prepare_canvas_with_image(image_data: bytes, target_width: int = 1024, targ
     # Load generated image
     generated_image = Image.open(io.BytesIO(image_data))
     log.info(f"Loaded generated image: size {generated_image.size}, mode: {generated_image.mode}")
-    
+
     # Convert to RGB
     if generated_image.mode != 'RGB':
         generated_image = generated_image.convert('RGB')
-    
-    # Create canvas
-    canvas = Image.new('RGB', (target_width, target_height), (255, 255, 255))
-    log.info(f"Created {target_width}x{target_height} canvas")
-    
-    # Resize generated image width if needed
+
+    # Resize image to fill the canvas width without stretching height
     gen_width, gen_height = generated_image.size
     if gen_width != target_width:
-        generated_image = generated_image.resize((target_width, gen_height), Image.Resampling.LANCZOS)
-        gen_width = target_width
-    
-    # Paste image on canvas
-    if gen_height > target_height:
-        cropped = generated_image.crop((0, 0, target_width, target_height))
-        canvas.paste(cropped, (0, 0))
-        log.info(f"Cropped and pasted {target_width}x{target_height}")
+        scale_factor = target_width / gen_width
+        new_height = int(gen_height * scale_factor)
+        log.info(
+            "Resizing generated image from %sx%s to %sx%s to match canvas width",
+            gen_width,
+            gen_height,
+            target_width,
+            new_height,
+        )
+        generated_image = generated_image.resize((target_width, new_height), Image.Resampling.LANCZOS)
+        gen_height = new_height
     else:
-        canvas.paste(generated_image, (0, 0))
-        log.info(f"Pasted {gen_width}x{gen_height} at (0, 0)")
-    
+        log.info("Generated image already matches target width")
+
+    # Create canvas and paste the resized image at the top-left corner
+    canvas = Image.new('RGB', (target_width, target_height), (255, 255, 255))
+    canvas.paste(generated_image, (0, 0))
+    log.info(f"Pasted resized image onto canvas: {generated_image.size}")
+
     return canvas
 
 def _add_blue_banner_area(image: Image.Image, banner_y: int, banner_height: int) -> Image.Image:

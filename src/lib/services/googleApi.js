@@ -150,12 +150,66 @@ class GoogleFlightsApiService {
 				engine: 'google_flights_calendar',
 			};
 
-			calendarSearchParams.outbound_date_start = this.adjustDate(outboundDate, -3);
-			calendarSearchParams.outbound_date_end = this.adjustDate(outboundDate, 3);
+			const msPerDay = 24 * 60 * 60 * 1000;
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+
+			const parseDate = (value) => {
+				const date = new Date(value);
+				if (Number.isNaN(date.getTime())) {
+					return null;
+				}
+				date.setHours(0, 0, 0, 0);
+				return date;
+			};
+
+			const formatDate = (date) => {
+				const year = date.getFullYear();
+				const month = `${date.getMonth() + 1}`.padStart(2, '0');
+				const day = `${date.getDate()}`.padStart(2, '0');
+				return `${year}-${month}-${day}`;
+			};
+
+			const shiftDate = (date, offsetDays) => {
+				const shifted = new Date(date);
+				shifted.setDate(shifted.getDate() + offsetDays);
+				return shifted;
+			};
+
+			const buildWindow = (baseDate) => {
+				const candidateStart = shiftDate(baseDate, -3);
+				let extraDays = 0;
+				let startDate = candidateStart;
+
+				if (candidateStart < today) {
+					extraDays = Math.ceil((today.getTime() - candidateStart.getTime()) / msPerDay);
+					startDate = new Date(today);
+				}
+
+				const endDate = shiftDate(baseDate, 3 + extraDays);
+
+				return {
+					start: startDate,
+					end: endDate
+				};
+			};
+
+			const outboundDateObj = parseDate(outboundDate);
+			if (!outboundDateObj) {
+				return null;
+			}
+
+			const outboundWindow = buildWindow(outboundDateObj);
+			calendarSearchParams.outbound_date_start = formatDate(outboundWindow.start);
+			calendarSearchParams.outbound_date_end = formatDate(outboundWindow.end);
 
 			if (searchParams.return_date) {
-				calendarSearchParams.return_date_start = this.adjustDate(searchParams.return_date, -3);
-				calendarSearchParams.return_date_end = this.adjustDate(searchParams.return_date, 3);
+				const returnDateObj = parseDate(searchParams.return_date);
+				if (returnDateObj) {
+					const returnWindow = buildWindow(returnDateObj);
+					calendarSearchParams.return_date_start = formatDate(returnWindow.start);
+					calendarSearchParams.return_date_end = formatDate(returnWindow.end);
+				}
 			}
 
 			Object.keys(calendarSearchParams).forEach((key) => {

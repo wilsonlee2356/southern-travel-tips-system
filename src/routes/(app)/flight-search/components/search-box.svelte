@@ -79,9 +79,9 @@ input[type='range'] {
   let currentAdults = 1;
   let currentChildren = 0;
   let passengerSummary = '';
-  let selectedAirlines = new Set();
-  const priceRange = { min: 0, max: 200000, step: 100 };
-  const durationRange = { min: 1, max: 30, step: 1 };
+  let excludedAirlines = new Set();
+ const priceRange = { min: 0, max: 200000, step: 100 };
+ const durationRange = { min: 1, max: 30, step: 1 };
  let isPriceDragging = false;
  let isDurationDragging = false;
   let airlineButtonRef;
@@ -145,11 +145,15 @@ input[type='range'] {
   };
 
  const handlePriceChange = (value) => {
-    emitFiltersChange({ maxPrice: Number(value) });
+    const numericValue = Number(value);
+    const normalized = numericValue >= priceRange.max ? null : numericValue;
+    emitFiltersChange({ maxPrice: normalized });
   };
 
   const handleDurationChange = (value) => {
-    emitFiltersChange({ maxDuration: Number(value) });
+    const numericValue = Number(value);
+    const normalized = numericValue >= durationRange.max ? null : numericValue;
+    emitFiltersChange({ maxDuration: normalized });
   };
 
   const incrementAdults = () => {
@@ -181,9 +185,20 @@ input[type='range'] {
   $: currentAdults = Number(searchForm?.adults ?? 1);
   $: currentChildren = Number(searchForm?.children ?? 0);
   $: passengerSummary = formatPassengerSummary(currentAdults, currentChildren);
-  $: selectedAirlines = new Set(searchForm?.airlines ?? []);
-  $: currentMaxPrice = Number(searchForm?.maxPrice ?? priceRange.max);
-  $: currentMaxDuration = Number(searchForm?.maxDuration ?? durationRange.max);
+  $: excludedAirlines = new Set(searchForm?.excludedAirlines ?? []);
+  $: hasPriceFilter = searchForm?.maxPrice != null && searchForm.maxPrice !== '' && !Number.isNaN(Number(searchForm.maxPrice));
+  $: hasDurationFilter = searchForm?.maxDuration != null && searchForm.maxDuration !== '' && !Number.isNaN(Number(searchForm.maxDuration));
+  $: currentMaxPrice = hasPriceFilter ? Number(searchForm.maxPrice) : priceRange.max;
+  $: currentMaxDuration = hasDurationFilter ? Number(searchForm.maxDuration) : durationRange.max;
+  $: priceDisplay = hasPriceFilter ? `$${currentMaxPrice}` : (i18n?.t?.('Any') ?? 'Any');
+  $: durationDisplay = hasDurationFilter ? `${currentMaxDuration}h` : (i18n?.t?.('Any') ?? 'Any');
+  $: totalAirlines = airlineOptions.length;
+  $: selectedAirlineCount = totalAirlines - excludedAirlines.size;
+  $: airlineSummary = excludedAirlines.size === 0
+    ? (i18n?.t?.('All airlines') ?? 'All airlines')
+    : selectedAirlineCount === 0
+      ? (i18n?.t?.('None selected') ?? 'None selected')
+      : `${selectedAirlineCount} ${(i18n?.t?.('selected') ?? 'selected')}`;
   $: priceThumbPosition = priceRange.max === priceRange.min
     ? 0
     : Math.min(
@@ -202,9 +217,6 @@ input[type='range'] {
           ((currentMaxDuration - durationRange.min) / (durationRange.max - durationRange.min)) * 100
         )
       );
-  $: airlineSummary = selectedAirlines.size === 0
-    ? (i18n?.t?.('All airlines') ?? 'All airlines')
-    : `${selectedAirlines.size} ${(i18n?.t?.('selected') ?? 'selected')}`;
 
   const handleStopsChange = (value) => {
     emitFiltersChange({ stops: value });
@@ -212,13 +224,13 @@ input[type='range'] {
 
 
   const handleAirlineToggle = (code) => {
-    const updated = new Set(selectedAirlines);
+    const updated = new Set(excludedAirlines);
     if (updated.has(code)) {
       updated.delete(code);
     } else {
       updated.add(code);
     }
-    emitFiltersChange({ airlines: Array.from(updated) });
+    emitFiltersChange({ excludedAirlines: Array.from(updated) });
   };
 
 
@@ -598,9 +610,9 @@ input[type='range'] {
                     <button
                       type="button"
                       class="text-xs font-medium text-gray-600 dark:text-gray-300 hover:underline"
-                      on:click={() => emitFiltersChange({ airlines: [] })}
+                      on:click={() => emitFiltersChange({ excludedAirlines: [] })}
                     >
-                      {$i18n.t('Clear')}
+                      {$i18n.t('Select all')}
                     </button>
                   </div>
 
@@ -610,7 +622,7 @@ input[type='range'] {
                         <input
                           type="checkbox"
                           class="h-4 w-4 appearance-none border border-gray-600 dark:border-gray-300 rounded-sm checked:bg-black checked:border-black dark:checked:bg-gray-100 dark:checked:border-gray-100 focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-gray-100 transition"
-                          checked={selectedAirlines.has(airline.code)}
+                          checked={!excludedAirlines.has(airline.code)}
                           on:change={() => handleAirlineToggle(airline.code)}
                         />
                         <span class="truncate">{airline.name}</span>
@@ -624,7 +636,7 @@ input[type='range'] {
             <div class="space-y-3">
               <div class="flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{$i18n.t('Price')}</h3>
-                <span class="text-xs text-gray-500 dark:text-gray-400">${currentMaxPrice}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{priceDisplay}</span>
               </div>
               <div class="relative pt-6 overflow-visible">
                 {#if isPriceDragging}
@@ -636,7 +648,7 @@ input[type='range'] {
                       class="relative -top-2 inline-flex items-center justify-center px-3 py-1 bg-black text-white text-xs font-semibold rounded-full shadow whitespace-nowrap"
                       style="transform: translate(-50%, -130%); min-width: 2.75rem; z-index: 9999;"
                     >
-                      ${currentMaxPrice}
+                      {hasPriceFilter ? `$${currentMaxPrice}` : (i18n?.t?.('Any') ?? 'Any')}
                     </div>
                   </div>
                 {/if}
@@ -670,7 +682,7 @@ input[type='range'] {
             <div class="space-y-3">
               <div class="flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{$i18n.t('Duration')}</h3>
-                <span class="text-xs text-gray-500 dark:text-gray-400">{currentMaxDuration}h</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{durationDisplay}</span>
               </div>
               <div class="relative pt-6 overflow-visible">
                 {#if isDurationDragging}
@@ -682,7 +694,7 @@ input[type='range'] {
                       class="relative -top-2 inline-flex items-center justify-center px-3 py-1 bg-black text-white text-xs font-semibold rounded-full shadow whitespace-nowrap"
                       style="transform: translate(-50%, -130%); min-width: 2.75rem; z-index: 9999;"
                     >
-                      {currentMaxDuration}h
+                      {hasDurationFilter ? `${currentMaxDuration}h` : (i18n?.t?.('Any') ?? 'Any')}
                     </div>
                   </div>
                 {/if}
