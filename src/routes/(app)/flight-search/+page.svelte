@@ -283,7 +283,7 @@ const normalizeTimeValue = (value) => {
 	return null;
 };
 
-const mapBestFlightsToResults = (bestFlights, counter) => {
+const mapBestFlightsToResults = (bestFlights, counter, airportsMetaList = []) => {
 	return bestFlights.map((flight, index) => {
 		const priceInfo =
 			parsePriceInfo(flight.price) ||
@@ -394,12 +394,44 @@ const mapBestFlightsToResults = (bestFlights, counter) => {
 			.filter(Boolean)
 			.join(' ');
 
+		const flightAirports = Array.isArray(flight.airports) && flight.airports.length ? flight.airports : airportsMetaList;
+		const departureCity =
+			getCityFromAirportsMeta(flightAirports, 'departure',
+				firstSegment.departure_airport?.id ||
+				firstSegment.departure_airport?.code ||
+				outboundDeparture.code ||
+				outboundDeparture.airport_code ||
+				outboundDeparture.iata ||
+				outboundDeparture.id
+			) ??
+			outboundDeparture.city ??
+			flight.origin?.city ??
+			null;
+		const arrivalCity =
+			getCityFromAirportsMeta(flightAirports, 'arrival',
+				lastSegment.arrival_airport?.id ||
+				lastSegment.arrival_airport?.code ||
+				outboundArrival.code ||
+				outboundArrival.airport_code ||
+				outboundArrival.iata ||
+				outboundArrival.id
+			) ??
+			outboundArrival.city ??
+			flight.destination?.city ??
+			null;
+
+		const rawData = { ...flight };
+		if (!rawData.airports && Array.isArray(flightAirports) && flightAirports.length) {
+			rawData.airports = flightAirports;
+		}
+
 		return {
 			id: `${counter}_${index + 1}`,
 			airline: airlineName,
 			airlineCode: flight.airline_code || Array.from(airlineCodes)[0] || '',
 			airlineLogo: flight.airline_logo || firstSegment.airline_logo || null,
 			startingPlace:
+				departureCity ||
 				outboundDeparture.name ||
 				outboundDeparture.city ||
 				outboundDeparture.code ||
@@ -411,7 +443,10 @@ const mapBestFlightsToResults = (bestFlights, counter) => {
 				outboundDeparture.iata ||
 				outboundDeparture.id ||
 				'',
+			startingCity: departureCity,
+			startingPlaceCity: departureCity,
 			destination:
+				arrivalCity ||
 				outboundArrival.name ||
 				outboundArrival.city ||
 				outboundArrival.code ||
@@ -423,6 +458,8 @@ const mapBestFlightsToResults = (bestFlights, counter) => {
 				outboundArrival.iata ||
 				outboundArrival.id ||
 				'',
+			destinationCity: arrivalCity,
+			destinationPlaceCity: arrivalCity,
 			cost: priceInfo.amount,
 			currency: priceInfo.currency,
 			displayPrice: priceInfo.formatted,
@@ -453,7 +490,7 @@ const mapBestFlightsToResults = (bestFlights, counter) => {
 			segments: segments.length || flight.connections?.length || 1,
 			airlines: Array.from(airlineCodes),
 			flightNumber: firstSegment.flight_number || flight.flight_number || null,
-			rawData: flight
+			rawData
 		};
 	});
 };
@@ -604,12 +641,15 @@ $: if (!isSearching && allSearchResults.length > 0) {
 				? googleFlightsResponse.other_flights
 				: [];
 
-			const mappedResults = mapBestFlightsToResults(bestFlights, searchCounter);
-			const mappedOtherFlights = mapBestFlightsToResults(otherFlightsRaw, `${searchCounter}_other`);
+		const airportsMetaList = Array.isArray(googleFlightsResponse?.airports)
+			? googleFlightsResponse.airports
+			: [];
+		const mappedResults = mapBestFlightsToResults(bestFlights, searchCounter, airportsMetaList);
+		const mappedOtherFlights = mapBestFlightsToResults(otherFlightsRaw, `${searchCounter}_other`, airportsMetaList);
 			otherFlightResults = mappedOtherFlights;
 
-			const allSearchResults = [...mappedResults, ...otherFlightResults];
-			const filteredResults = applyResultFilters(allSearchResults);
+		allSearchResults = [...mappedResults, ...otherFlightResults];
+		const filteredResults = applyResultFilters(allSearchResults);
 
 			if (!mappedResults.length) {
 				searchError = 'No flights found for your search. Please adjust the dates or search parameters.';
@@ -732,7 +772,17 @@ $: if (!isSearching && allSearchResults.length > 0) {
 		
 		try {
 			// Use selectedFlightObjects instead of filtering searchResults
-			const selectedFlightData = selectedFlightObjects;
+			const selectedFlightData = selectedFlightObjects.map((flight) => {
+				const startingCity = getFlightCity(flight, 'departure');
+				const destinationCity = getFlightCity(flight, 'arrival');
+				return {
+					...flight,
+					startingCity,
+					destinationCity,
+					startingPlace: startingCity ?? flight.startingPlace,
+					destination: destinationCity ?? flight.destination
+				};
+			});
 			
 			// Handle model selection
 			let modelToUse = null;
@@ -799,6 +849,145 @@ $: if (!isSearching && allSearchResults.length > 0) {
 			isPosting = false;
 			aiStage = '';
 		}
+	};
+
+	const getFlightCity = (flight, type) => {
+		const raw = flight?.rawData;
+		const airportsMetaList = Array.isArray(raw?.airports) ? raw.airports : [];
+		const codeCandidates = type === 'departure'
+			? [
+				flight?.startingPlaceCode,
+				raw?.origin?.code,
+				raw?.origin?.airport_code,
+				raw?.origin?.iata,
+				raw?.origin?.id
+			]
+			: [
+				flight?.destinationCode,
+				raw?.destination?.code,
+				raw?.destination?.airport_code,
+				raw?.destination?.iata,
+				raw?.destination?.id
+			];
+		const lookupCode = codeCandidates
+			.map((value) => (value != null ? value.toString().trim() : ''))
+			.find((value) => value.length);
+		const metaCity = getCityFromAirportsMeta(airportsMetaList, type, lookupCode);
+		if (metaCity) return metaCity;
+		if (type === 'departure') {
+			return (
+				flight?.startingCity ??
+				flight?.startingPlaceCity ??
+				raw?.origin?.city ??
+				flight?.startingPlace
+			);
+		}
+		if (type === 'arrival') {
+			return (
+				flight?.destinationCity ??
+				flight?.destinationPlaceCity ??
+				raw?.destination?.city ??
+				flight?.destination
+			);
+		}
+		return null;
+	};
+
+	const getCityFromAirportsMeta = (airportGroups, type, code) => {
+		if (!Array.isArray(airportGroups) || airportGroups.length === 0) {
+			return null;
+		}
+
+	const normalizedCode = typeof code === 'string' ? code.trim().toLowerCase() : null;
+	const keys = type === 'departure'
+		? ['departure', 'departures', 'departure_airports', 'departureAirports']
+		: ['arrival', 'arrivals', 'arrival_airports', 'arrivalAirports'];
+
+		for (const group of airportGroups) {
+			if (!group) continue;
+			for (const key of keys) {
+				const value = group?.[key];
+				if (Array.isArray(value)) {
+					for (const entry of value) {
+						if (!entry) continue;
+					const rawIdentifiers = [
+						entry.id,
+						entry.code,
+						entry.iata,
+						entry.iata_code,
+						entry.airport_code,
+						entry.display_code,
+						entry.full_code
+					]
+						.filter(Boolean)
+						.map((identifier) => identifier.toString().toLowerCase());
+					const identifiers = new Set(rawIdentifiers);
+					rawIdentifiers.forEach((identifier) => {
+						identifier.split(/[^a-z0-9]/i).forEach((part) => {
+							const trimmed = part.trim();
+							if (trimmed) identifiers.add(trimmed.toLowerCase());
+						});
+					});
+					if (
+						!normalizedCode ||
+						[...identifiers].some((identifier) =>
+							identifier === normalizedCode ||
+							identifier.endsWith(normalizedCode) ||
+							identifier.includes(`${normalizedCode}-`) ||
+							identifier.includes(`-${normalizedCode}`)
+						)
+					) {
+						const city = entry.city || entry.city_name || entry.cityName || entry.name;
+							if (city) return city;
+						}
+					}
+				} else if (value) {
+				const rawIdentifiers = [
+					value.id,
+					value.code,
+					value.iata,
+					value.iata_code,
+					value.airport_code,
+					value.display_code,
+					value.full_code
+				]
+					.filter(Boolean)
+					.map((identifier) => identifier.toString().toLowerCase());
+				const identifiers = new Set(rawIdentifiers);
+				rawIdentifiers.forEach((identifier) => {
+					identifier.split(/[^a-z0-9]/i).forEach((part) => {
+						const trimmed = part.trim();
+						if (trimmed) identifiers.add(trimmed.toLowerCase());
+					});
+				});
+				if (
+					!normalizedCode ||
+					[...identifiers].some((identifier) =>
+						identifier === normalizedCode ||
+						identifier.endsWith(normalizedCode) ||
+						identifier.includes(`${normalizedCode}-`) ||
+						identifier.includes(`-${normalizedCode}`)
+					)
+				) {
+					const city = value.city || value.city_name || value.cityName || value.name;
+						if (city) return city;
+					}
+				}
+			}
+
+		// Fallback: return first city value if available
+		for (const key of keys) {
+			const value = group?.[key];
+			if (Array.isArray(value)) {
+				const entry = value.find((item) => item?.city || item?.city_name || item?.cityName);
+				if (entry) return entry.city || entry.city_name || entry.cityName;
+			} else if (value?.city || value?.city_name || value?.cityName) {
+				return value.city || value.city_name || value.cityName;
+			}
+		}
+		}
+
+		return null;
 	};
 </script>
 

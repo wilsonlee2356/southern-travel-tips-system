@@ -209,11 +209,14 @@ class GoogleFlightsApiService {
 	 * @returns {Array} Transformed flight data
 	 */
 	transformFlightData(googleData) {
-		if (!googleData.flights || !Array.isArray(googleData.flights)) {
+		const normalizedData = googleData?.data ?? googleData;
+		if (!normalizedData?.flights || !Array.isArray(normalizedData.flights)) {
 			return [];
 		}
 
-		return googleData.flights.map((flightOffer, index) => {
+		const airports = Array.isArray(normalizedData.airports) ? normalizedData.airports : [];
+
+		return normalizedData.flights.map((flightOffer, index) => {
 			// Extract flight segments
 			const segments = flightOffer.flights || [];
 			if (segments.length === 0) {
@@ -238,8 +241,21 @@ class GoogleFlightsApiService {
 			const flightNumber = firstSegment.flight_number || '';
 
 			// Get airport codes
-			const departureCode = firstSegment.departure_airport?.id || '';
-			const arrivalCode = lastSegment.arrival_airport?.id || '';
+			const departureCode = firstSegment.departure_airport?.id || firstSegment.departure_airport?.code || '';
+			const arrivalCode = lastSegment.arrival_airport?.id || lastSegment.arrival_airport?.code || '';
+
+			const { city: departureCity } = this.resolveCity(
+				firstSegment.departure_airport,
+				airports,
+				'departure',
+				departureCode
+			);
+			const { city: arrivalCity } = this.resolveCity(
+				lastSegment.arrival_airport,
+				airports,
+				'arrival',
+				arrivalCode
+			);
 
 			// Price and currency
 			const price = flightOffer.price || 0;
@@ -266,9 +282,9 @@ class GoogleFlightsApiService {
 				id: `google_flights_${index}`,
 				airline: airlineName,
 				airlineCode: flightNumber.split(' ')[0] || '', // Extract airline code from flight number
-				startingPlace: departureCode,
+				startingPlace: departureCity,
 				startingPlaceCode: departureCode,
-				destination: arrivalCode,
+				destination: arrivalCity,
 				destinationCode: arrivalCode,
 				cost: Math.ceil(price),
 				currency: currency,
@@ -308,6 +324,90 @@ class GoogleFlightsApiService {
 		} else {
 			return `${mins}m`;
 		}
+	}
+
+	findAirportCity(airports, collectionKey, code) {
+		if (!Array.isArray(airports) || !code) {
+			return null;
+		}
+
+		const normalizedCode = code.toString().toLowerCase();
+
+		for (const airportGroup of airports) {
+			const entries = airportGroup?.[collectionKey];
+			if (!Array.isArray(entries)) {
+				continue;
+			}
+
+			for (const entry of entries) {
+				if (!entry) continue;
+				const rawIdentifiers = [
+					entry.id,
+					entry.code,
+					entry.iata,
+					entry.iata_code,
+					entry.airport_code,
+					entry.display_code,
+					entry.full_code
+				]
+					.filter(Boolean)
+					.map((value) => value.toString().toLowerCase());
+				const identifiers = new Set(rawIdentifiers);
+				rawIdentifiers.forEach((identifier) => {
+					identifier.split(/[^a-z0-9]/i).forEach((part) => {
+						const trimmed = part.trim();
+						if (trimmed) identifiers.add(trimmed.toLowerCase());
+					});
+				});
+				if ([...identifiers].some((identifier) => identifier === normalizedCode || identifier.endsWith(normalizedCode) || identifier.includes(`${normalizedCode}-`) || identifier.includes(`-${normalizedCode}`))) {
+					return entry.city || entry.city_name || entry.cityName || entry.name || null;
+				}
+			}
+
+			// If no direct code match, fall back to first city value
+			const firstEntryWithCity = entries.find((entry) => entry?.city || entry?.city_name || entry?.cityName);
+			if (firstEntryWithCity) {
+				return firstEntryWithCity.city || firstEntryWithCity.city_name || firstEntryWithCity.cityName;
+			}
+		}
+
+		return null;
+	}
+
+	resolveCity(airportInfo, airports, collectionKey, code) {
+		const attempts = [];
+		const recordAttempt = (value, source) => {
+			if (value == null) return;
+			const stringValue = value.toString().trim();
+			if (!stringValue) return;
+			attempts.push({ value: stringValue, source });
+		};
+
+		recordAttempt(airportInfo?.city, `${collectionKey}.segment.city`);
+		recordAttempt(airportInfo?.city_name, `${collectionKey}.segment.city_name`);
+		recordAttempt(airportInfo?.cityName, `${collectionKey}.segment.cityName`);
+
+		const metadataCity = this.findAirportCity(airports, collectionKey, code);
+		recordAttempt(metadataCity, `${collectionKey}.metadata`);
+
+		recordAttempt(airportInfo?.name, `${collectionKey}.segment.name`);
+		recordAttempt(code, `${collectionKey}.code`);
+
+		const resolved = attempts[0] || { value: null, source: null };
+
+		console.log('Google Flights city resolution', {
+			type: collectionKey,
+			code,
+			resolvedCity: resolved.value,
+			source: resolved.source,
+			fallbackChain: attempts.map((entry) => entry.source)
+		});
+
+		return {
+			city: resolved.value,
+			source: resolved.source,
+			attempts
+		};
 	}
 
 	/**
