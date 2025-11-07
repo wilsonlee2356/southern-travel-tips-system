@@ -21,6 +21,35 @@
 	export let selectedBaseModel = null;
 	export let selectedModel = null; // For any model (including external APIs)
 	
+const sanitizeString = (value) => (typeof value === 'string' ? value.trim() : null);
+
+const formatDateDisplay = (value) => {
+	const sanitized = sanitizeString(value);
+	if (!sanitized) return null;
+	const date = new Date(sanitized);
+	if (!Number.isNaN(date.getTime())) {
+		return date.toLocaleDateString();
+	}
+	return sanitized;
+};
+
+const formatTimeDisplay = (value) => {
+	const sanitized = sanitizeString(value);
+	if (!sanitized) return '—';
+	return sanitized;
+};
+
+const formatDateTimeInline = (label, dateValue, timeValue) => {
+	const sanitizedLabel = sanitizeString(label);
+	if (sanitizedLabel) return sanitizedLabel;
+	const timePart = formatTimeDisplay(timeValue);
+	const datePart = formatDateDisplay(dateValue);
+	const pieces = [];
+	if (timePart && timePart !== '—') pieces.push(timePart);
+	if (datePart) pieces.push(datePart);
+	return pieces.length ? pieces.join(' ') : '—';
+};
+
 	// Handle AI model selection change
 	function handleAIModelChange(event) {
 		const selectedValue = event.target.value;
@@ -114,6 +143,18 @@
 		duration: '',
 		stops: 'all'
 	};
+
+let expandedRows = new Set();
+
+const toggleRowExpansion = (flightId) => {
+	const next = new Set(expandedRows);
+	if (next.has(flightId)) {
+		next.delete(flightId);
+	} else {
+		next.add(flightId);
+	}
+	expandedRows = next;
+};
 	
 	// Track previous flights to detect new searches
 	let previousFlightsLength = 0;
@@ -252,6 +293,8 @@
 
 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
 	<!-- Filters Section -->
+	<!-- Filter section commented out per request -->
+	<!--
 	<div class="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700">
 		<div class="flex items-center justify-between mb-4">
 			<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -265,9 +308,7 @@
 			</button>
 		</div>
 		
-		<!-- First Row: Airline and Stops -->
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 md:mb-4 space-y-4 md:space-y-0">
-			<!-- Airline Filter -->
 			<div>
 				<label for="airline-filter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 					{$i18n.t('Airline')}
@@ -281,7 +322,6 @@
 				/>
 			</div>
 
-			<!-- Stops Filter -->
 			<div>
 				<label for="stops-filter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 					{$i18n.t('Stops')}
@@ -299,9 +339,7 @@
 			</div>
 		</div>
 
-		<!-- Second Row: Price Range and Items Per Page -->
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-4 space-y-4 md:space-y-0">
-			<!-- Price Range Filter -->
 			<div>
 				<fieldset>
 					<legend class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -326,7 +364,6 @@
 				</fieldset>
 			</div>
 
-			<!-- Items Per Page -->
 			<div>
 				<label for="items-per-page" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 					{$i18n.t('Per Page')}
@@ -344,6 +381,7 @@
 			</div>
 		</div>
 	</div>
+	-->
 
 	<!-- Results Summary -->
 	<div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -428,15 +466,6 @@
 					</th>
 					<th 
 						class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-						on:click={() => handleSort('departureDate')}
-					>
-						<div class="flex items-center gap-1">
-							{$i18n.t('Departure')}
-							<span class="text-xs">{getSortIcon('departureDate')}</span>
-						</div>
-					</th>
-					<th 
-						class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
 						on:click={() => handleSort('duration')}
 					>
 						<div class="flex items-center gap-1">
@@ -453,29 +482,44 @@
 							<span class="text-xs">{getSortIcon('segments')}</span>
 						</div>
 					</th>
+				<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+					<span class="sr-only">{$i18n.t('Details')}</span>
+				</th>
 				</tr>
 			</thead>
 			<tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
 				{#each paginatedFlights as flight (flight.id)}
 					<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-						<td class="px-4 py-4 whitespace-nowrap">
-							<input
-								type="checkbox"
-								class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-								checked={selectedFlights.has(flight.id)}
-								on:change={() => onToggleFlight(flight.id)}
-							/>
-						</td>
-						<td class="px-4 py-4 whitespace-nowrap">
-							<div class="text-sm font-medium text-gray-900 dark:text-gray-100">
-								{flight.airline}
-							</div>
-							{#if flight.airlineCode}
-								<div class="text-xs text-gray-500 dark:text-gray-400">
-									{flight.airlineCode}
-								</div>
+					<td class="px-4 py-4 whitespace-nowrap">
+						<input
+							type="checkbox"
+							class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+							checked={selectedFlights.has(flight.id)}
+							on:change={() => onToggleFlight(flight.id)}
+						/>
+					</td>
+					<td class="px-4 py-4 whitespace-nowrap">
+						<div class="flex items-center gap-3">
+							{#if flight.airlineLogo}
+								<img
+									src={flight.airlineLogo}
+									alt={`${flight.airline ?? 'Airline'} logo`}
+									class="h-6 w-6 object-contain rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900"
+									loading="lazy"
+								/>
 							{/if}
-						</td>
+							<div>
+								<div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+									{flight.airline}
+								</div>
+								{#if flight.airlineCode}
+									<div class="text-xs text-gray-500 dark:text-gray-400">
+										{flight.airlineCode}
+									</div>
+								{/if}
+							</div>
+						</div>
+					</td>
 						<td class="px-4 py-4 whitespace-nowrap">
 							<div class="text-sm text-gray-900 dark:text-gray-100">
 								{flight.startingPlace}
@@ -498,22 +542,24 @@
 						</td>
 						<td class="px-4 py-4 whitespace-nowrap">
 							<div class="text-sm font-semibold text-green-600 dark:text-green-400">
-								{flight.currency || '$'}{flight.cost}
+								{#if flight.displayPrice}
+									{flight.displayPrice}
+								{:else if flight.cost != null}
+									{flight.currency || '$'}{flight.cost}
+								{:else}
+									—
+								{/if}
 							</div>
 						</td>
 						<td class="px-4 py-4 whitespace-nowrap">
-							<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {flight.seatClass.toLowerCase() === 'business' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}">
+							{#if flight.seatClass}
+							<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {(flight.seatClass || '').toLowerCase() === 'business' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}">
 								{flight.seatClass}
 							</span>
-						</td>
-						<td class="px-4 py-4 whitespace-nowrap">
-							<div class="text-sm text-gray-900 dark:text-gray-100">
-								{new Date(flight.departureDate).toLocaleDateString()}
-							</div>
-							{#if flight.departureTime}
-								<div class="text-xs text-gray-500 dark:text-gray-400">
-									{flight.departureTime}
-								</div>
+							{:else}
+								<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+									{$i18n.t('N/A')}
+								</span>
 							{/if}
 						</td>
 						<td class="px-4 py-4 whitespace-nowrap">
@@ -526,7 +572,82 @@
 								{flight.segments > 1 ? `${flight.segments - 1} stop${flight.segments > 2 ? 's' : ''}` : 'Direct'}
 							</span>
 						</td>
+					<td class="px-4 py-4 whitespace-nowrap text-right">
+						<button
+							type="button"
+							class="inline-flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+							on:click={() => toggleRowExpansion(flight.id)}
+							aria-expanded={expandedRows.has(flight.id)}
+							aria-label={expandedRows.has(flight.id) ? $i18n.t('Hide details') : $i18n.t('Show details')}
+						>
+							<span class={`transform transition-transform ${expandedRows.has(flight.id) ? 'rotate-180' : ''}`}>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+								</svg>
+							</span>
+						</button>
+					</td>
 					</tr>
+				{#if expandedRows.has(flight.id)}
+					<tr class="bg-gray-50 dark:bg-gray-900/60">
+					<td colspan="9" class="px-6 py-4">
+					<div class="flex items-start justify-between gap-6">
+						<div class="flex flex-col items-center justify-between text-gray-300 dark:text-gray-600 self-stretch ml-70">
+							<span class="h-2 w-2 rounded-full bg-current transform translate-y-2"></span>
+							<div class="w-px flex-1 border-l border-dashed border-current"></div>
+							<span class="h-2 w-2 rounded-full bg-current transform -translate-y-2"></span>
+						</div>
+						<div class="flex flex-col items-start gap-6 flex-1">
+								<div class="flex flex-col">
+									<div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+										{formatTimeDisplay(flight.departureTime)}
+										{#if flight.departureAirportName}
+											<span class="text-xs text-gray-500 dark:text-gray-400">{flight.departureAirportName}</span>
+										{/if}
+									</div>
+									<div class="text-xs text-gray-500 dark:text-gray-400">
+										{formatDateDisplay(flight.departureLocalDate) ?? '—'}
+									</div>
+								</div>
+								<div class="text-sm font-medium text-gray-700 dark:text-gray-300">
+									路程時間：{flight.totalDurationLabel}
+								</div>
+								<div class="flex flex-col">
+									<div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+										{formatTimeDisplay(flight.arrivalTime)}
+										{#if flight.arrivalAirportName}
+											<span class="text-xs text-gray-500 dark:text-gray-400">{flight.arrivalAirportName}</span>
+										{/if}
+									</div>
+									<div class="text-xs text-gray-500 dark:text-gray-400">
+										{formatDateDisplay(flight.arrivalLocalDate) ?? '—'}
+									</div>
+								</div>
+							</div>
+						<div class="flex flex-col items-start text-sm text-gray-600 dark:text-gray-300 min-w-[200px]">
+							<div class="flex flex-col gap-3">
+								{#if flight.flightNumber}
+									<div class="flex items-center gap-3">
+										<div class="flex items-center justify-center w-6 h-6">
+											<img src="/flight.png" alt="Flight number" class="w-6 h-6 object-contain" loading="lazy" />
+										</div>
+										<span>{flight.flightNumber}</span>
+									</div>
+								{/if}
+								{#if flight.seatClass}
+									<div class="flex items-center gap-3">
+										<div class="flex items-center justify-center w-6 h-6">
+											<img src="/seat.png" alt="Travel class" class="w-6 h-6 object-contain" loading="lazy" />
+										</div>
+										<span>{flight.seatClass}</span>
+									</div>
+								{/if}
+							</div>
+							</div>
+ 						</div>
+						</td>
+					</tr>
+				{/if}
 				{/each}
 			</tbody>
 		</table>
@@ -612,14 +733,20 @@
 						<div>
 							<div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Price')}</div>
 							<div class="font-semibold text-green-600 dark:text-green-400">
-								{flight.currency || '$'}{flight.cost}
+								{#if flight.displayPrice}
+									{flight.displayPrice}
+								{:else if flight.cost != null}
+									{flight.currency || '$'}{flight.cost}
+								{:else}
+									—
+								{/if}
 							</div>
 						</div>
 						<div>
 							<div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Departure')}</div>
-							<div class="text-sm text-gray-900 dark:text-gray-100">
-								{new Date(flight.departureDate).toLocaleDateString()}
-							</div>
+					<div class="text-sm text-gray-900 dark:text-gray-100">
+						{formatDateTimeInline(flight.departureDateTimeLabel, flight.departureLocalDate, flight.departureTime)}
+					</div>
 						</div>
 						<div>
 							<div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Duration')}</div>

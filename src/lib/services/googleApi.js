@@ -172,7 +172,7 @@ class GoogleFlightsApiService {
 
 			// Price and currency
 			const price = flightOffer.price || 0;
-			const currency = 'USD'; // Google Flights API typically returns USD
+			const currency = 'HKD'; // Google Flights API typically returns USD
 
 			// Duration
 			const duration = flightOffer.total_duration || 0; // in minutes

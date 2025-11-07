@@ -48,7 +48,7 @@ input[type='range'] {
   }
 </style>
  <script>
-  import { getContext, createEventDispatcher, tick, onMount, onDestroy } from 'svelte';
+  import { getContext, createEventDispatcher, tick, onMount } from 'svelte';
   import { airlineOptions } from '$lib/utils/airlines';
 
   const i18n = getContext('i18n');

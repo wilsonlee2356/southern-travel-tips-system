@@ -1,6 +1,6 @@
 <script>
 	import { mobile, showSidebar, user, showArchivedChats } from '$lib/stores';
-	import { getContext } from 'svelte';
+import { getContext, onMount } from 'svelte';
 
 	const i18n = getContext('i18n');
 
@@ -11,8 +11,8 @@
 	import { goto } from '$app/navigation';
 	import googleFlightsApi from '$lib/services/googleApi.js';
 	import { cityList, locationCodeMap, getLocationCode, filterCities } from '$lib/utils/cityCodes';
-	import SearchBox from './components/search-box.svelte';
-	import ResultBox from './components/result-box.svelte';
+import SearchBox from './components/search-box.svelte';
+import ResultBox from './components/result-box.svelte';
 	// No longer need adapter merging imports since we only use pre-existing merged models
 
 	// Form state
@@ -26,7 +26,7 @@
 		seatClass: 'economy',
 		stops: 'any',
 		airlines: [],
-		maxPrice: 2000,
+		maxPrice: 2000000,
 		maxDuration: 12,
 		departureDate: '',
 		returnDate: ''
@@ -34,6 +34,7 @@
 
 	// Search results state
 	let searchResults = [];
+let allSearchResults = [];
 	let isSearching = false;
 	let hasSearched = false;
 	let selectedFlights = new Set();
@@ -60,11 +61,10 @@
 	// Initialize with all flights on page load
 	$: if (typeof window !== 'undefined') {
 		if (searchResults.length === 0 && !hasSearched) {
-			// Give initial flights unique IDs
-			searchResults = sampleFlights.map((flight, index) => ({
-				...flight,
-				id: `0_${index + 1}`
-			}));
+			searchResults = [];
+			allSearchResults = [];
+	searchResults = [];
+	allSearchResults = [];
 		}
 	}
 
@@ -130,114 +130,370 @@ const handleDestinationFocus = () => {
 		}
 	};
 
-	// Sample flight data for demonstration
-	const sampleFlights = [
-		{
-			id: 1,
-			airline: '國泰航空',
-			airlineCode: 'CX',
-			startingPlace: '香港',
-			startingPlaceCode: 'HKG',
-			destination: '首爾',
-			destinationCode: 'ICN',
-			cost: 2690,
-			currency: 'HKD',
-			seatClass: '經濟艙',
-			departureDate: '2024-02-15',
-			departureTime: '08:30',
-			arrivalDate: '2024-02-15',
-			arrivalTime: '13:45',
-			ticketValidDate: '2024-02-20',
-			duration: '5h 15m',
-			segments: 1,
-			luggageInfo: '20kg',
-			amadeusData: null
-		},
-		{
-			id: 2,
-			airline: '長榮航空',
-			airlineCode: 'BR',
-			startingPlace: '香港',
-			startingPlaceCode: 'HKG',
-			destination: '台北',
-			destinationCode: 'TPE',
-			cost: 1200,
-			currency: 'HKD',
-			seatClass: '經濟艙',
-			departureDate: '2024-02-16',
-			departureTime: '14:20',
-			arrivalDate: '2024-02-16',
-			arrivalTime: '16:10',
-			ticketValidDate: '2024-02-22',
-			duration: '1h 50m',
-			segments: 1,
-			luggageInfo: '20kg',
-			amadeusData: null
-		},
-		{
-			id: 3,
-			airline: '全日空航空',
-			airlineCode: 'NH',
-			startingPlace: '香港',
-			startingPlaceCode: 'HKG',
-			destination: '大阪',
-			destinationCode: 'KIX',
-			cost: 2900,
-			currency: 'HKD',
-			seatClass: '經濟艙',
-			departureDate: '2024-02-17',
-			departureTime: '09:15',
-			arrivalDate: '2024-02-17',
-			arrivalTime: '14:30',
-			ticketValidDate: '2024-02-23',
-			duration: '5h 15m',
-			segments: 1,
-			luggageInfo: '20kg',
-			amadeusData: null
-		},
-		{
-			id: 4,
-			airline: '阿聯酋航空',
-			airlineCode: 'EK',
-			startingPlace: '香港',
-			startingPlaceCode: 'HKG',
-			destination: '杜拜',
-			destinationCode: 'DXB',
-			cost: 2950,
-			currency: 'HKD',
-			seatClass: '經濟艙',
-			departureDate: '2024-02-18',
-			departureTime: '23:45',
-			arrivalDate: '2024-02-19',
-			arrivalTime: '05:20',
-			ticketValidDate: '2024-02-24',
-			duration: '8h 35m',
-			segments: 1,
-			luggageInfo: '20kg',
-			amadeusData: null
-		},
-		{
-			id: 5,
-			airline: '英國航空',
-			airlineCode: 'BA',
-			startingPlace: '香港',
-			startingPlaceCode: 'HKG',
-			destination: '倫敦',
-			destinationCode: 'LHR',
-			cost: 9000,
-			currency: 'HKD',
-			seatClass: '商務艙',
-			departureDate: '2024-02-19',
-			departureTime: '23:30',
-			arrivalDate: '2024-02-20',
-			arrivalTime: '06:15',
-			ticketValidDate: '2024-02-25',
-			duration: '12h 45m',
-			segments: 1,
-			luggageInfo: '20kg',
-			amadeusData: null
+	// const sampleFlights = [...]; // commented out demo data per request
+
+const splitDateTime = (value) => {
+	if (!value) return { date: '', time: '' };
+	if (typeof value === 'string') {
+		const normalized = value.replace('Z', '');
+		if (normalized.includes('T')) {
+			const [date, timePart] = normalized.split('T');
+			const time = timePart ? timePart.slice(0, 5) : '';
+			return { date, time };
 		}
-	];
+		const parts = normalized.split(' ');
+		if (parts.length >= 2) {
+			return { date: parts[0], time: parts[1] };
+		}
+		return { date: normalized, time: '' };
+	}
+	if (typeof value === 'object') {
+		return {
+			date: value.date ?? '',
+			time: value.time ?? ''
+		};
+	}
+	return { date: '', time: '' };
+};
+
+const parsePriceInfo = (priceInfo) => {
+	let amount = null;
+	let currency = '';
+	let formatted = '';
+
+	if (priceInfo == null) {
+		return { amount, currency, formatted };
+	}
+
+	if (typeof priceInfo === 'number') {
+		amount = priceInfo;
+	} else if (typeof priceInfo === 'string') {
+		formatted = priceInfo.trim();
+		const numeric = formatted.replace(/[^\d.,]/g, '').replace(/,/g, '');
+		const parsed = parseFloat(numeric);
+		amount = Number.isFinite(parsed) ? parsed : null;
+		const currencyMatch = formatted.replace(/[\d.,\s]/g, '').trim();
+		if (currencyMatch) currency = currencyMatch;
+	} else if (typeof priceInfo === 'object') {
+		const maybeAmount = priceInfo.amount ?? priceInfo.price ?? priceInfo.value;
+		if (maybeAmount != null) {
+			const parsed = parseFloat(maybeAmount);
+			amount = Number.isFinite(parsed) ? parsed : null;
+		}
+		currency =
+			priceInfo.currency ??
+			priceInfo.currency_code ??
+			priceInfo.currencyCode ??
+			priceInfo.currency_symbol ??
+			priceInfo.currencySymbol ??
+			currency;
+		formatted =
+			priceInfo.display_price ??
+			priceInfo.display ??
+			priceInfo.formatted ??
+			priceInfo.price_string ??
+			priceInfo.price_display ??
+			formatted;
+	}
+
+	if (!formatted && amount != null) {
+		formatted = currency ? `${currency} ${amount}` : `$${amount}`;
+	}
+
+	return { amount, currency, formatted };
+};
+
+const parseDurationMinutes = (duration) => {
+	if (!duration) return null;
+
+	if (typeof duration === 'number') return duration;
+
+	if (typeof duration === 'string') {
+		let total = 0;
+		const hourMatch = duration.match(/(\d+)\s*(?:h|hour)/i);
+		const minuteMatch = duration.match(/(\d+)\s*(?:m|min)/i);
+		if (hourMatch) total += parseInt(hourMatch[1], 10) * 60;
+		if (minuteMatch) total += parseInt(minuteMatch[1], 10);
+		if (total > 0) return total;
+
+		const numeric = parseFloat(duration);
+		if (Number.isFinite(numeric)) {
+			// assume hours if contains colon? otherwise fallback to hours * 60
+			return numeric > 12 ? numeric : numeric * 60;
+		}
+	}
+
+	return null;
+};
+
+const formatDurationLabel = (minutes, fallback) => {
+	if (!minutes || !Number.isFinite(minutes)) {
+		return fallback ?? 'N/A';
+	}
+	const hrs = Math.floor(minutes / 60);
+	const mins = minutes % 60;
+	if (hrs && mins) return `${hrs}h ${mins}m`;
+	if (hrs) return `${hrs}h`;
+	return `${mins}m`;
+};
+
+const collectSegments = (flight) => {
+	if (!flight) return [];
+	if (Array.isArray(flight.flights)) return flight.flights;
+	if (Array.isArray(flight.legs)) return flight.legs;
+	if (Array.isArray(flight.segments)) return flight.segments;
+	if (Array.isArray(flight.outbound_flights)) return flight.outbound_flights;
+	if (Array.isArray(flight.outbound)) return flight.outbound;
+	return [];
+};
+
+const normalizeDateValue = (primary, secondary) => {
+	const normalize = (value) => {
+		if (typeof value === 'string') {
+			const trimmed = value.trim();
+			return trimmed.length ? trimmed : null;
+		}
+		return null;
+	};
+	return normalize(primary) ?? normalize(secondary) ?? null;
+};
+
+const normalizeTimeValue = (value) => {
+	if (typeof value === 'string') {
+		const trimmed = value.trim();
+		return trimmed.length ? trimmed : null;
+	}
+	return null;
+};
+
+const mapBestFlightsToResults = (bestFlights, counter) => {
+	return bestFlights.map((flight, index) => {
+		const priceInfo =
+			parsePriceInfo(flight.price) ||
+			parsePriceInfo(flight.price_per_ticket) ||
+			parsePriceInfo(flight.purchase_links?.[0]?.price);
+
+		const segments = collectSegments(flight);
+		const firstSegment = segments[0] ?? {};
+		const lastSegment = segments[segments.length - 1] ?? firstSegment;
+
+		const outboundDeparture =
+			firstSegment.departure_airport ??
+			firstSegment.departure ??
+			firstSegment.from ??
+			firstSegment.origin ??
+			{};
+		const outboundArrival =
+			lastSegment.arrival_airport ??
+			lastSegment.arrival ??
+			lastSegment.to ??
+			lastSegment.destination ??
+			{};
+
+		const departureTimeInfo =
+			outboundDeparture.time ??
+			firstSegment.departure_time ??
+			firstSegment.departureDateTime ??
+			firstSegment.departure_time_utc;
+		const arrivalTimeInfo =
+			outboundArrival.time ??
+			lastSegment.arrival_time ??
+			lastSegment.arrivalDateTime ??
+			lastSegment.arrival_time_utc;
+
+		const departureDate = outboundDeparture.date ?? firstSegment.departure_date ?? flight.departure_date;
+		const arrivalDate = outboundArrival.date ?? lastSegment.arrival_date ?? firstSegment.arrival_date ?? flight.arrival_date;
+
+		const departure = splitDateTime(
+			departureTimeInfo ??
+				(departureDate ? `${departureDate}T${outboundDeparture.time ?? firstSegment.departure_time ?? ''}` : '')
+		);
+		const arrival = splitDateTime(arrivalTimeInfo);
+
+		const airlineNames = new Set();
+		const airlineCodes = new Set();
+		const collectCarrier = (segment) => {
+			const name =
+				segment.airline ||
+				segment.airline_name ||
+				segment.marketing_airline ||
+				segment.carrier ||
+				segment.display_airline;
+			if (name) airlineNames.add(name);
+			const code =
+				segment.airline_code ||
+				segment.carrier_code ||
+				segment.marketing_airline_code ||
+				segment.flight_number?.slice(0, 2);
+			if (code) airlineCodes.add(code.toUpperCase());
+			if (segment.operating_airline_code) airlineCodes.add(segment.operating_airline_code.toUpperCase());
+		};
+		segments.forEach(collectCarrier);
+		if (Array.isArray(flight.airlines)) {
+			flight.airlines.forEach((item) => {
+				if (typeof item === 'string') airlineNames.add(item);
+				if (item?.name) airlineNames.add(item.name);
+				const code = item?.code ?? item?.iata;
+				if (code) airlineCodes.add(code.toUpperCase());
+			});
+		}
+
+		const airlineName =
+			flight.airline ||
+			flight.display_airline ||
+			Array.from(airlineNames).join(', ') ||
+			firstSegment.airline ||
+			firstSegment.operating_airline ||
+			'Unknown airline';
+
+		const seatClassRaw =
+			flight.cabin_class ??
+			flight.cabin ??
+			flight.travel_class ??
+			firstSegment.cabin ??
+			firstSegment.travel_class ??
+			firstSegment.seat_class ??
+			firstSegment.cabin_class;
+		const seatClassLabel = seatClassRaw ? seatClassRaw.toString() : '—';
+
+		const totalDurationMinutes =
+			parseDurationMinutes(flight.total_duration) ??
+			parseDurationMinutes(flight.duration) ??
+			parseDurationMinutes(firstSegment.duration);
+		const totalDurationLabel = formatDurationLabel(totalDurationMinutes, flight.total_duration ?? flight.duration);
+
+		const normalizedDepartureDate = normalizeDateValue(departureDate, departure.date);
+		const normalizedArrivalDate = normalizeDateValue(arrivalDate, arrival.date);
+		const normalizedDepartureTime = normalizeTimeValue(
+			outboundDeparture.time ?? firstSegment.departure_time ?? departure.time
+		);
+		const normalizedArrivalTime = normalizeTimeValue(
+			outboundArrival.time ?? lastSegment.arrival_time ?? arrival.time
+		);
+		const departureDateTimeLabel = [normalizedDepartureTime, normalizedDepartureDate]
+			.filter(Boolean)
+			.join(' ');
+		const arrivalDateTimeLabel = [normalizedArrivalTime, normalizedArrivalDate]
+			.filter(Boolean)
+			.join(' ');
+
+		return {
+			id: `${counter}_${index + 1}`,
+			airline: airlineName,
+			airlineCode: flight.airline_code || Array.from(airlineCodes)[0] || '',
+			airlineLogo: flight.airline_logo || firstSegment.airline_logo || null,
+			startingPlace:
+				outboundDeparture.name ||
+				outboundDeparture.city ||
+				outboundDeparture.code ||
+				outboundDeparture.airport ||
+				'—',
+			startingPlaceCode:
+				outboundDeparture.code ||
+				outboundDeparture.airport_code ||
+				outboundDeparture.iata ||
+				outboundDeparture.id ||
+				'',
+			destination:
+				outboundArrival.name ||
+				outboundArrival.city ||
+				outboundArrival.code ||
+				outboundArrival.airport ||
+				'—',
+			destinationCode:
+				outboundArrival.code ||
+				outboundArrival.airport_code ||
+				outboundArrival.iata ||
+				outboundArrival.id ||
+				'',
+			cost: priceInfo.amount,
+			currency: priceInfo.currency,
+			displayPrice: priceInfo.formatted,
+			seatClass: seatClassLabel,
+			departureDate: normalizedDepartureDate,
+			departureLocalDate: normalizedDepartureDate,
+			departureTime: normalizedDepartureTime,
+			departureDateTimeLabel: departureDateTimeLabel,
+			departureAirportName:
+				outboundDeparture.name ||
+				outboundDeparture.airport ||
+				outboundDeparture.city ||
+				outboundDeparture.code ||
+				'',
+			arrivalDate: normalizedArrivalDate,
+			arrivalLocalDate: normalizedArrivalDate,
+			arrivalTime: normalizedArrivalTime,
+			arrivalDateTimeLabel: arrivalDateTimeLabel,
+			duration: formatDurationLabel(totalDurationMinutes, flight.total_duration ?? flight.duration),
+			durationMinutes: totalDurationMinutes,
+			totalDurationLabel,
+			arrivalAirportName:
+				outboundArrival.name ||
+				outboundArrival.airport ||
+				outboundArrival.city ||
+				outboundArrival.code ||
+				'',
+			segments: segments.length || flight.connections?.length || 1,
+			airlines: Array.from(airlineCodes),
+			flightNumber: firstSegment.flight_number || flight.flight_number || null,
+			rawData: flight
+		};
+	});
+};
+
+const applyResultFilters = (results) => {
+	let filtered = Array.isArray(results) ? [...results] : [];
+
+	if (searchForm.airlines?.length) {
+		filtered = filtered.filter((flight) => {
+			if (!flight.airlines?.length) return false;
+			return flight.airlines.some((code) => searchForm.airlines.includes(code));
+		});
+	}
+
+	if (searchForm.stops && searchForm.stops !== 'any') {
+		filtered = filtered.filter((flight) => {
+			const segments = flight.segments ?? 1;
+			if (searchForm.stops === 'direct') return segments <= 1;
+			if (searchForm.stops === 'one-or-less') return segments <= 2;
+			if (searchForm.stops === 'two-or-less') return segments <= 3;
+			return true;
+		});
+	}
+
+	const maxPriceFilters = [searchForm.maxPrice, searchForm.cost]
+		.filter((value) => value != null && value !== '')
+		.map((value) => parseFloat(value))
+		.filter((num) => Number.isFinite(num) && num > 0);
+	if (maxPriceFilters.length) {
+		const effectiveMaxPrice = Math.min(...maxPriceFilters);
+		filtered = filtered.filter((flight) => {
+			if (flight.cost == null) return true;
+			return flight.cost <= effectiveMaxPrice;
+		});
+	}
+
+	if (searchForm.maxDuration) {
+		const maxDurationMinutes = Number(searchForm.maxDuration) * 60;
+		if (Number.isFinite(maxDurationMinutes) && maxDurationMinutes > 0) {
+			filtered = filtered.filter((flight) => {
+				if (!flight.durationMinutes) return true;
+				return flight.durationMinutes <= maxDurationMinutes;
+			});
+		}
+	}
+
+	return filtered;
+};
+
+$: if (!isSearching && allSearchResults.length > 0) {
+	const filtered = applyResultFilters(allSearchResults);
+	const sameLength = filtered.length === searchResults.length;
+	const sameOrder = sameLength && filtered.every((flight, index) => flight.id === searchResults[index]?.id);
+	if (!sameOrder) {
+		searchResults = filtered;
+	}
+}
 
 	// Search function
 	const handleSearch = async () => {
@@ -301,7 +557,9 @@ const handleDestinationFocus = () => {
 				arrival_id: destinationCode,
 				outbound_date: searchForm.departureDate,
 				travel_class: travelClassMap[normalizedSeatClass] || 'economy',
-				adults: adultsCount
+				adults: adultsCount,
+				hl: 'zh-TW',
+				currency: 'HKD'
 			};
 
 			if (childrenCount > 0) {
@@ -317,12 +575,30 @@ const handleDestinationFocus = () => {
 			const googleFlightsResponse = await googleFlightsApi.searchFlights(searchParams);
 			console.log('Google Flights API raw response:', googleFlightsResponse);
 
-			// Temporarily disable displaying results until transformation is ready
-			searchResults = [];
+			const bestFlights = Array.isArray(googleFlightsResponse?.best_flights)
+				? googleFlightsResponse.best_flights
+				: [];
+
+			const mappedResults = mapBestFlightsToResults(bestFlights, searchCounter);
+			allSearchResults = mappedResults;
+			const filteredResults = applyResultFilters(allSearchResults);
+
+			if (!mappedResults.length) {
+				searchError = 'No flights found for your search. Please adjust the dates or search parameters.';
+			} else if (!filteredResults.length) {
+				searchError = 'No flights match the selected filters. Try adjusting the filters to see more results.';
+			} else {
+				searchError = '';
+			}
+
+			selectedFlights = new Set();
+			selectedFlightObjects = [];
+			searchResults = filteredResults.length ? filteredResults : [];
 		} catch (error) {
 			console.error('Search error:', error);
 			searchError = error.message || 'An error occurred while searching for flights';
 			searchResults = [];
+			allSearchResults = [];
 		} finally {
 			isSearching = false;
 		}
@@ -340,7 +616,7 @@ const handleDestinationFocus = () => {
 		seatClass: 'economy',
 		stops: 'any',
 		airlines: [],
-		maxPrice: 2000,
+		maxPrice: 20000,
 		maxDuration: 12,
 		departureDate: '',
 		returnDate: ''
