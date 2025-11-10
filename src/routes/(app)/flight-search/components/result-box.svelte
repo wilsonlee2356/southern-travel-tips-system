@@ -19,6 +19,8 @@
   export let selectedModel = null;
 export let showCalendarButton = false;
 export let onOpenCalendar = () => {};
+export let showBarChartButton = false;
+export let onOpenBarChart = () => {};
 export let otherFlights = [];
 </script>
 
@@ -40,9 +42,10 @@ export let otherFlights = [];
       title={$i18n.t('Best flight')}
     />
 
-    {#if showCalendarButton}
-      <div class="flex justify-end">
-        <button
+    {#if showCalendarButton || showBarChartButton}
+      <div class="flex justify-end gap-3">
+        {#if showCalendarButton}
+          <button
           type="button"
           class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
           on:click={() => {
@@ -59,7 +62,29 @@ export let otherFlights = [];
             <line x1="3" y1="10" x2="21" y2="10"></line>
           </svg>
           {$i18n.t('View Price Calendar')}
-        </button>
+          </button>
+        {/if}
+
+        {#if showBarChartButton}
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-400 dark:border-blue-500 text-sm font-medium text-blue-600 dark:text-blue-300 bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+            on:click={() => {
+              console.log('View Price Trend Chart button clicked');
+              if (typeof onOpenBarChart === 'function') {
+                onOpenBarChart();
+              }
+            }}
+          >
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="4" y1="19" x2="4" y2="10"></line>
+              <line x1="10" y1="19" x2="10" y2="5"></line>
+              <line x1="16" y1="19" x2="16" y2="8"></line>
+              <line x1="22" y1="19" x2="22" y2="12"></line>
+            </svg>
+            {$i18n.t('View Price Trend')}
+          </button>
+        {/if}
       </div>
     {/if}
 

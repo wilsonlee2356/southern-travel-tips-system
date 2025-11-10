@@ -15,6 +15,7 @@
 import SearchBox from './components/search-box.svelte';
 import ResultBox from './components/result-box.svelte';
 import CalendarGridModal from './components/calendar-grid-modal.svelte';
+import CalendarBarChartModal from './components/calendar-bar-chart-modal.svelte';
 	// No longer need adapter merging imports since we only use pre-existing merged models
 
 	// Form state
@@ -46,8 +47,11 @@ let allSearchResults = [];
 	let searchError = ''; // Track search errors
 	let searchCounter = 0; // Counter to create unique IDs across searches
 let calendarData = null;
+let calendarDataFull = null;
+let tripLengthDays = null;
 let otherFlightResults = [];
 const showCalendarModal = writable(false);
+const showBarChartModal = writable(false);
 
 const openCalendarModal = () => {
 	console.log('openCalendarModal invoked', calendarData);
@@ -60,7 +64,244 @@ const openCalendarModal = () => {
 const closeCalendarModal = () => {
 	showCalendarModal.set(false);
 };
-	
+
+const openBarChartModal = () => {
+	console.log('openBarChartModal invoked', {
+		hasCalendarData: Boolean(calendarDataFull),
+		tripLengthDays
+	});
+	if (!calendarDataFull || !tripLengthDays) {
+		console.warn('Price trend chart unavailable: missing calendar data or trip length.', {
+			calendarDataFull,
+			tripLengthDays
+		});
+		return;
+	}
+	showBarChartModal.set(true);
+};
+
+const closeBarChartModal = () => {
+	showBarChartModal.set(false);
+};
+
+const CALENDAR_DISPLAY_DAYS_BEFORE = 3;
+const CALENDAR_DISPLAY_DAYS_AFTER = 3;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const toNormalizedDate = (value) => {
+	if (!value) return null;
+	const date = value instanceof Date ? new Date(value) : new Date(String(value));
+	if (Number.isNaN(date.getTime())) {
+		return null;
+	}
+	date.setHours(0, 0, 0, 0);
+	return date;
+};
+
+const createRangeChecker = (baseDateString, daysBefore, daysAfter) => {
+	const baseDate = toNormalizedDate(baseDateString);
+	if (!baseDate) {
+		return () => true;
+	}
+
+	const start = new Date(baseDate);
+	start.setDate(baseDate.getDate() - daysBefore);
+	const end = new Date(baseDate);
+	end.setDate(baseDate.getDate() + daysAfter);
+
+	return (candidateDateString) => {
+		const candidate = toNormalizedDate(candidateDateString);
+		if (!candidate) return false;
+		return candidate >= start && candidate <= end;
+	};
+};
+
+const extractDepartureDate = (value) =>
+	value?.departure_date ??
+	value?.departure ??
+	value?.outbound_date ??
+	value?.outboundDate ??
+	value?.departureDate ??
+	value?.date ??
+	null;
+
+const extractReturnDate = (value) =>
+	value?.return_date ??
+	value?.return ??
+	value?.inbound_date ??
+	value?.returnDate ??
+	value?.inboundDate ??
+	null;
+
+const buildDisplayRange = (baseDateString) => {
+	const baseDate = toNormalizedDate(baseDateString);
+	if (!baseDate) return null;
+	const start = new Date(baseDate);
+	start.setDate(baseDate.getDate() - CALENDAR_DISPLAY_DAYS_BEFORE);
+	const end = new Date(baseDate);
+	end.setDate(baseDate.getDate() + CALENDAR_DISPLAY_DAYS_AFTER);
+	return {
+		start: start.toISOString().slice(0, 10),
+		end: end.toISOString().slice(0, 10)
+	};
+};
+
+const pickAlignedValues = (source, indices) => {
+	if (!Array.isArray(source)) return source;
+	return indices.map((index) => source[index]);
+};
+
+const limitPriceGridRows = (rows, isOutboundInRange, isReturnInRange, shouldFilterReturn) => {
+	if (!Array.isArray(rows)) {
+		return rows;
+	}
+
+	return rows
+		.map((row) => {
+			const outboundDate = extractDepartureDate(row);
+			if (outboundDate && !isOutboundInRange(outboundDate)) {
+				return null;
+			}
+
+			if (Array.isArray(row?.return_dates)) {
+				const validIndices = row.return_dates.reduce((acc, value, index) => {
+					if (!shouldFilterReturn || isReturnInRange(value)) {
+						acc.push(index);
+					}
+					return acc;
+				}, []);
+
+				if (shouldFilterReturn && validIndices.length === 0) {
+					return null;
+				}
+
+				const nextRow = {
+					...row,
+					return_dates: pickAlignedValues(row.return_dates, validIndices)
+				};
+
+				if (Array.isArray(row.prices)) {
+					nextRow.prices = pickAlignedValues(row.prices, validIndices);
+				} else if (row.prices !== undefined) {
+					nextRow.prices = row.prices;
+				}
+
+				if (Array.isArray(row.is_lowest_price)) {
+					nextRow.is_lowest_price = pickAlignedValues(row.is_lowest_price, validIndices);
+				} else if (row.is_lowest_price !== undefined) {
+					nextRow.is_lowest_price = row.is_lowest_price;
+				}
+
+				if (Array.isArray(row.flights)) {
+					nextRow.flights = pickAlignedValues(row.flights, validIndices);
+				} else if (row.flights !== undefined) {
+					nextRow.flights = row.flights;
+				}
+
+				return nextRow;
+			}
+
+			if (shouldFilterReturn && row?.return_date && !isReturnInRange(row.return_date)) {
+				return null;
+			}
+
+			return { ...row };
+		})
+		.filter(Boolean);
+};
+
+const limitCalendarDataset = (data, baseOutbound, baseReturn) => {
+	if (!data) {
+		return null;
+	}
+
+	const isOutboundInRange = createRangeChecker(baseOutbound, CALENDAR_DISPLAY_DAYS_BEFORE, CALENDAR_DISPLAY_DAYS_AFTER);
+	const hasReturnAnchor = Boolean(baseReturn);
+	const isReturnInRange = hasReturnAnchor
+		? createRangeChecker(baseReturn, CALENDAR_DISPLAY_DAYS_BEFORE, CALENDAR_DISPLAY_DAYS_AFTER)
+		: () => true;
+
+	const limited = {
+		display_range: {
+			outbound: buildDisplayRange(baseOutbound),
+			return: hasReturnAnchor ? buildDisplayRange(baseReturn) : null
+		}
+	};
+
+	if (data?.search_metadata) {
+		limited.search_metadata = { ...data.search_metadata };
+	}
+
+	if (data?.search_parameters) {
+		limited.search_parameters = { ...data.search_parameters };
+	}
+
+	if (data?.search_information) {
+		limited.search_information = { ...data.search_information };
+	}
+
+	if (data?.price_insights) {
+		limited.price_insights = { ...data.price_insights };
+	}
+
+	if (data?.filters) {
+		limited.filters = { ...data.filters };
+	}
+
+	['status', 'error', 'message'].forEach((key) => {
+		if (data?.[key] !== undefined) {
+			limited[key] = data[key];
+		}
+	});
+
+	if (Array.isArray(data.calendar)) {
+		limited.calendar = data.calendar
+			.filter((entry) => {
+				const outboundDate = extractDepartureDate(entry);
+				if (!outboundDate || !isOutboundInRange(outboundDate)) {
+					return false;
+				}
+				if (hasReturnAnchor) {
+					const returnDate = extractReturnDate(entry);
+					if (!returnDate || !isReturnInRange(returnDate)) {
+						return false;
+					}
+				}
+				return true;
+			})
+			.map((entry) => ({ ...entry }));
+	} else {
+		limited.calendar = [];
+	}
+
+	if (Array.isArray(data.price_grid)) {
+		limited.price_grid = limitPriceGridRows(data.price_grid, isOutboundInRange, isReturnInRange, hasReturnAnchor);
+	} else if (data?.price_grid) {
+		limited.price_grid = data.price_grid;
+	} else {
+		limited.price_grid = [];
+	}
+
+	return limited;
+};
+
+const computeTripLengthDays = (data) => {
+	const outbound = data?.search_parameters?.outbound_date;
+	const ret = data?.search_parameters?.return_date;
+	if (!outbound || !ret) {
+		return null;
+	}
+	const outboundDate = toNormalizedDate(outbound);
+	const returnDate = toNormalizedDate(ret);
+	if (!outboundDate || !returnDate) {
+		return null;
+	}
+	const diff = Math.round((returnDate.getTime() - outboundDate.getTime()) / MS_PER_DAY);
+	return diff > 0 ? diff : null;
+};
+
+$: tripLengthDays = computeTripLengthDays(calendarDataFull);
+
 	// Autocomplete state
 	let startingPlaceInput = '';
 	let destinationInput = '';
@@ -567,6 +808,8 @@ $: if (!isSearching && allSearchResults.length > 0) {
 		hasSearched = true;
 		searchError = '';
 		calendarData = null;
+		calendarDataFull = null;
+	showBarChartModal.set(false);
 		showCalendarModal.set(false);
 		otherFlightResults = [];
 		
@@ -648,7 +891,14 @@ $: if (!isSearching && allSearchResults.length > 0) {
 			const { data: googleFlightsResponse, calendarData: googleFlightsCalendarData } =
 				await googleFlightsApi.searchFlights(searchParams);
 			console.log('Google Flights API raw response:', googleFlightsResponse);
-			calendarData = googleFlightsCalendarData;
+			calendarDataFull = googleFlightsCalendarData;
+			calendarData = googleFlightsCalendarData
+				? limitCalendarDataset(
+						googleFlightsCalendarData,
+						searchParams.outbound_date,
+						searchParams.return_date
+					)
+				: null;
 
 			const bestFlights = Array.isArray(googleFlightsResponse?.best_flights)
 				? googleFlightsResponse.best_flights
@@ -684,6 +934,8 @@ $: if (!isSearching && allSearchResults.length > 0) {
 			searchResults = [];
 			allSearchResults = [];
 			calendarData = null;
+			calendarDataFull = null;
+			showBarChartModal.set(false);
 			otherFlightResults = [];
 		} finally {
 			isSearching = false;
@@ -721,8 +973,10 @@ $: if (!isSearching && allSearchResults.length > 0) {
 		selectedFlightObjects = [];
 		searchError = '';
 		calendarData = null;
+	calendarDataFull = null;
 		otherFlightResults = [];
 		showCalendarModal.set(false);
+	showBarChartModal.set(false);
 	};
 
 	// Handle checkbox selection
@@ -1150,6 +1404,8 @@ $: if (!isSearching && allSearchResults.length > 0) {
 				bind:selectedModel
 				showCalendarButton={Boolean(calendarData)}
 				onOpenCalendar={openCalendarModal}
+				showBarChartButton={Boolean(calendarDataFull?.calendar?.length && tripLengthDays)}
+				onOpenBarChart={openBarChartModal}
 				otherFlights={otherFlightResults}
 			/>
 
@@ -1157,6 +1413,12 @@ $: if (!isSearching && allSearchResults.length > 0) {
 				open={$showCalendarModal}
 				calendarData={calendarData}
 				on:close={closeCalendarModal}
+			/>
+			<CalendarBarChartModal
+				open={$showBarChartModal}
+				calendarData={calendarDataFull}
+				tripLengthDays={tripLengthDays}
+				on:close={closeBarChartModal}
 			/>
 		</div>
 	</div>

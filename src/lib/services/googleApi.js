@@ -122,18 +122,18 @@ class GoogleFlightsApiService {
 				throw new Error(errorMessage);
 			}
 
-		const data = await response.json();
-		console.log('Google Flights API Response Data:', data);
-		
+			const data = await response.json();
+			console.log('Google Flights API Response Data:', data);
+			
 		let calendarData = null;
 		if (!isCalendar) {
 			calendarData = await this.fetchCalendarData(searchParams);
 		}
 
-		return {
-			data,
-			calendarData
-		};
+			return {
+				data,
+				calendarData
+			};
 		} catch (error) {
 			console.error('Error searching flights:', error);
 			throw error;
@@ -180,20 +180,23 @@ class GoogleFlightsApiService {
 			};
 
 			const buildWindow = (baseDate) => {
-				const candidateStart = shiftDate(baseDate, -3);
-				let extraDays = 0;
+				const daysBefore = 6;
+				const daysAfter = 7;
+				const candidateStart = shiftDate(baseDate, -daysBefore);
+				let trimmedDays = 0;
 				let startDate = candidateStart;
 
 				if (candidateStart < today) {
-					extraDays = Math.ceil((today.getTime() - candidateStart.getTime()) / msPerDay);
+					trimmedDays = Math.ceil((today.getTime() - candidateStart.getTime()) / msPerDay);
 					startDate = new Date(today);
 				}
 
-				const endDate = shiftDate(baseDate, 3 + extraDays);
+				const endDate = shiftDate(baseDate, daysAfter + trimmedDays);
 
 				return {
 					start: startDate,
-					end: endDate
+					end: endDate,
+					trimmedDays
 				};
 			};
 
@@ -206,10 +209,11 @@ class GoogleFlightsApiService {
 			calendarSearchParams.outbound_date_start = formatDate(outboundWindow.start);
 			calendarSearchParams.outbound_date_end = formatDate(outboundWindow.end);
 
+			let returnWindow = null;
 			if (searchParams.return_date) {
 				const returnDateObj = parseDate(searchParams.return_date);
 				if (returnDateObj) {
-					const returnWindow = buildWindow(returnDateObj);
+					returnWindow = buildWindow(returnDateObj);
 					calendarSearchParams.return_date_start = formatDate(returnWindow.start);
 					calendarSearchParams.return_date_end = formatDate(returnWindow.end);
 				}
@@ -223,7 +227,24 @@ class GoogleFlightsApiService {
 			});
 
 			const calendarRequestUrl = `/api/google-flights?${calendarParams}`;
-			console.log('Google Flights Calendar Request URL:', calendarRequestUrl);
+			console.log('Google Flights Calendar Request URL:', calendarRequestUrl, {
+				outbound_window: {
+					anchor: outboundDate,
+					start: calendarSearchParams.outbound_date_start,
+					end: calendarSearchParams.outbound_date_end,
+					trimmed_days: outboundWindow.trimmedDays,
+					allocated_days_after: 7 + outboundWindow.trimmedDays
+				},
+				return_window: returnWindow
+					? {
+							anchor: searchParams.return_date,
+							start: calendarSearchParams.return_date_start,
+							end: calendarSearchParams.return_date_end,
+							trimmed_days: returnWindow.trimmedDays,
+							allocated_days_after: 7 + returnWindow.trimmedDays
+					  }
+					: null
+			});
 
 			const calendarResponse = await fetch(calendarRequestUrl, {
 				method: 'GET',
