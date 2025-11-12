@@ -1,8 +1,7 @@
 <script>
-	import { mobile, showSidebar, user, showArchivedChats, models } from '$lib/stores';
-	import { getContext, onMount } from 'svelte';
-	import googleFlightsApi from '$lib/services/googleApi.js';
-
+import { mobile, showSidebar, user, showArchivedChats, models } from '$lib/stores';
+import { getContext, onMount } from 'svelte';
+import { WEBUI_API_BASE_URL } from '$lib/constants';
 	const i18n = getContext('i18n');
 
 	import UserMenu from '$lib/components/layout/Sidebar/UserMenu.svelte';
@@ -35,8 +34,46 @@
 	const updateHoveredBar = () => {};
 	const deselectFlight = () => {};
 	
-	// Model selection
-	let selectedModel = null;
+// Model selection
+let selectedModel = null;
+
+// Airline metadata
+let availableAirlines = [];
+let airlinesError = '';
+let airlinesLoading = false;
+let airlineCodeToName = new Map();
+
+const travelClassMap = {
+	ECONOMY: 0,
+	PREMIUM_ECONOMY: 1,
+	BUSINESS: 2,
+	FIRST: 3
+};
+
+onMount(async () => {
+	try {
+		airlinesLoading = true;
+		const response = await fetch(`${WEBUI_API_BASE_URL}/auto-flight-search/airlines`, {
+			credentials: 'include'
+		});
+		if (!response.ok) {
+			throw new Error(`Failed to fetch airlines (${response.status})`);
+		}
+		const data = await response.json();
+		availableAirlines = Array.isArray(data) ? data : [];
+	} catch (error) {
+		console.error('Failed to load airlines:', error);
+		airlinesError = error.message ?? 'Failed to load airlines';
+	} finally {
+		airlinesLoading = false;
+	}
+});
+
+$: airlineCodeToName = new Map(
+	availableAirlines
+		.filter((airline) => airline?.code)
+		.map((airline) => [airline.code, airline.name ?? airline.code])
+);
 	
 	// Allowed model patterns (same as flight search page)
 	const allowedModelPatterns = [
@@ -104,111 +141,52 @@
 		loadingSearches = loadingSearches; // Trigger reactivity
 		
 		try {
-			// Build search parameters - only include parameters that have values
-			const searchParams = {
-				originLocationCode: search.departure,
+			if (!search.departure || !search.destination) {
+				throw new Error('Both departure and destination codes are required.');
+			}
+
+			const airlineNames =
+				search.airlines?.map((code) => airlineCodeToName.get(code) ?? code) ?? [];
+
+			if (!airlineNames.length) {
+				throw new Error('Please select at least one airline.');
+			}
+
+			const payload = {
+				from_place: search.departure,
+				to_place: search.destination,
+				airlines: airlineNames,
+				travel_class: travelClassMap[search.travelClass] ?? 0,
+				direct_flight: Boolean(search.nonStop)
 			};
 
-			// Add destination if provided
-			if (search.destination && typeof search.destination === 'string' && search.destination.trim() !== '') {
-				searchParams.destinationLocationCode = search.destination;
-			}
-			
-			// Add departure date if provided
-			if (search.departureDate && typeof search.departureDate === 'string' && search.departureDate.trim() !== '') {
-				searchParams.departureDate = search.departureDate;
-			}
-			
-			// Add oneWay only if explicitly set to true
-			if (search.oneWay === true) {
-				searchParams.oneWay = true;
-			}
-			
-			// Add duration if provided and valid (stored as number or string)
-			if (search.duration !== null && search.duration !== undefined && search.duration !== '') {
-				const durationNum = typeof search.duration === 'number' ? search.duration : parseInt(search.duration);
-				if (!isNaN(durationNum) && durationNum > 0 && durationNum <= 15) {
-					searchParams.duration = durationNum;
-				}
-			}
-			
-			// Add nonStop only if explicitly set to true
-			if (search.nonStop === true) {
-				searchParams.nonStop = true;
-			}
-			
-			// Add viewBy if provided (default is 'DATE', so always include it)
-			if (search.viewBy && typeof search.viewBy === 'string' && search.viewBy.trim() !== '') {
-				searchParams.viewBy = search.viewBy;
-			}
-			
-			// Add maxPrice if provided and valid (stored as number or string)
-			if (search.maxPrice !== null && search.maxPrice !== undefined && search.maxPrice !== '') {
-				const priceNum = typeof search.maxPrice === 'number' ? search.maxPrice : parseFloat(search.maxPrice);
-				if (!isNaN(priceNum) && priceNum > 0) {
-					searchParams.maxPrice = priceNum;
-				}
-			}
-			
-			console.log(`Running search ${searchId}:`, searchParams);
+			const response = await fetch(`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload),
+				credentials: 'include'
+			});
 
-            // Use dates directly from search (YYYY-MM-DD format)
-            const departureDate = search.departureDate;
-            const returnDate = search.oneWay ? null : (search.returnDate || null);
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(errorText || `Auto search failed (${response.status})`);
+			}
 
-            // Call Google Flights API (SerpApi)
-            // Ensure required params: departure_id, arrival_id, outbound_date
-            if (!searchParams.originLocationCode) {
-                throw new Error('Departure airport/city code is required');
-            }
-            if (!searchParams.destinationLocationCode) {
-                throw new Error('Arrival airport/city code is required');
-            }
-            if (!departureDate) {
-                throw new Error('Departure date is required');
-            }
+			const data = await response.json();
 
-            const googleFlightsParams = {
-                departure_id: searchParams.originLocationCode,
-                arrival_id: searchParams.destinationLocationCode,
-                outbound_date: departureDate,
-                adults: search.adults && Number(search.adults) > 0 ? Number(search.adults) : 1,
-                currency: 'HKD' // Set currency to HKD
-            };
-
-            if (returnDate && !search.oneWay) {
-                googleFlightsParams.return_date = returnDate;
-            }
-
-            // Make API call to Google Flights API
-            const response = await googleFlightsApi.searchFlights(googleFlightsParams);
-            console.log('Google Flights API raw response:', response);
-            
-            const transformed = googleFlightsApi.transformFlightData(response);
-            console.log('Google Flights transformed results:', transformed);
-            
-            // Group results by airline for display
-            const priceGrid = null;
-            const chartData = [];
-			
-			// Update the search with results
 			savedSearches[searchIndex] = {
 				...search,
-                results: transformed,
-				priceGrid: priceGrid,
-				chartData: chartData,
-				lastSearched: new Date().toISOString()
+				lastSearched: new Date().toISOString(),
+				autoSearchResponse: data,
+				error: undefined
 			};
-			
-			// Save to localStorage
+
 			localStorage.setItem('autoFlightSearches', JSON.stringify(savedSearches));
-			
 		} catch (error) {
-			console.error(`Error searching ${searchId}:`, error);
-			// Update search with error
+			console.error(`Error running auto search ${searchId}:`, error);
 			savedSearches[searchIndex] = {
 				...search,
-				error: error.message
+				error: error.message || 'Failed to run auto search'
 			};
 		} finally {
 			loadingSearches.delete(searchId);
@@ -522,7 +500,12 @@
 
 				<!-- Add New Search Form -->
 				<div class="mb-8">
-					<SearchForm on:addSearch={handleAddSearch} />
+					<SearchForm
+						on:addSearch={handleAddSearch}
+						availableAirlines={availableAirlines}
+						airlinesLoading={airlinesLoading}
+						airlinesError={airlinesError}
+					/>
 				</div>
 
 				<!-- 2-Column Layout: Searches List + Results -->

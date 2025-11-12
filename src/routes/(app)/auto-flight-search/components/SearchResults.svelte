@@ -497,19 +497,60 @@ function colorForIndex(index) {
 				</div>
 			</div>
 		{:else}
-			<div class="text-center py-12 text-gray-500 dark:text-gray-400">
-				{#if loadingSearches.has(selectedSearch.id)}
-					<svg class="animate-spin mx-auto h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24">
-						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-					</svg>
-					<p class="mt-2">Searching for flights...</p>
-				{:else if selectedSearch.error}
-					<p class="text-red-600">Error: {selectedSearch.error}</p>
-				{:else}
-					<p>No results yet. Click refresh button to search.</p>
-				{/if}
-			</div>
+			{#if selectedSearch.autoSearchResponse}
+				<div class="space-y-4">
+					<div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 text-sm text-blue-800 dark:text-blue-100">
+						<h4 class="font-semibold mb-2">Auto Search Summary</h4>
+						<ul class="space-y-1">
+							<li>
+								Route:
+								<strong>{selectedSearch.autoSearchResponse.route?.from_place}</strong>
+								→
+								<strong>{selectedSearch.autoSearchResponse.route?.to_place}</strong>
+							</li>
+							<li>
+								Airlines tracked:
+								<strong>{selectedSearch.autoSearchResponse.auto_search_airlines?.length ?? 0}</strong>
+							</li>
+							<li>
+								Outbound window:
+								<strong>{selectedSearch.autoSearchResponse.outbound_departure}</strong>
+								→
+								<strong>{selectedSearch.autoSearchResponse.outbound_end}</strong>
+							</li>
+							<li>
+								Inbound window:
+								<strong>{selectedSearch.autoSearchResponse.inbound_departure}</strong>
+								→
+								<strong>{selectedSearch.autoSearchResponse.inbound_end}</strong>
+							</li>
+							<li>
+								Travel class:
+								<strong>{selectedSearch.autoSearchResponse.travel_class}</strong>
+								| Direct flights:
+								<strong>{selectedSearch.autoSearchResponse.direct_flight ? 'Yes' : 'No'}</strong>
+							</li>
+						</ul>
+					</div>
+					<div class="text-sm text-gray-600 dark:text-gray-300">
+						Backend logging is enabled. Price storage and visualisations will be added soon.
+					</div>
+				</div>
+			{:else}
+				<div class="text-center py-12 text-gray-500 dark:text-gray-400">
+					{#if loadingSearches.has(selectedSearch.id)}
+						<svg class="animate-spin mx-auto h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24">
+							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+						</svg>
+						<p class="mt-2">Searching for flights...</p>
+					{:else if selectedSearch.error}
+						<p class="text-red-600">Error: {selectedSearch.error}</p>
+					{:else}
+						<p>No results yet. Click refresh to trigger an auto search.</p>
+					{/if}
+				</div>
+			{/if}
 		{/if}
 	</div>
 {:else}

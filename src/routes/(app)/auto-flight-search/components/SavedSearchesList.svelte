@@ -18,6 +18,13 @@
 	const deleteSearch = (searchId) => {
 		dispatch('deleteSearch', searchId);
 	};
+
+const formatAirlineSummary = (search) => {
+	const names = search?.airlineNames ?? search?.airlines ?? [];
+	if (!names || names.length === 0) return 'No airlines selected';
+	if (names.length <= 3) return names.join(', ');
+	return `${names.slice(0, 3).join(', ')} +${names.length - 3} more`;
+};
 </script>
 
 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
@@ -44,7 +51,7 @@
 				
 				<!-- Time -->
 				<div class="text-xs text-gray-600 dark:text-gray-400 mb-2">
-					🕐 Daily at {search.autoSearchTime}
+					✈️ Airlines: {formatAirlineSummary(search)}
 				</div>
 				
 				<!-- Status -->

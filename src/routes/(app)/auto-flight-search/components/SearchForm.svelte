@@ -5,24 +5,25 @@
 	const i18n = getContext('i18n');
 	const dispatch = createEventDispatcher();
 
-	// Form state
+	export let availableAirlines = [];
+	export let airlinesLoading = false;
+	export let airlinesError = '';
+
+	const MAX_AIRLINES = 10;
+
+let safeAirlines = [];
+let codeToName = new Map();
 	let newSearchForm = {
 		departure: '',
 		destination: '',
-		departureDate: '', // YYYY-MM-DD (required)
-		returnDate: '', // YYYY-MM-DD (optional; ignored if oneWay)
-		adults: 1,
 		travelClass: 'ECONOMY',
-		oneWay: false, // One-way trip
-		nonStop: false, // Direct flights only
+		nonStop: false,
 		enabled: true
 	};
 
-	// UI state
 	let isAddingSearch = false;
 	let searchError = '';
 
-	// Autocomplete state
 	let departureInput = '';
 	let destinationInput = '';
 	let filteredDepartures = [];
@@ -30,7 +31,18 @@
 	let showDepartureDropdown = false;
 	let showDestinationDropdown = false;
 
-	// Handle departure input
+	let selectedAirlineCodes = [];
+	let airlineSelectionError = '';
+let airlinePanelOpen = false;
+
+	$: safeAirlines = Array.isArray(availableAirlines) ? availableAirlines : [];
+	$: codeToName = new Map(
+		safeAirlines
+			.filter((airline) => airline?.code)
+			.map((airline) => [airline.code, airline.name ?? airline.code])
+	);
+$: selectedAirlineSummary = selectedAirlineCodes.map((code) => codeToName.get(code) ?? code);
+
 	const handleDepartureInput = (e) => {
 		departureInput = e.target.value;
 		newSearchForm.departure = departureInput;
@@ -38,7 +50,6 @@
 		showDepartureDropdown = true;
 	};
 
-	// Handle destination input
 	const handleDestinationInput = (e) => {
 		destinationInput = e.target.value;
 		newSearchForm.destination = destinationInput;
@@ -46,21 +57,18 @@
 		showDestinationDropdown = true;
 	};
 
-	// Select departure from dropdown
 	const selectDeparture = (city) => {
 		departureInput = city.display;
 		newSearchForm.departure = city.code;
 		showDepartureDropdown = false;
 	};
 
-	// Select destination from dropdown
 	const selectDestination = (city) => {
 		destinationInput = city.display;
 		newSearchForm.destination = city.code;
 		showDestinationDropdown = false;
 	};
 
-	// Close dropdowns when clicking outside
 	const handleClickOutside = (e) => {
 		if (!e.target.closest('.autocomplete-container')) {
 			showDepartureDropdown = false;
@@ -68,70 +76,94 @@
 		}
 	};
 
-	// Add new search configuration
+	const toggleAirlineSelection = (code) => {
+		if (!code) return;
+		if (selectedAirlineCodes.includes(code)) {
+			selectedAirlineCodes = selectedAirlineCodes.filter((c) => c !== code);
+			airlineSelectionError = '';
+			return;
+		}
+
+		if (selectedAirlineCodes.length >= MAX_AIRLINES) {
+			airlineSelectionError = `You can select up to ${MAX_AIRLINES} airlines.`;
+			return;
+		}
+
+		selectedAirlineCodes = [...selectedAirlineCodes, code];
+		airlineSelectionError = '';
+	};
+
+	const resetForm = () => {
+		newSearchForm = {
+			departure: '',
+			destination: '',
+			travelClass: 'ECONOMY',
+			nonStop: false,
+			enabled: true
+		};
+		departureInput = '';
+		destinationInput = '';
+		selectedAirlineCodes = [];
+		airlineSelectionError = '';
+	};
+
 	const handleAddSearch = async () => {
 		searchError = '';
+		airlineSelectionError = '';
 		isAddingSearch = true;
-		
+
 		try {
-			// Validate inputs
 			let originCode = newSearchForm.departure;
 			if (!/^[A-Z]{3}$/i.test(originCode)) {
 				originCode = getLocationCode(newSearchForm.departure);
 			}
-			
+
 			if (!originCode) {
 				searchError = 'Please enter a valid departure location';
-				isAddingSearch = false;
 				return;
 			}
-			
-			let destinationCode = null;
-			if (newSearchForm.destination) {
-				destinationCode = newSearchForm.destination;
-				if (!/^[A-Z]{3}$/i.test(destinationCode)) {
-					destinationCode = getLocationCode(newSearchForm.destination);
-				}
+
+			let destinationCode = newSearchForm.destination;
+			if (!destinationCode) {
+				searchError = 'Please enter a destination';
+				return;
 			}
-			
-			// Create new search entry
+			if (!/^[A-Z]{3}$/i.test(destinationCode)) {
+				destinationCode = getLocationCode(newSearchForm.destination);
+			}
+			if (!destinationCode) {
+				searchError = 'Please enter a valid destination location';
+				return;
+			}
+
+			if (!selectedAirlineCodes.length) {
+				searchError = 'Select at least one airline (up to 10).';
+				return;
+			}
+
+			const airlineNames = selectedAirlineCodes.map(
+				(code) => codeToName.get(code) ?? code
+			);
+
 			const newSearch = {
 				id: Date.now(),
 				departure: originCode,
-				departureDisplay: departureInput,
+				departureDisplay: departureInput || originCode,
 				destination: destinationCode,
-				destinationDisplay: destinationInput,
-				departureDate: newSearchForm.departureDate || null,
-				returnDate: newSearchForm.oneWay ? null : (newSearchForm.returnDate || null),
-				adults: Number(newSearchForm.adults) || 1,
+				destinationDisplay: destinationInput || destinationCode,
 				travelClass: newSearchForm.travelClass || 'ECONOMY',
-				oneWay: newSearchForm.oneWay,
 				nonStop: newSearchForm.nonStop,
 				enabled: newSearchForm.enabled,
+				airlines: [...selectedAirlineCodes],
+				airlineNames,
 				lastSearched: null,
 				results: null,
 				priceGrid: null,
 				chartData: []
 			};
-			
-			// Emit event to parent component
+
 			dispatch('addSearch', newSearch);
-			
-			// Reset form
-			newSearchForm = {
-				departure: '',
-				destination: '',
-				departureDate: '',
-				returnDate: '',
-				adults: 1,
-				travelClass: 'ECONOMY',
-				oneWay: false,
-				nonStop: false,
-				enabled: true
-			};
-			departureInput = '';
-			destinationInput = '';
-			
+			resetForm();
 		} catch (error) {
 			console.error('Error adding search:', error);
 			searchError = error.message || 'Failed to add search';
@@ -148,7 +180,6 @@
 		Add New Auto Search
 	</h2>
 
-	<!-- Error Display -->
 	{#if searchError}
 		<div class="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
 			<div class="flex">
@@ -166,10 +197,9 @@
 			</div>
 		</div>
 	{/if}
-	
+
 	<form on:submit|preventDefault={handleAddSearch} class="space-y-6">
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-			<!-- Departure -->
 			<div class="autocomplete-container relative">
 				<label for="departure" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 					{$i18n.t('Departure')} <span class="text-red-500">*</span>
@@ -203,7 +233,6 @@
 				{/if}
 			</div>
 
-			<!-- Destination -->
 			<div class="autocomplete-container relative">
 				<label for="destination" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 					{$i18n.t('Destination')} <span class="text-red-500">*</span>
@@ -220,6 +249,7 @@
 						showDestinationDropdown = true;
 					}}
 					autocomplete="off"
+					required
 				/>
 				{#if showDestinationDropdown && filteredDestinations.length > 0}
 					<div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -236,93 +266,88 @@
 				{/if}
 			</div>
 
-			<!-- Days/Months until Departure -->
 			<div>
-				<label for="departure-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-					Departure Date <span class="text-red-500">*</span>
+				<label for="travel-class" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					Travel Class
 				</label>
-				<input
-					id="departure-date"
-					type="date"
+				<select
+					id="travel-class"
 					class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-					bind:value={newSearchForm.departureDate}
-					required
-				/>
+					bind:value={newSearchForm.travelClass}
+				>
+					<option value="ECONOMY">Economy</option>
+					<option value="PREMIUM_ECONOMY">Premium Economy</option>
+					<option value="BUSINESS">Business</option>
+					<option value="FIRST">First</option>
+				</select>
 			</div>
-            <!-- Return Date (ignored for one-way) -->
-            <div class="{newSearchForm.oneWay ? 'opacity-50 pointer-events-none' : ''}">
-                <label for="return-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Return Date
-                </label>
-                <input
-                    id="return-date"
-                    type="date"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-                    bind:value={newSearchForm.returnDate}
-                    disabled={newSearchForm.oneWay}
-                />
-            </div>
-
-            <!-- Adults -->
-            <div>
-                <label for="adults" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Adults
-                </label>
-                <input
-                    id="adults"
-                    type="number"
-                    min="1"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-                    bind:value={newSearchForm.adults}
-                />
-            </div>
-
-            <!-- Travel Class -->
-            <div>
-                <label for="travel-class" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Travel Class
-                </label>
-                <select
-                    id="travel-class"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-                    bind:value={newSearchForm.travelClass}
-                >
-                    <option value="ECONOMY">Economy</option>
-                    <option value="PREMIUM_ECONOMY">Premium Economy</option>
-                    <option value="BUSINESS">Business</option>
-                    <option value="FIRST">First</option>
-                </select>
-            </div>
-
 		</div>
 
-		<!-- Trip Type, Flight Options, and Daily Search Time on same row -->
-		<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-			<!-- One Way -->
-			<div>
-				<div class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-					Trip Type
-				</div>
-				<div class="flex items-center gap-4">
-					<label class="flex items-center cursor-pointer">
-						<div class="relative">
-							<input
-								type="checkbox"
-								class="w-6 h-6 bg-white dark:bg-gray-800 rounded outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 checked:bg-black dark:checked:bg-white appearance-none cursor-pointer transition-all"
-								bind:checked={newSearchForm.oneWay}
-							/>
-							{#if newSearchForm.oneWay}
-								<svg class="absolute left-0.5 top-0.5 w-5 h-5 pointer-events-none fill-white dark:fill-black" viewBox="0 0 20 20">
-									<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-								</svg>
-							{/if}
-						</div>
-						<span class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-100">One-way</span>
+		<div class="md:col-span-2 lg:col-span-3 space-y-2">
+			<div class="flex items-center justify-between gap-3">
+				<div>
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+						Airlines (select up to {MAX_AIRLINES}) <span class="text-red-500">*</span>
 					</label>
+					<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+						{#if selectedAirlineSummary.length}
+							Selected: {selectedAirlineSummary.slice(0, 3).join(', ')}{selectedAirlineSummary.length > 3 ? ` +${selectedAirlineSummary.length - 3} more` : ''}
+						{:else}
+							No airlines selected yet.
+						{/if}
+					</p>
 				</div>
+				<button
+					type="button"
+					class="px-3 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+					on:click={() => (airlinePanelOpen = !airlinePanelOpen)}
+					aria-expanded={airlinePanelOpen}
+				>
+					{airlinePanelOpen ? 'Hide airlines' : 'Select airlines'} ({selectedAirlineCodes.length}/{MAX_AIRLINES})
+				</button>
 			</div>
 
-			<!-- Non Stop -->
+			{#if airlineSelectionError}
+				<div class="text-sm text-red-600 dark:text-red-400">
+					{airlineSelectionError}
+				</div>
+			{/if}
+
+			{#if airlinePanelOpen}
+				<div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-900/30">
+					{#if airlinesLoading}
+						<div class="text-sm text-gray-500 dark:text-gray-400 py-2">
+							Loading airlines...
+						</div>
+					{:else if airlinesError}
+						<div class="text-sm text-red-600 dark:text-red-400 py-2">
+							{airlinesError}
+						</div>
+					{:else}
+						<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto">
+							{#each safeAirlines as airline (airline.airline_id ?? `${airline.code}-${airline.name}`)}
+								<label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+									<input
+										type="checkbox"
+										class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+										checked={selectedAirlineCodes.includes(airline.code)}
+										on:change={() => toggleAirlineSelection(airline.code)}
+									/>
+									<span>{airline.code} — {airline.name}</span>
+								</label>
+							{/each}
+							{#if !safeAirlines.length}
+								<div class="col-span-full text-sm text-gray-500 dark:text-gray-400">
+									No airlines available.
+								</div>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
+
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 			<div>
 				<div class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 					Flight Options
@@ -345,11 +370,8 @@
 					</label>
 				</div>
 			</div>
-
-            <!-- Removed Daily Search Time as per new requirements -->
 		</div>
 
-		<!-- Action Button -->
 		<div class="flex gap-4 pt-4">
 			<button
 				type="submit"
@@ -374,4 +396,3 @@
 		</div>
 	</form>
 </div>
-
