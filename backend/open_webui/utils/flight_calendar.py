@@ -18,12 +18,10 @@ class FlightCalendarError(RuntimeError):
 
 
 def _get_api_key(explicit: Optional[str] = None) -> str:
-    api_key = explicit or os.environ.get("GOOGLE_FLIGHTS_CALENDAR_API_KEY") or os.environ.get(
-        "SEARCHAPI_API_KEY"
-    )
+    api_key = explicit or os.environ.get("GOOGLE_FLIGHTS_API_KEY")
     if not api_key:
         raise FlightCalendarError(
-            "Missing SearchAPI key. Set GOOGLE_FLIGHTS_CALENDAR_API_KEY or SEARCHAPI_API_KEY."
+            "Missing SearchAPI key. Set GOOGLE_FLIGHTS_API_KEY environment variable."
         )
     return api_key
 
@@ -36,6 +34,9 @@ def fetch_calendar(
     outbound_date_end: str,
     *,
     flight_type: str = "one_way",
+    travel_class: Optional[str] = None,
+    non_stop: Optional[bool] = None,
+    airline: Optional[str] = None,
     return_date: Optional[str] = None,
     return_date_start: Optional[str] = None,
     return_date_end: Optional[str] = None,
@@ -59,6 +60,15 @@ def fetch_calendar(
         "outbound_date_end": outbound_date_end,
         "api_key": resolved_key,
     }
+
+    if travel_class:
+        params["travel_class"] = travel_class
+    if non_stop is True:
+        params["non_stop"] = "true"
+    elif non_stop is False:
+        params["non_stop"] = "false"
+    if airline:
+        params["airline"] = airline
 
     if flight_type == "round_trip":
         if not return_date:

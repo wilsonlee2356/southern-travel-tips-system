@@ -110,24 +110,66 @@ $: airlineCodeToName = new Map(
 	$: filteredModels = ($models || []).filter(model => isAllowedModel(model));
 
 	// Handle adding a new search from the SearchForm component
+	const callAutoSearchApi = async (search) => {
+		const airlineCodes = search.airlines ?? [];
+		if (airlineCodes.length < 10) {
+			throw new Error('Please select at least 10 airlines before adding an auto search.');
+		}
+
+		const payload = {
+			from_place: search.departure,
+			to_place: search.destination,
+			airlines: airlineCodes,
+			travel_class: travelClassMap[search.travelClass] ?? 0,
+			direct_flight: Boolean(search.nonStop)
+		};
+
+		const response = await fetch(`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload),
+			credentials: 'include'
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			throw new Error(errorText || `Auto search failed (${response.status})`);
+		}
+
+		return await response.json();
+	};
+
 	const handleAddSearch = async (event) => {
 		const newSearch = event.detail;
-		
+
 		try {
-			// Add to saved searches
 			savedSearches = [...savedSearches, newSearch];
-			
-			// Select the new search
 			selectedSearchId = newSearch.id;
-			
-			// Save to localStorage
+
+			const searchIndex = savedSearches.findIndex((s) => s.id === newSearch.id);
+			const data = await callAutoSearchApi(newSearch);
+
+			console.debug('Auto search response (add):', data);
+
+			savedSearches[searchIndex] = {
+				...newSearch,
+				lastSearched: new Date().toISOString(),
+				autoSearchResponse: data,
+				error: undefined
+			};
+
+			savedSearches = [...savedSearches];
 			localStorage.setItem('autoFlightSearches', JSON.stringify(savedSearches));
-			
-			// Run the search immediately
-			await runSearch(newSearch.id);
-			
 		} catch (error) {
 			console.error('Error adding search:', error);
+			if (savedSearches.some((s) => s.id === newSearch.id)) {
+				const searchIndex = savedSearches.findIndex((s) => s.id === newSearch.id);
+				savedSearches[searchIndex] = {
+					...newSearch,
+					error: error.message || 'Failed to add auto search'
+				};
+				savedSearches = [...savedSearches];
+			}
 		}
 	};
 
@@ -137,61 +179,16 @@ $: airlineCodeToName = new Map(
 		if (searchIndex === -1) return;
 		
 		const search = savedSearches[searchIndex];
-		loadingSearches.add(searchId);
-		loadingSearches = loadingSearches; // Trigger reactivity
-		
-		try {
-			if (!search.departure || !search.destination) {
-				throw new Error('Both departure and destination codes are required.');
-			}
 
-			const airlineNames =
-				search.airlines?.map((code) => airlineCodeToName.get(code) ?? code) ?? [];
+		if (!search) return;
 
-			if (!airlineNames.length) {
-				throw new Error('Please select at least one airline.');
-			}
-
-			const payload = {
-				from_place: search.departure,
-				to_place: search.destination,
-				airlines: airlineNames,
-				travel_class: travelClassMap[search.travelClass] ?? 0,
-				direct_flight: Boolean(search.nonStop)
-			};
-
-			const response = await fetch(`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload),
-				credentials: 'include'
-			});
-
-			if (!response.ok) {
-				const errorText = await response.text();
-				throw new Error(errorText || `Auto search failed (${response.status})`);
-			}
-
-			const data = await response.json();
-
-			savedSearches[searchIndex] = {
-				...search,
-				lastSearched: new Date().toISOString(),
-				autoSearchResponse: data,
-				error: undefined
-			};
-
-			localStorage.setItem('autoFlightSearches', JSON.stringify(savedSearches));
-		} catch (error) {
-			console.error(`Error running auto search ${searchId}:`, error);
-			savedSearches[searchIndex] = {
-				...search,
-				error: error.message || 'Failed to run auto search'
-			};
-		} finally {
-			loadingSearches.delete(searchId);
-			loadingSearches = loadingSearches; // Trigger reactivity
-		}
+		savedSearches[searchIndex] = {
+			...search,
+			lastSearched: new Date().toISOString()
+		};
+		savedSearches = [...savedSearches];
+		console.debug('Auto search refreshed (no API call):', savedSearches[searchIndex]);
+		localStorage.setItem('autoFlightSearches', JSON.stringify(savedSearches));
 	};
 
 	// Delete a saved search

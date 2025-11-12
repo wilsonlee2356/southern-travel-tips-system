@@ -425,6 +425,35 @@ class PricesTable:
             db.commit()
             return result > 0
 
+    def delete_for_auto_search(self, auto_search_id: str) -> int:
+        with get_db() as db:
+            result = (
+                db.query(Price).filter_by(auto_search_id=auto_search_id).delete()
+            )
+            db.commit()
+            return result
+
+    def bulk_insert(
+        self,
+        auto_search_id: str,
+        entries: List[tuple[datetime, int, bool]],
+    ) -> List[PriceModel]:
+        if not entries:
+            return []
+        with get_db() as db:
+            records = []
+            for departure_date, price, is_lowest in entries:
+                record = Price(
+                    auto_search_id=auto_search_id,
+                    departure_date=departure_date,
+                    price=price,
+                    is_lowest_price=is_lowest,
+                )
+                db.add(record)
+                records.append(record)
+            db.commit()
+            return [PriceModel.model_validate(record) for record in records]
+
 
 class AutoSearchTable:
     def get(self, auto_search_id: str) -> Optional[AutoSearchModel]:

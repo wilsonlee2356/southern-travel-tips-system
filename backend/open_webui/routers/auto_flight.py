@@ -1,6 +1,7 @@
 import logging
+import re
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, validator
@@ -10,9 +11,10 @@ from open_webui.models.flight_pricing import (
     AirlinesTable,
     AirlineModel,
     AutoSearchAirlineModel,
-    AutoSearchAirlinesTable,
     AutoSearchModel,
     AutoSearchTable,
+    PriceModel,
+    PricesTable,
     FlightRouteModel,
     FlightRoutesTable,
 )
@@ -26,6 +28,12 @@ router = APIRouter()
 
 MIN_AIRLINES = 10
 SIX_MONTHS_IN_DAYS = 180
+TRAVEL_CLASS_LABELS = {
+    0: "economy",
+    1: "premium_economy",
+    2: "business",
+    3: "first",
+}
 
 
 class AutoFlightSearchRequest(BaseModel):
@@ -56,35 +64,8 @@ class AutoFlightSearchResponse(BaseModel):
     outbound_end: str
     inbound_departure: str
     inbound_end: str
+    prices: List[PriceModel] = Field(default_factory=list)
     message: str = "Auto flight search initiated."
-
-
-class AutoSearchSetupRequest(BaseModel):
-    departure: str = Field(..., min_length=3, max_length=10, description="Origin airport code")
-    destination: str = Field(..., min_length=3, max_length=10, description="Destination airport code")
-    travel_class: int = Field(..., ge=0, le=3, description="0=economy, 1=premium_economy, 2=business, 3=first_class")
-    airline_codes: List[str] = Field(..., min_items=10, max_items=10, description="Exactly 10 airline codes")
-    direct_flight: bool = Field(False, description="Track direct flights only")
-
-    @validator("airline_codes")
-    def validate_airline_codes(cls, value: List[str]) -> List[str]:
-        cleaned = [item.strip().upper() for item in value if item and item.strip()]
-        if len(cleaned) != 10:
-            raise ValueError("Provide exactly 10 airline codes.")
-        if len(set(cleaned)) != 10:
-            raise ValueError("Airline codes must be unique.")
-        return cleaned
-
-
-class AutoSearchSetupResponse(BaseModel):
-    route: FlightRouteModel
-    return_route: FlightRouteModel
-    auto_search: AutoSearchModel
-    airlines: List[AirlineModel]
-    auto_search_airlines: List[AutoSearchAirlineModel]
-    travel_class: int
-    direct_flight: bool
-    message: str = "Auto search configuration saved."
 
 
 def _build_date_range() -> tuple[str, str]:
@@ -93,6 +74,206 @@ def _build_date_range() -> tuple[str, str]:
     start = tomorrow.strftime("%Y-%m-%d")
     end = six_months_later.strftime("%Y-%m-%d")
     return start, end
+
+
+def _parse_calendar_date(value: str) -> datetime | None:
+    if not value:
+        return None
+    candidate = str(value)[:10]
+    try:
+        parsed = datetime.fromisoformat(candidate)
+    except ValueError:
+        try:
+            parsed = datetime.strptime(candidate, "%Y-%m-%d")
+        except ValueError:
+            return None
+    return parsed.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _normalize_price(value) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return int(round(value))
+    if isinstance(value, str):
+        cleaned = re.sub(r"[^\d.]", "", value)
+        if not cleaned:
+            return None
+        try:
+            return int(round(float(cleaned)))
+        except ValueError:
+            return None
+    if isinstance(value, dict):
+        for key in ("raw", "value", "amount", "price"):
+            if key in value:
+                normalized = _normalize_price(value[key])
+                if normalized is not None:
+                    return normalized
+    return None
+
+
+def _extract_calendar_prices(data: dict | None) -> List[Tuple[datetime, int]]:
+    if not isinstance(data, dict):
+        return []
+    calendar = data.get("calendar")
+    if calendar is None:
+        return []
+
+    entries: List[dict] = []
+    stack = [calendar]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, dict):
+            has_date = any(
+                key in current for key in ("date", "departure_date", "outbound_date")
+            )
+            has_price = any(
+                key in current
+                for key in ("price", "lowest_price", "min_price", "amount")
+            )
+            if has_date and has_price:
+                entries.append(current)
+            else:
+                for value in current.values():
+                    if isinstance(value, (list, dict)):
+                        stack.append(value)
+        elif isinstance(current, list):
+            stack.extend(current)
+
+    results: List[Tuple[datetime, int]] = []
+    for entry in entries:
+        date_value = (
+            entry.get("date")
+            or entry.get("departure_date")
+            or entry.get("outbound_date")
+        )
+        parsed_date = _parse_calendar_date(date_value)
+        if not parsed_date:
+            continue
+
+        price_value = (
+            entry.get("price")
+            or entry.get("lowest_price")
+            or entry.get("min_price")
+            or entry.get("amount")
+        )
+        price_int = _normalize_price(price_value)
+        if price_int is None:
+            continue
+
+        results.append((parsed_date, price_int))
+
+    return results
+
+
+def _aggregate_calendar_prices(
+    entries: List[Tuple[datetime, int]]
+) -> List[Tuple[datetime, int, bool]]:
+    if not entries:
+        return []
+
+    aggregated: dict[datetime, int] = {}
+    for date_value, price in entries:
+        if date_value not in aggregated or price < aggregated[date_value]:
+            aggregated[date_value] = price
+
+    if not aggregated:
+        return []
+
+    lowest_price = min(aggregated.values())
+    ordered = sorted(aggregated.items(), key=lambda item: item[0])
+    return [
+        (date_value, price, price == lowest_price) for date_value, price in ordered
+    ]
+
+
+def _collect_calendar_prices_for_airlines(
+    route: FlightRouteModel,
+    return_route: FlightRouteModel,
+    airline_codes: List[str],
+    travel_class: int,
+    direct_flight: bool,
+) -> List[Tuple[datetime, int, bool]]:
+    outbound_start, outbound_end = _build_date_range()
+    travel_class_label = TRAVEL_CLASS_LABELS.get(travel_class)
+    raw_entries: List[Tuple[datetime, int]] = []
+
+    for code in airline_codes:
+        airline_code = code.strip().upper()
+        if not airline_code:
+            continue
+
+        try:
+            log.debug(
+                "Fetching outbound calendar for airline %s: %s -> %s",
+                airline_code,
+                route.from_place,
+                route.to_place,
+            )
+            raw_entries.extend(
+                _extract_calendar_prices(
+                    fetch_calendar(
+                        departure_id=route.from_place,
+                        arrival_id=route.to_place,
+                        outbound_date=outbound_start,
+                        outbound_date_start=outbound_start,
+                        outbound_date_end=outbound_end,
+                        flight_type="one_way",
+                        travel_class=travel_class_label,
+                        non_stop=direct_flight,
+                        airline=airline_code,
+                    )
+                )
+            )
+        except FlightCalendarError as exc:
+            log.warning(
+                "Outbound calendar fetch failed for airline %s: %s",
+                airline_code,
+                exc,
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            log.exception(
+                "Unexpected outbound calendar error for airline %s: %s",
+                airline_code,
+                exc,
+            )
+
+        try:
+            log.debug(
+                "Fetching inbound calendar for airline %s: %s -> %s",
+                airline_code,
+                return_route.from_place,
+                return_route.to_place,
+            )
+            raw_entries.extend(
+                _extract_calendar_prices(
+                    fetch_calendar(
+                        departure_id=return_route.from_place,
+                        arrival_id=return_route.to_place,
+                        outbound_date=outbound_start,
+                        outbound_date_start=outbound_start,
+                        outbound_date_end=outbound_end,
+                        flight_type="one_way",
+                        travel_class=travel_class_label,
+                        non_stop=direct_flight,
+                        airline=airline_code,
+                    )
+                )
+            )
+        except FlightCalendarError as exc:
+            log.warning(
+                "Inbound calendar fetch failed for airline %s: %s",
+                airline_code,
+                exc,
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            log.exception(
+                "Unexpected inbound calendar error for airline %s: %s",
+                airline_code,
+                exc,
+            )
+
+    return _aggregate_calendar_prices(raw_entries)
 
 
 @router.get(
@@ -118,72 +299,75 @@ async def create_auto_flight_search(
     routes_table = FlightRoutesTable()
     airlines_table = AirlinesTable()
     auto_search_table = AutoSearchTable()
-    auto_search_airlines_table = AutoSearchAirlinesTable()
+    prices_table = PricesTable()
 
-    route = routes_table.get_or_create(payload.from_place, payload.to_place)
-    return_route = routes_table.get_or_create(payload.to_place, payload.from_place)
-    airline_models = [airlines_table.get_or_create(name) for name in payload.airlines]
-    auto_search_model = auto_search_table.get_or_create(
-        departure_route_id=route.route_id,
+    airline_codes: List[str] = []
+    for item in payload.airlines:
+        normalized = item.strip()
+        if not normalized:
+            continue
+        upper = normalized.upper()
+        by_code = airlines_table.get_by_code(upper)
+        if by_code:
+            airline_codes.append(by_code.code)
+            continue
+        by_name = airlines_table.get_by_name(normalized)
+        if by_name and by_name.code:
+            airline_codes.append(by_name.code)
+            continue
+        if len(upper) in (2, 3):
+            airline_codes.append(upper)
+            continue
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unrecognized airline identifier: {normalized}",
+        )
+
+    if len(airline_codes) < MIN_AIRLINES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Provide at least {MIN_AIRLINES} airline codes.",
+        )
+
+    airline_codes = list(dict.fromkeys(airline_codes))
+
+    (
+        auto_search_model,
+        route,
+        return_route,
+        airline_models,
+        auto_search_airline_models,
+    ) = auto_search_table.create_configuration(
+        departure_code=payload.from_place,
+        destination_code=payload.to_place,
         travel_class=payload.travel_class,
         direct_flight=payload.direct_flight,
-        return_route_id=return_route.route_id,
+        airline_codes=airline_codes,
     )
-    auto_search_airline_models = [
-        auto_search_airlines_table.get_or_create(
-            auto_search_id=auto_search_model.auto_search_id,
-            airline_id=airline.airline_id,
-        )
-        for airline in airline_models
-    ]
 
-    from_code = route.from_place
-    to_code = route.to_place
+    aggregated_entries = _collect_calendar_prices_for_airlines(
+        route=route,
+        return_route=return_route,
+        airline_codes=airline_codes,
+        travel_class=payload.travel_class,
+        direct_flight=payload.direct_flight,
+    )
+
+    price_models: List[PriceModel] = []
+    if aggregated_entries:
+        prices_table.delete_for_auto_search(auto_search_model.auto_search_id)
+        price_models = prices_table.bulk_insert(
+            auto_search_model.auto_search_id, aggregated_entries
+        )
+        log.info(
+            "Stored %d price points for auto_search %s",
+            len(price_models),
+            auto_search_model.auto_search_id,
+        )
 
     outbound_start, outbound_end = _build_date_range()
-    inbound_start, inbound_end = outbound_start, outbound_end
 
-    try:
-        outbound_data = fetch_calendar(
-            departure_id=from_code,
-            arrival_id=to_code,
-            outbound_date=outbound_start,
-            outbound_date_start=outbound_start,
-            outbound_date_end=outbound_end,
-            flight_type="one_way",
-        )
-        inbound_data = fetch_calendar(
-            departure_id=to_code,
-            arrival_id=from_code,
-            outbound_date=inbound_start,
-            outbound_date_start=inbound_start,
-            outbound_date_end=inbound_end,
-            flight_type="one_way",
-        )
-    except FlightCalendarError as exc:
-        log.error("Flight calendar request failed: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to fetch calendar data from SearchAPI.",
-        ) from exc
-
-    log.info(
-        "Auto flight search outbound %s -> %s: %s entries",
-        payload.from_place,
-        payload.to_place,
-        len(outbound_data.get("calendar", [])),
-    )
-    log.debug("Outbound calendar raw data: %s", outbound_data)
-
-    log.info(
-        "Auto flight search inbound %s -> %s: %s entries",
-        payload.to_place,
-        payload.from_place,
-        len(inbound_data.get("calendar", [])),
-    )
-    log.debug("Inbound calendar raw data: %s", inbound_data)
-
-    return AutoFlightSearchResponse(
+    response_payload = AutoFlightSearchResponse(
         route=route,
         return_route=return_route,
         airlines=airline_models,
@@ -193,50 +377,16 @@ async def create_auto_flight_search(
         direct_flight=payload.direct_flight,
         outbound_departure=outbound_start,
         outbound_end=outbound_end,
-        inbound_departure=inbound_start,
-        inbound_end=inbound_end,
+        inbound_departure=outbound_start,
+        inbound_end=outbound_end,
+        prices=price_models,
     )
 
-
-@router.post(
-    "/auto-search/setup",
-    response_model=AutoSearchSetupResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def setup_auto_search(
-    payload: AutoSearchSetupRequest, user=Depends(get_verified_user)
-):
-    auto_search_table = AutoSearchTable()
-
-    (
-        auto_search,
-        route,
-        return_route,
-        airline_models,
-        auto_search_airline_models,
-    ) = auto_search_table.create_configuration(
-        departure_code=payload.departure,
-        destination_code=payload.destination,
-        travel_class=payload.travel_class,
-        direct_flight=payload.direct_flight,
-        airline_codes=payload.airline_codes,
-    )
-
-    log.info(
-        "Auto search configured by %s: %s -> %s with %d airlines",
+    log.debug(
+        "Auto flight search response for user %s: %s",
         user.id,
-        payload.departure,
-        payload.destination,
-        len(auto_search_airline_models),
+        response_payload.model_dump(),
     )
 
-    return AutoSearchSetupResponse(
-        route=route,
-        return_route=return_route,
-        auto_search=auto_search,
-        airlines=airline_models,
-        auto_search_airlines=auto_search_airline_models,
-        travel_class=payload.travel_class,
-        direct_flight=payload.direct_flight,
-    )
+    return response_payload
 
