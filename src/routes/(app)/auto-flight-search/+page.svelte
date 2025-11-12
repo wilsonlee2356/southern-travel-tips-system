@@ -12,8 +12,6 @@
 	import SavedSearchesList from './components/SavedSearchesList.svelte';
 	import SearchResults from './components/SearchResults.svelte';
 	
-	const is_developing = true;
-
 	// List of saved search configurations
 	let savedSearches = [];
 	
@@ -511,36 +509,6 @@
 	</nav>
 
 	<div class="pb-1 flex-1 max-h-full overflow-y-auto @container">
-		{#if is_developing}
-			<div class="max-w-7xl mx-auto p-8">
-				<div class="min-h-[60vh] w-full bg-gradient-to-br from-gray-50 via-white to-gray-200 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl flex flex-col items-center justify-center text-center px-8 py-16">
-					<div class="flex items-center justify-center mb-8">
-						<div class="relative">
-							<div class="h-20 w-20 rounded-full border border-gray-300 dark:border-gray-700 flex items-center justify-center">
-								<svg class="h-10 w-10 text-gray-500 dark:text-gray-400" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-									<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-								</svg>
-							</div>
-							<div class="absolute inset-0 flex items-center justify-center">
-								<div class="h-24 w-24 rounded-full border border-dashed border-gray-300 dark:border-gray-700 animate-spin" style="animation-duration: 8s;"></div>
-							</div>
-						</div>
-					</div>
-					<h2 class="text-3xl font-semibold text-gray-900 dark:text-gray-100 tracking-tight mb-3">
-						{$i18n.t('We’re polishing the experience')}
-					</h2>
-					<p class="text-base text-gray-600 dark:text-gray-300 max-w-2xl leading-relaxed">
-						{$i18n.t('Our team is putting the finishing touches on Auto Flight Search. Thank you for your patience while we prepare a better journey planning assistant for you.')}
-					</p>
-					<div class="mt-10 flex flex-col items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-						<div class="font-medium uppercase tracking-[0.25em] text-gray-500 dark:text-gray-500">{$i18n.t('Status')}</div>
-						<div class="h-px w-24 bg-gradient-to-r from-transparent via-gray-400 to-transparent dark:via-gray-600"></div>
-						<div class="text-gray-700 dark:text-gray-300">{$i18n.t('Under Maintenance')}</div>
-					</div>
-				</div>
-			</div>
-		{:else}
 			<div class="max-w-7xl mx-auto p-6">
 				<!-- Page Header -->
 				<div class="mb-8">
@@ -633,7 +601,6 @@
 					</div>
 				{/if}
 			{/if}
-		{/if}
 	</div>
 </div>
 

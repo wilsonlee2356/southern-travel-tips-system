@@ -140,6 +140,99 @@ class GoogleFlightsApiService {
 		}
 	}
 
+	/**
+	 * Search Google Flights Calendar API directly
+	 * @param {Object} searchParams
+	 * @returns {Promise<Object>}
+	 */
+	async searchFlightCalender(searchParams = {}) {
+		try {
+			const params = {
+				engine: 'google_flights_calendar',
+				flight_type: searchParams.flight_type || 'round_trip',
+				...searchParams
+			};
+
+			if (!params.departure_id) {
+				throw new Error('Departure airport/city code is required for calendar search');
+			}
+			if (!params.arrival_id) {
+				throw new Error('Arrival airport/city code is required for calendar search');
+			}
+			if (!params.outbound_date) {
+				throw new Error('Outbound date (outbound_date) is required for calendar search');
+			}
+
+			const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+			if (!dateRegex.test(params.outbound_date)) {
+				throw new Error('Invalid outbound date format. Use YYYY-MM-DD');
+			}
+
+			if (params.outbound_date_start && !dateRegex.test(params.outbound_date_start)) {
+				throw new Error('Invalid outbound_date_start format. Use YYYY-MM-DD');
+			}
+			if (params.outbound_date_end && !dateRegex.test(params.outbound_date_end)) {
+				throw new Error('Invalid outbound_date_end format. Use YYYY-MM-DD');
+			}
+
+			if (params.flight_type === 'round_trip') {
+				if (!params.return_date) {
+					throw new Error('Return date (return_date) is required for round trip calendar searches');
+				}
+				if (!dateRegex.test(params.return_date)) {
+					throw new Error('Invalid return date format. Use YYYY-MM-DD');
+				}
+				if (params.return_date_start && !dateRegex.test(params.return_date_start)) {
+					throw new Error('Invalid return_date_start format. Use YYYY-MM-DD');
+				}
+				if (params.return_date_end && !dateRegex.test(params.return_date_end)) {
+					throw new Error('Invalid return_date_end format. Use YYYY-MM-DD');
+				}
+			}
+
+			const queryParams = new URLSearchParams();
+			Object.entries(params).forEach(([key, value]) => {
+				if (value !== null && value !== undefined && value !== '') {
+					queryParams.append(key, value.toString());
+				}
+			});
+
+			const requestUrl = `/api/google-flights?${queryParams}`;
+			console.log('Google Flights Calendar Proxy Request URL:', requestUrl);
+
+			const response = await fetch(requestUrl, {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
+
+			console.log('Google Flights Calendar Response Status:', response.status, response.statusText);
+
+			if (!response.ok) {
+				let errorMessage = `Flight calendar search failed: ${response.status} ${response.statusText}`;
+				try {
+					const errorData = await response.json();
+					if (errorData.error) {
+						errorMessage = errorData.error;
+					} else if (errorData.message) {
+						errorMessage = errorData.message;
+					} else if (errorData.detail) {
+						errorMessage += `. ${errorData.detail}`;
+					}
+				} catch (parseError) {
+					console.error('Failed to parse calendar error response:', parseError);
+				}
+				throw new Error(errorMessage);
+			}
+
+			return await response.json();
+		} catch (error) {
+			console.error('Error searching flight calendar:', error);
+			throw error;
+		}
+	}
+
 	async fetchCalendarData(searchParams) {
 		try {
 			const outboundDate = searchParams.outbound_date;
@@ -226,8 +319,8 @@ class GoogleFlightsApiService {
 				}
 			});
 
-			const calendarRequestUrl = `/api/google-flights?${calendarParams}`;
-			console.log('Google Flights Calendar Request URL:', calendarRequestUrl, {
+			const finalCalendarParams = Object.fromEntries(calendarParams.entries());
+			console.log('Google Flights Calendar Request Params:', finalCalendarParams, {
 				outbound_window: {
 					anchor: outboundDate,
 					start: calendarSearchParams.outbound_date_start,
@@ -246,19 +339,7 @@ class GoogleFlightsApiService {
 					: null
 			});
 
-			const calendarResponse = await fetch(calendarRequestUrl, {
-				method: 'GET',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-			});
-
-			if (!calendarResponse.ok) {
-				console.warn('Google Flights calendar request failed:', calendarResponse.status, calendarResponse.statusText);
-				return null;
-			}
-
-			const calendarData = await calendarResponse.json();
+			const calendarData = await this.searchFlightCalender(finalCalendarParams);
 			console.log('Google Flights Calendar Data:', calendarData);
 			return calendarData;
 		} catch (error) {
