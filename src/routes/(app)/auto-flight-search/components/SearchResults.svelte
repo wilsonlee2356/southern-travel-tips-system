@@ -136,6 +136,86 @@ function colorForIndex(index) {
 	const handlePost = () => {
 		dispatch('post', { flights: selectedFlights, model: selectedModel });
 	};
+
+// Price series controls
+let selectedPriceAirlineCode = null;
+let selectedPriceLeg = 'departure';
+$: priceSeries =
+	selectedSearch?.autoSearchResponse?.prices && Array.isArray(selectedSearch.autoSearchResponse.prices)
+		? selectedSearch.autoSearchResponse.prices
+		: [];
+$: priceAirlineList = (() => {
+	const map = new Map();
+	for (const series of priceSeries) {
+		const code = series.airline_code ?? series.airline_name ?? series.airline_id ?? 'UNKNOWN';
+		const name = series.airline_name ?? series.airline_code ?? 'Unknown Airline';
+		let group = map.get(code);
+		if (!group) {
+			group = {
+				code,
+				name,
+				departure: null,
+				return: null,
+				extra: [],
+			};
+			map.set(code, group);
+		}
+		const direction = series.direction === 'return' ? 'return' : series.direction === 'departure' ? 'departure' : null;
+		if (direction === 'return') {
+			group.return = group.return ?? series;
+		} else if (direction === 'departure') {
+			group.departure = group.departure ?? series;
+		} else if (!group.departure) {
+			group.departure = series;
+		} else if (!group.return) {
+			group.return = series;
+		} else {
+			group.extra.push(series);
+		}
+	}
+	return Array.from(map.values());
+})();
+$: {
+	if (!selectedSearch || priceAirlineList.length === 0) {
+		selectedPriceAirlineCode = null;
+		selectedPriceLeg = 'departure';
+	} else {
+		const codes = priceAirlineList.map((item) => item.code);
+		if (!selectedPriceAirlineCode || !codes.includes(selectedPriceAirlineCode)) {
+			selectedPriceAirlineCode = codes[0];
+		}
+	}
+}
+$: selectedAirlineGroup =
+	priceAirlineList.find((group) => group.code === selectedPriceAirlineCode) ?? null;
+$: availableLegs = (() => {
+	if (!selectedAirlineGroup) return [];
+	const legs = [];
+	if (selectedAirlineGroup.departure) legs.push('departure');
+	if (selectedAirlineGroup.return) legs.push('return');
+	if (legs.length === 0 && selectedAirlineGroup.extra.length > 0) legs.push('departure');
+	return legs;
+})();
+$: {
+	if (!availableLegs.includes(selectedPriceLeg)) {
+		selectedPriceLeg = availableLegs[0] ?? 'departure';
+	}
+}
+$: selectedSeries = (() => {
+	if (!selectedAirlineGroup) return null;
+	if (selectedPriceLeg === 'return') {
+		return selectedAirlineGroup.return ?? selectedAirlineGroup.departure ?? selectedAirlineGroup.extra[0] ?? null;
+	}
+	return selectedAirlineGroup.departure ?? selectedAirlineGroup.return ?? selectedAirlineGroup.extra[0] ?? null;
+})();
+$: selectedSeriesLabel = selectedSeries
+	? `${selectedSeries.airline_name ?? selectedSeries.airline_code ?? 'Unknown Airline'}${
+			selectedSeries.route_from && selectedSeries.route_to
+				? ` • ${selectedSeries.route_from} → ${selectedSeries.route_to}`
+				: ''
+	  }`
+	: null;
+
 </script>
 
 {#if selectedSearch}
@@ -499,39 +579,95 @@ function colorForIndex(index) {
 		{:else}
 			{#if selectedSearch.autoSearchResponse}
 				<div class="space-y-4">
-					<div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 text-sm text-blue-800 dark:text-blue-100">
-						<h4 class="font-semibold mb-2">Auto Search Summary</h4>
-						<ul class="space-y-1">
-							<li>
-								Route:
-								<strong>{selectedSearch.autoSearchResponse.route?.from_place}</strong>
-								→
-								<strong>{selectedSearch.autoSearchResponse.route?.to_place}</strong>
-							</li>
-							<li>
-								Airlines tracked:
-								<strong>{selectedSearch.autoSearchResponse.auto_search_airlines?.length ?? 0}</strong>
-							</li>
-							<li>
-								Outbound window:
-								<strong>{selectedSearch.autoSearchResponse.outbound_departure}</strong>
-								→
-								<strong>{selectedSearch.autoSearchResponse.outbound_end}</strong>
-							</li>
-							<li>
-								Inbound window:
-								<strong>{selectedSearch.autoSearchResponse.inbound_departure}</strong>
-								→
-								<strong>{selectedSearch.autoSearchResponse.inbound_end}</strong>
-							</li>
-							<li>
-								Travel class:
-								<strong>{selectedSearch.autoSearchResponse.travel_class}</strong>
-								| Direct flights:
-								<strong>{selectedSearch.autoSearchResponse.direct_flight ? 'Yes' : 'No'}</strong>
-							</li>
-						</ul>
-					</div>
+					{#if priceSeries.length > 0}
+						<div class="space-y-4">
+							<div
+								class="price-scroll flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 select-none cursor-grab active:cursor-grabbing scroller-hidden"
+								on:mousedown={(event) => {
+									const container = event.currentTarget;
+									container.classList.add('dragging');
+									let startX = event.pageX - container.offsetLeft;
+									let scrollLeft = container.scrollLeft;
+									let isDown = true;
+
+									const handleMouseMove = (moveEvent) => {
+										if (!isDown) return;
+										moveEvent.preventDefault();
+										const x = moveEvent.pageX - container.offsetLeft;
+										const walk = (x - startX) * 1.2;
+										container.scrollLeft = scrollLeft - walk;
+									};
+
+									const handleMouseUp = () => {
+										isDown = false;
+										container.classList.remove('dragging');
+										window.removeEventListener('mousemove', handleMouseMove);
+										window.removeEventListener('mouseup', handleMouseUp);
+									};
+
+									window.addEventListener('mousemove', handleMouseMove);
+									window.addEventListener('mouseup', handleMouseUp);
+								}}
+							>
+								<div style="height: 0; width: 0;" class="hidden"></div>
+								{#each priceAirlineList as group (group.code)}
+									<button
+										type="button"
+										class="px-4 py-2 rounded-full text-sm border transition-colors whitespace-nowrap {
+											selectedPriceAirlineCode === group.code
+												? 'bg-black text-white border-black dark:bg-white dark:text-black'
+												: 'bg-white text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+										}"
+										on:click={() => (selectedPriceAirlineCode = group.code)}
+									>
+										<span>{group.name}</span>
+										{#if group.departure?.route_from && group.departure?.route_to && !group.return}
+											<span class="ml-1 text-xs text-gray-500 dark:text-gray-300">
+												{group.departure.route_from} → {group.departure.route_to}
+											</span>
+										{:else if group.return?.route_from && group.return?.route_to && !group.departure}
+											<span class="ml-1 text-xs text-gray-500 dark:text-gray-300">
+												{group.return.route_from} → {group.return.route_to}
+											</span>
+										{/if}
+									</button>
+								{/each}
+							</div>
+
+							<div class="border-b border-gray-200 dark:border-gray-700 flex text-sm">
+								{#each ['departure', 'return'] as leg}
+									{@const legAvailable =
+										leg === 'departure'
+											? !!selectedAirlineGroup?.departure
+											: !!selectedAirlineGroup?.return}
+									<button
+										type="button"
+										class="w-1/2 pb-2 transition-colors border-b-2 -mb-px {
+											selectedPriceLeg === leg && legAvailable
+												? 'border-black text-black dark:border-white dark:text-white'
+												: 'border-transparent text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white'
+										} {legAvailable ? '' : 'opacity-50 cursor-not-allowed'}"
+										on:click={() => {
+											if (legAvailable) selectedPriceLeg = leg;
+										}}
+										disabled={!legAvailable}
+									>
+										{leg === 'departure' ? 'Departure' : 'Return'}
+									</button>
+								{/each}
+							</div>
+
+							{#if selectedSeries}
+								<div class="min-h-[140px] flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-300">
+									View for {selectedSeriesLabel} ({selectedPriceLeg}) coming soon.
+								</div>
+							{:else}
+								<div class="min-h-[140px] flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-300">
+									Select an available leg to view data.
+								</div>
+							{/if}
+						</div>
+					{/if}
 					<div class="text-sm text-gray-600 dark:text-gray-300">
 						Backend logging is enabled. Price storage and visualisations will be added soon.
 					</div>
@@ -567,4 +703,19 @@ function colorForIndex(index) {
 		</p>
 	</div>
 {/if}
+
+<style>
+	.price-scroll {
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+	}
+
+	.price-scroll::-webkit-scrollbar {
+		display: none;
+	}
+
+	.price-scroll.dragging {
+		cursor: grabbing;
+	}
+</style>
 

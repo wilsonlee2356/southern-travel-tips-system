@@ -116,6 +116,7 @@ const buildSavedSearchFromResponse = (data) => {
 		}
 
 		const payload = await response.json();
+		console.debug('Auto flight searches (initial load):', payload);
 		const normalized = Array.isArray(payload)
 			? payload
 					.map((entry) => buildSavedSearchFromResponse(entry))

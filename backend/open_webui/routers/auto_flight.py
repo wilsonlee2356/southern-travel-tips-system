@@ -64,6 +64,10 @@ class AirlinePriceSeries(BaseModel):
     airline_id: Optional[str] = None
     airline_code: Optional[str] = None
     airline_name: Optional[str] = None
+    route_id: Optional[str] = None
+    route_from: Optional[str] = None
+    route_to: Optional[str] = None
+    direction: Optional[str] = None
     prices: List[AirlinePriceDataPoint] = Field(default_factory=list)
 
 
@@ -278,10 +282,10 @@ def _collect_calendar_prices_for_airlines(
     airline_codes: List[str],
     travel_class: int,
     direct_flight: bool,
-) -> Dict[str, List[Tuple[datetime, int, bool]]]:
+) -> Dict[Tuple[str, str], List[Tuple[datetime, int, bool]]]:
     outbound_start, outbound_end = _build_date_range()
     travel_class_label = TRAVEL_CLASS_LABELS.get(travel_class)
-    raw_entries_per_airline: Dict[str, List[Tuple[datetime, int]]] = defaultdict(list)
+    raw_entries_per_pair: Dict[Tuple[str, str], List[Tuple[datetime, int]]] = defaultdict(list)
 
     for code in airline_codes:
         airline_code = code.strip().upper()
@@ -313,7 +317,7 @@ def _collect_calendar_prices_for_airlines(
                 route.to_place,
                 _summarize_calendar_payload(outbound_payload),
             )
-            raw_entries_per_airline[airline_code].extend(
+            raw_entries_per_pair[(airline_code, route.route_id)].extend(
                 _extract_calendar_prices(outbound_payload)
             )
         except FlightCalendarError as exc:
@@ -354,7 +358,7 @@ def _collect_calendar_prices_for_airlines(
                 return_route.to_place,
                 _summarize_calendar_payload(inbound_payload),
             )
-            raw_entries_per_airline[airline_code].extend(
+            raw_entries_per_pair[(airline_code, return_route.route_id)].extend(
                 _extract_calendar_prices(inbound_payload)
             )
         except FlightCalendarError as exc:
@@ -370,11 +374,11 @@ def _collect_calendar_prices_for_airlines(
                 exc,
             )
 
-    aggregated: Dict[str, List[Tuple[datetime, int, bool]]] = {}
-    for airline_code, entries in raw_entries_per_airline.items():
+    aggregated: Dict[Tuple[str, str], List[Tuple[datetime, int, bool]]] = {}
+    for key, entries in raw_entries_per_pair.items():
         aggregated_entries = _aggregate_calendar_prices(entries)
         if aggregated_entries:
-            aggregated[airline_code] = aggregated_entries
+            aggregated[key] = aggregated_entries
 
     return aggregated
 
@@ -417,6 +421,7 @@ def _compose_auto_search_response(
     }
     link_code_lookup: Dict[str, str] = {}
     link_name_lookup: Dict[str, str] = {}
+    link_route_lookup: Dict[str, str] = {}
     link_by_id: Dict[str, AutoSearchAirlineModel] = {}
     for link in auto_search_airlines:
         airline_id = link.airline_id
@@ -426,7 +431,14 @@ def _compose_auto_search_response(
         airline_name = airline_name_lookup.get(airline_id, airline_code)
         link_code_lookup[link.auto_search_airline_id] = airline_code
         link_name_lookup[link.auto_search_airline_id] = airline_name
+        link_route_lookup[link.auto_search_airline_id] = link.route_id
         link_by_id[link.auto_search_airline_id] = link
+
+    route_map: Dict[str, FlightRouteModel] = {}
+    if route:
+        route_map[route.route_id] = route
+    if return_route:
+        route_map[return_route.route_id] = return_route
 
     for price in sorted_prices:
         link = link_by_id.get(price.auto_search_airline_id)
@@ -439,16 +451,39 @@ def _compose_auto_search_response(
             airline_code = link_code_lookup.get(price.auto_search_airline_id, "UNKNOWN")
             airline_name = link_name_lookup.get(price.auto_search_airline_id, airline_code)
 
-        key = airline_code or airline_id or price.auto_search_airline_id or "UNKNOWN"
+        route_id = link_route_lookup.get(price.auto_search_airline_id)
+        route_obj = route_map.get(route_id) if route_id else None
+
+        key = (
+            f"{airline_code or airline_id or price.auto_search_airline_id or 'UNKNOWN'}::{route_id or 'UNKNOWN'}"
+        )
+        direction = None
+        if route_obj:
+            if return_route and route_obj.route_id == return_route.route_id:
+                direction = "return"
+            elif route and route_obj.route_id == route.route_id:
+                direction = "departure"
+
         series = airline_series_map.get(key)
         if not series:
             series = AirlinePriceSeries(
                 airline_id=airline_id,
                 airline_code=airline_code or key,
                 airline_name=airline_name or airline_code or key,
+                route_id=route_id,
+                route_from=route_obj.from_place if route_obj else None,
+                route_to=route_obj.to_place if route_obj else None,
+                direction=direction,
                 prices=[],
             )
             airline_series_map[key] = series
+        else:
+            if direction:
+                series.direction = direction
+            if route_obj and not series.route_from:
+                series.route_from = route_obj.from_place
+            if route_obj and not series.route_to:
+                series.route_to = route_obj.to_place
 
         series.prices.append(
             AirlinePriceDataPoint(
@@ -560,19 +595,27 @@ async def create_auto_flight_search(
         prices_table.delete_for_auto_search(auto_search_model.auto_search_id)
 
         airline_by_id = {airline.airline_id: airline for airline in airline_models}
-        link_by_code: Dict[str, AutoSearchAirlineModel] = {}
+        link_by_pair: Dict[Tuple[str, str], AutoSearchAirlineModel] = {}
         for link in auto_search_airline_models:
             airline = airline_by_id.get(link.airline_id)
-            if airline and airline.code:
-                link_by_code[airline.code.upper()] = link
+            code_key = (
+                airline.code.upper()
+                if airline and airline.code
+                else airline.airline_id
+                if airline
+                else link.auto_search_airline_id
+            )
+            link_by_pair[(code_key, link.route_id)] = link
 
         total_inserted = 0
-        for code, entries in aggregated_price_map.items():
-            link = link_by_code.get(code.upper())
+        for (code, route_id), entries in aggregated_price_map.items():
+            key = (code.upper(), route_id)
+            link = link_by_pair.get(key)
             if not link:
                 log.warning(
-                    "Skipping price entries for airline code %s; no matching auto_search_airline link",
+                    "Skipping price entries for airline code %s route %s; no matching auto_search_airline link",
                     code,
+                    route_id,
                 )
                 continue
             inserted = prices_table.bulk_insert(link.auto_search_airline_id, entries)
@@ -767,6 +810,26 @@ async def refresh_auto_flight_search(
             detail=f"At least {MIN_AIRLINES} airlines with codes are required to refresh.",
         )
 
+    expected_pairs: set[tuple[str, str]] = set()
+    for airline in airline_models:
+        dep_link = auto_search_airlines_table.get_or_create(
+            auto_search_id=auto_search_model.auto_search_id,
+            airline_id=airline.airline_id,
+            route_id=route.route_id,
+        )
+        expected_pairs.add((dep_link.airline_id, dep_link.route_id))
+        if return_route and return_route.route_id:
+            ret_link = auto_search_airlines_table.get_or_create(
+                auto_search_id=auto_search_model.auto_search_id,
+                airline_id=airline.airline_id,
+                route_id=return_route.route_id,
+            )
+            expected_pairs.add((ret_link.airline_id, ret_link.route_id))
+
+    auto_search_airline_models = auto_search_airlines_table.list_for_auto_search(
+        auto_search_id
+    )
+
     aggregated_price_map = _collect_calendar_prices_for_airlines(
         route=route,
         return_route=return_route,
@@ -780,19 +843,27 @@ async def refresh_auto_flight_search(
     price_models: List[PriceModel] = []
     if aggregated_price_map:
         airline_by_id = {airline.airline_id: airline for airline in airline_models}
-        link_by_code: Dict[str, AutoSearchAirlineModel] = {}
+        link_by_pair: Dict[Tuple[str, str], AutoSearchAirlineModel] = {}
         for link in auto_search_airline_models:
             airline = airline_by_id.get(link.airline_id)
-            if airline and airline.code:
-                link_by_code[airline.code.upper()] = link
+            code_key = (
+                airline.code.upper()
+                if airline and airline.code
+                else airline.airline_id
+                if airline
+                else link.auto_search_airline_id
+            )
+            link_by_pair[(code_key, link.route_id)] = link
 
         total_inserted = 0
-        for code, entries in aggregated_price_map.items():
-            link = link_by_code.get(code.upper())
+        for (code, route_id), entries in aggregated_price_map.items():
+            key = (code.upper(), route_id)
+            link = link_by_pair.get(key)
             if not link:
                 log.warning(
-                    "Skipping price entries for airline code %s; no matching auto_search_airline link",
+                    "Skipping price entries for airline code %s route %s; no matching auto_search_airline link",
                     code,
+                    route_id,
                 )
                 continue
             inserted = prices_table.bulk_insert(link.auto_search_airline_id, entries)

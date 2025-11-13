@@ -59,6 +59,8 @@ def fetch_calendar(
         "outbound_date_start": outbound_date_start,
         "outbound_date_end": outbound_date_end,
         "api_key": resolved_key,
+        "gl": "HK",
+        "currency": "HKD",
     }
 
     if travel_class:

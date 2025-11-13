@@ -104,7 +104,10 @@ class AutoSearchAirline(Base):
     __tablename__ = "auto_search_airline"
     __table_args__ = (
         UniqueConstraint(
-            "auto_search_id", "airline_id", name="uq_auto_search_airline_pair"
+            "auto_search_id",
+            "airline_id",
+            "route_id",
+            name="uq_auto_search_airline_triplet",
         ),
     )
 
@@ -117,6 +120,9 @@ class AutoSearchAirline(Base):
     airline_id = Column(
         String, ForeignKey("airline.airline_id"), nullable=False, index=True
     )
+    route_id = Column(
+        String, ForeignKey("flight_route.route_id"), nullable=False, index=True
+    )
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -124,6 +130,7 @@ class AutoSearchAirline(Base):
 
     auto_search = relationship("AutoSearch", back_populates="airlines")
     airline = relationship("Airline", back_populates="auto_search_airlines")
+    route = relationship("FlightRoute")
     prices = relationship(
         "Price", back_populates="auto_search_airline", cascade="all, delete-orphan"
     )
@@ -157,10 +164,9 @@ class Price(Base):
 
     @property
     def route(self):
-        auto_search = self.auto_search
-        if not auto_search:
+        if not self.auto_search_airline:
             return None
-        return auto_search.departure_route
+        return self.auto_search_airline.route
 
     @property
     def airlines(self):
@@ -229,6 +235,7 @@ class AutoSearchAirlineModel(BaseModel):
     auto_search_airline_id: str = Field(default_factory=generate_uuid)
     auto_search_id: str
     airline_id: str
+    route_id: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -600,29 +607,38 @@ class AutoSearchTable:
         )
 
         airline_models: List[AirlineModel] = []
-        auto_search_airline_models: List[AutoSearchAirlineModel] = []
+        expected_pairs: set[tuple[str, str]] = set()
 
         for code in airline_codes:
             airline_model = airlines_table.get_or_create_by_code(code)
             airline_models.append(airline_model)
-            link = auto_search_airlines_table.get_or_create(
+
+            departure_link = auto_search_airlines_table.get_or_create(
                 auto_search_id=auto_search.auto_search_id,
                 airline_id=airline_model.airline_id,
+                route_id=departure_route.route_id,
             )
-            auto_search_airline_models.append(link)
+            expected_pairs.add((departure_link.airline_id, departure_link.route_id))
 
-        # Remove any stale airline links not in current list
-        valid_airline_ids = {airline.airline_id for airline in airline_models}
-        with get_db() as db:
-            query = db.query(AutoSearchAirline).filter(
-                AutoSearchAirline.auto_search_id == auto_search.auto_search_id
-            )
-            if valid_airline_ids:
-                query = query.filter(
-                    AutoSearchAirline.airline_id.notin_(valid_airline_ids)
+            if return_route and return_route.route_id:
+                return_link = auto_search_airlines_table.get_or_create(
+                    auto_search_id=auto_search.auto_search_id,
+                    airline_id=airline_model.airline_id,
+                    route_id=return_route.route_id,
                 )
-            # If valid_airline_ids is empty, this will remove all existing rows
-            query.delete(synchronize_session=False)
+                expected_pairs.add((return_link.airline_id, return_link.route_id))
+
+        # Remove any stale airline links not in current list/route combinations
+        with get_db() as db:
+            records = (
+                db.query(AutoSearchAirline)
+                .filter(AutoSearchAirline.auto_search_id == auto_search.auto_search_id)
+                .all()
+            )
+            for record in records:
+                key = (record.airline_id, record.route_id)
+                if key not in expected_pairs:
+                    db.delete(record)
             db.commit()
 
         auto_search_airline_models = auto_search_airlines_table.list_for_auto_search(
@@ -648,11 +664,12 @@ class AutoSearchTable:
 
 
 class AutoSearchAirlinesTable:
-    def create(self, auto_search_id: str, airline_id: str) -> AutoSearchAirlineModel:
+    def create(self, auto_search_id: str, airline_id: str, route_id: str) -> AutoSearchAirlineModel:
         with get_db() as db:
             record = AutoSearchAirline(
                 auto_search_id=auto_search_id,
                 airline_id=airline_id,
+                route_id=route_id,
             )
             db.add(record)
             db.commit()
@@ -669,23 +686,29 @@ class AutoSearchAirlinesTable:
             return AutoSearchAirlineModel.model_validate(record) if record else None
 
     def get_by_auto_search_and_airline(
-        self, auto_search_id: str, airline_id: str
+        self, auto_search_id: str, airline_id: str, route_id: str
     ) -> Optional[AutoSearchAirlineModel]:
         with get_db() as db:
             record = (
                 db.query(AutoSearchAirline)
-                .filter_by(auto_search_id=auto_search_id, airline_id=airline_id)
+                .filter_by(
+                    auto_search_id=auto_search_id,
+                    airline_id=airline_id,
+                    route_id=route_id,
+                )
                 .first()
             )
             return AutoSearchAirlineModel.model_validate(record) if record else None
 
     def get_or_create(
-        self, auto_search_id: str, airline_id: str
+        self, auto_search_id: str, airline_id: str, route_id: str
     ) -> AutoSearchAirlineModel:
-        existing = self.get_by_auto_search_and_airline(auto_search_id, airline_id)
+        existing = self.get_by_auto_search_and_airline(
+            auto_search_id, airline_id, route_id
+        )
         if existing:
             return existing
-        return self.create(auto_search_id, airline_id)
+        return self.create(auto_search_id, airline_id, route_id)
 
     def list_for_auto_search(self, auto_search_id: str) -> List[AutoSearchAirlineModel]:
         with get_db() as db:
