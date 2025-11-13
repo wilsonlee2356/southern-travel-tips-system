@@ -136,8 +136,12 @@ $: selectedAirlineSummary = selectedAirlineCodes.map((code) => codeToName.get(co
 				return;
 			}
 
-			if (!selectedAirlineCodes.length) {
-				searchError = 'Select at least one airline (up to 10).';
+			if (selectedAirlineCodes.length < 1) {
+				searchError = `Select at least one airline (up to ${MAX_AIRLINES}).`;
+				return;
+			}
+			if (selectedAirlineCodes.length > MAX_AIRLINES) {
+				searchError = `Select no more than ${MAX_AIRLINES} airlines.`;
 				return;
 			}
 

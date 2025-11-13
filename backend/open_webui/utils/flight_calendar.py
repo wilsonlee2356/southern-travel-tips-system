@@ -36,7 +36,7 @@ def fetch_calendar(
     flight_type: str = "one_way",
     travel_class: Optional[str] = None,
     non_stop: Optional[bool] = None,
-    airline: Optional[str] = None,
+    included_airlines: Optional[str] = None,
     return_date: Optional[str] = None,
     return_date_start: Optional[str] = None,
     return_date_end: Optional[str] = None,
@@ -69,8 +69,8 @@ def fetch_calendar(
         params["non_stop"] = "true"
     elif non_stop is False:
         params["non_stop"] = "false"
-    if airline:
-        params["airline"] = airline
+    if included_airlines:
+        params["included_airlines"] = included_airlines
 
     if flight_type == "round_trip":
         if not return_date:

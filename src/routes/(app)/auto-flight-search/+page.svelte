@@ -49,6 +49,7 @@ const travelClassMap = {
 	BUSINESS: 2,
 	FIRST: 3
 };
+const MAX_AIRLINES = 10;
 
 const travelClassReverseMap = {
 	0: 'ECONOMY',
@@ -216,8 +217,11 @@ $: airlineCodeToName = new Map(
 	// Handle adding a new search from the SearchForm component
 	const callAutoSearchApi = async (search) => {
 		const airlineCodes = search.airlines ?? [];
-		if (airlineCodes.length < 10) {
-			throw new Error('Please select at least 10 airlines before adding an auto search.');
+		if (airlineCodes.length < 1) {
+			throw new Error('Please select at least 1 airline before adding an auto search.');
+		}
+		if (airlineCodes.length > MAX_AIRLINES) {
+			throw new Error(`Please select no more than ${MAX_AIRLINES} airlines.`);
 		}
 
 		const payload = {

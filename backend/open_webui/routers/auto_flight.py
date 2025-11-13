@@ -28,7 +28,8 @@ log.setLevel(SRC_LOG_LEVELS["MAIN"])
 
 router = APIRouter()
 
-MIN_AIRLINES = 10
+MIN_AIRLINES = 1
+MAX_AIRLINES = 10
 SIX_MONTHS_IN_DAYS = 180
 TRAVEL_CLASS_LABELS = {
     0: "economy",
@@ -41,7 +42,7 @@ TRAVEL_CLASS_LABELS = {
 class AutoFlightSearchRequest(BaseModel):
     from_place: str = Field(..., min_length=3, max_length=10, description="Origin airport code")
     to_place: str = Field(..., min_length=3, max_length=10, description="Destination airport code")
-    airlines: List[str] = Field(..., description="Airline names to track (must include at least 10)")
+    airlines: List[str] = Field(..., description="Airline names to track (1-10 airlines)")
     travel_class: int = Field(0, ge=0, le=3, description="0=economy, 1=premium_economy, 2=business, 3=first_class")
     direct_flight: bool = Field(False, description="Track direct flights only")
 
@@ -51,6 +52,8 @@ class AutoFlightSearchRequest(BaseModel):
         unique = list(dict.fromkeys(cleaned))
         if len(unique) < MIN_AIRLINES:
             raise ValueError(f"Provide at least {MIN_AIRLINES} unique airline names.")
+        if len(unique) > MAX_AIRLINES:
+            raise ValueError(f"Select no more than {MAX_AIRLINES} airlines.")
         return unique
 
 
@@ -308,7 +311,7 @@ def _collect_calendar_prices_for_airlines(
                 flight_type="one_way",
                 travel_class=travel_class_label,
                 non_stop=direct_flight,
-                airline=airline_code,
+                included_airlines=airline_code,
             )
             log.info(
                 "Outbound calendar summary for %s (%s -> %s): %s",
@@ -349,7 +352,7 @@ def _collect_calendar_prices_for_airlines(
                 flight_type="one_way",
                 travel_class=travel_class_label,
                 non_stop=direct_flight,
-                airline=airline_code,
+                included_airlines=airline_code,
             )
             log.info(
                 "Inbound calendar summary for %s (%s -> %s): %s",
@@ -567,6 +570,11 @@ async def create_auto_flight_search(
         )
 
     airline_codes = list(dict.fromkeys(airline_codes))
+    if len(airline_codes) > MAX_AIRLINES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Provide no more than {MAX_AIRLINES} airline codes.",
+        )
 
     (
         auto_search_model,
@@ -804,10 +812,17 @@ async def refresh_auto_flight_search(
             missing_codes,
         )
 
-    if len(airline_codes) < MIN_AIRLINES:
+    unique_airline_codes = list(dict.fromkeys(code.upper() for code in airline_codes))
+
+    if len(unique_airline_codes) < MIN_AIRLINES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"At least {MIN_AIRLINES} airlines with codes are required to refresh.",
+        )
+    if len(unique_airline_codes) > MAX_AIRLINES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Provide no more than {MAX_AIRLINES} airline codes.",
         )
 
     expected_pairs: set[tuple[str, str]] = set()
@@ -833,7 +848,7 @@ async def refresh_auto_flight_search(
     aggregated_price_map = _collect_calendar_prices_for_airlines(
         route=route,
         return_route=return_route,
-        airline_codes=airline_codes,
+        airline_codes=unique_airline_codes,
         travel_class=auto_search_model.travel_class,
         direct_flight=auto_search_model.direct_flight,
     )
