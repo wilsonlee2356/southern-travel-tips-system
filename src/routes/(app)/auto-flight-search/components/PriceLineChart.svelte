@@ -332,6 +332,7 @@ $: visibleMonthTicks = (() => {
 	.chart {
 		width: 100%;
 		height: 280px;
+		overflow: visible;
 	}
 
 	.axis {

@@ -147,21 +147,40 @@ $: priceSeries =
 		: [];
 $: priceAirlineList = (() => {
 	const map = new Map();
+	if (selectedSearch?.autoSearchResponse?.airlines) {
+		for (const airline of selectedSearch.autoSearchResponse.airlines) {
+			const code = airline?.code ?? airline?.airline_id ?? 'UNKNOWN';
+			const name = airline?.name ?? airline?.code ?? 'Unknown Airline';
+			if (!map.has(code)) {
+				map.set(code, {
+					code,
+					name,
+					departure: null,
+					return: null,
+					extra: [],
+				});
+			}
+		}
+	}
 	for (const series of priceSeries) {
 		const code = series.airline_code ?? series.airline_name ?? series.airline_id ?? 'UNKNOWN';
-		const name = series.airline_name ?? series.airline_code ?? 'Unknown Airline';
 		let group = map.get(code);
 		if (!group) {
 			group = {
 				code,
-				name,
+				name: series.airline_name ?? series.airline_code ?? 'Unknown Airline',
 				departure: null,
 				return: null,
 				extra: [],
 			};
 			map.set(code, group);
 		}
-		const direction = series.direction === 'return' ? 'return' : series.direction === 'departure' ? 'departure' : null;
+		const direction =
+			series.direction === 'return'
+				? 'return'
+				: series.direction === 'departure'
+				? 'departure'
+				: null;
 		if (direction === 'return') {
 			group.return = group.return ?? series;
 		} else if (direction === 'departure') {
@@ -615,11 +634,18 @@ $: selectedSeriesLabel = selectedSeries
 									<button
 										type="button"
 										class="px-4 py-2 rounded-full text-sm border transition-colors whitespace-nowrap {
-											selectedPriceAirlineCode === group.code
-												? 'bg-black text-white border-black dark:bg-white dark:text-black'
-												: 'bg-white text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+											group.departure || group.return
+												? selectedPriceAirlineCode === group.code
+													? 'bg-black text-white border-black dark:bg-white dark:text-black'
+													: 'bg-white text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+												: 'bg-gray-200 text-gray-400 border-gray-300 dark:bg-gray-700 dark:text-gray-500 dark:border-gray-600 cursor-not-allowed'
 										}"
-										on:click={() => (selectedPriceAirlineCode = group.code)}
+										on:click={() => {
+											if (group.departure || group.return) {
+												selectedPriceAirlineCode = group.code;
+											}
+										}}
+										disabled={!group.departure && !group.return}
 									>
 										<span>{group.name}</span>
 										{#if group.departure?.route_from && group.departure?.route_to && !group.return}
