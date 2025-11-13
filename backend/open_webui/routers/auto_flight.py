@@ -1,7 +1,8 @@
 import logging
 import re
+from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, validator
@@ -11,6 +12,7 @@ from open_webui.models.flight_pricing import (
     AirlinesTable,
     AirlineModel,
     AutoSearchAirlineModel,
+    AutoSearchAirlinesTable,
     AutoSearchModel,
     AutoSearchTable,
     PriceModel,
@@ -112,6 +114,9 @@ def _normalize_price(value) -> int | None:
     return None
 
 
+DATE_KEY_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}")
+
+
 def _extract_calendar_prices(data: dict | None) -> List[Tuple[datetime, int]]:
     if not isinstance(data, dict):
         return []
@@ -121,11 +126,41 @@ def _extract_calendar_prices(data: dict | None) -> List[Tuple[datetime, int]]:
 
     entries: List[dict] = []
     stack = [calendar]
+    direct_entries: List[Tuple[datetime, int]] = []
     while stack:
         current = stack.pop()
         if isinstance(current, dict):
+            # handle dicts keyed by date strings (e.g. {"2025-01-01": {"price": {...}}})
+            for key, value in current.items():
+                if isinstance(key, str) and DATE_KEY_PATTERN.match(key):
+                    parsed_date = _parse_calendar_date(key)
+                    if not parsed_date:
+                        continue
+                    price_source = value
+                    if isinstance(value, dict):
+                        price_source = (
+                            value.get("price")
+                            or value.get("lowest_price")
+                            or value.get("min_price")
+                            or value.get("amount")
+                            or value
+                        )
+                    price_int = _normalize_price(price_source)
+                    if price_int is not None:
+                        direct_entries.append((parsed_date, price_int))
+                # continue traversing nested structures for additional price info
+                if isinstance(value, (list, dict)):
+                    stack.append(value)
+
             has_date = any(
-                key in current for key in ("date", "departure_date", "outbound_date")
+                key in current
+                for key in (
+                    "date",
+                    "departure_date",
+                    "outbound_date",
+                    "departure",
+                    "day",
+                )
             )
             has_price = any(
                 key in current
@@ -133,19 +168,17 @@ def _extract_calendar_prices(data: dict | None) -> List[Tuple[datetime, int]]:
             )
             if has_date and has_price:
                 entries.append(current)
-            else:
-                for value in current.values():
-                    if isinstance(value, (list, dict)):
-                        stack.append(value)
         elif isinstance(current, list):
             stack.extend(current)
 
-    results: List[Tuple[datetime, int]] = []
+    results: List[Tuple[datetime, int]] = list(direct_entries)
     for entry in entries:
         date_value = (
             entry.get("date")
             or entry.get("departure_date")
             or entry.get("outbound_date")
+            or entry.get("departure")
+            or entry.get("day")
         )
         parsed_date = _parse_calendar_date(date_value)
         if not parsed_date:
@@ -187,16 +220,49 @@ def _aggregate_calendar_prices(
     ]
 
 
+def _summarize_calendar_payload(payload: dict | None, limit: int = 3) -> dict:
+    if not isinstance(payload, dict):
+        return {"type": type(payload).__name__}
+
+    calendar = payload.get("calendar")
+    summary: dict[str, Any] = {
+        "calendar_type": type(calendar).__name__,
+        "calendar_len": len(calendar) if isinstance(calendar, list) else None,
+    }
+
+    samples: list[dict[str, Any]] = []
+    if isinstance(calendar, list):
+        for entry in calendar[:limit]:
+            if isinstance(entry, dict):
+                sample: dict[str, Any] = {"keys": list(entry.keys())}
+                for key in ("date", "departure_date", "outbound_date"):
+                    if key in entry:
+                        sample[key] = entry[key]
+                price_field = (
+                    entry.get("price")
+                    or entry.get("lowest_price")
+                    or entry.get("min_price")
+                    or entry.get("amount")
+                )
+                if price_field is not None:
+                    sample["price"] = price_field
+                samples.append(sample)
+            else:
+                samples.append({"type": type(entry).__name__})
+    summary["samples"] = samples
+    return summary
+
+
 def _collect_calendar_prices_for_airlines(
     route: FlightRouteModel,
     return_route: FlightRouteModel,
     airline_codes: List[str],
     travel_class: int,
     direct_flight: bool,
-) -> List[Tuple[datetime, int, bool]]:
+) -> Dict[str, List[Tuple[datetime, int, bool]]]:
     outbound_start, outbound_end = _build_date_range()
     travel_class_label = TRAVEL_CLASS_LABELS.get(travel_class)
-    raw_entries: List[Tuple[datetime, int]] = []
+    raw_entries_per_airline: Dict[str, List[Tuple[datetime, int]]] = defaultdict(list)
 
     for code in airline_codes:
         airline_code = code.strip().upper()
@@ -210,20 +276,26 @@ def _collect_calendar_prices_for_airlines(
                 route.from_place,
                 route.to_place,
             )
-            raw_entries.extend(
-                _extract_calendar_prices(
-                    fetch_calendar(
-                        departure_id=route.from_place,
-                        arrival_id=route.to_place,
-                        outbound_date=outbound_start,
-                        outbound_date_start=outbound_start,
-                        outbound_date_end=outbound_end,
-                        flight_type="one_way",
-                        travel_class=travel_class_label,
-                        non_stop=direct_flight,
-                        airline=airline_code,
-                    )
-                )
+            outbound_payload = fetch_calendar(
+                departure_id=route.from_place,
+                arrival_id=route.to_place,
+                outbound_date=outbound_start,
+                outbound_date_start=outbound_start,
+                outbound_date_end=outbound_end,
+                flight_type="one_way",
+                travel_class=travel_class_label,
+                non_stop=direct_flight,
+                airline=airline_code,
+            )
+            log.info(
+                "Outbound calendar summary for %s (%s -> %s): %s",
+                airline_code,
+                route.from_place,
+                route.to_place,
+                _summarize_calendar_payload(outbound_payload),
+            )
+            raw_entries_per_airline[airline_code].extend(
+                _extract_calendar_prices(outbound_payload)
             )
         except FlightCalendarError as exc:
             log.warning(
@@ -245,20 +317,26 @@ def _collect_calendar_prices_for_airlines(
                 return_route.from_place,
                 return_route.to_place,
             )
-            raw_entries.extend(
-                _extract_calendar_prices(
-                    fetch_calendar(
-                        departure_id=return_route.from_place,
-                        arrival_id=return_route.to_place,
-                        outbound_date=outbound_start,
-                        outbound_date_start=outbound_start,
-                        outbound_date_end=outbound_end,
-                        flight_type="one_way",
-                        travel_class=travel_class_label,
-                        non_stop=direct_flight,
-                        airline=airline_code,
-                    )
-                )
+            inbound_payload = fetch_calendar(
+                departure_id=return_route.from_place,
+                arrival_id=return_route.to_place,
+                outbound_date=outbound_start,
+                outbound_date_start=outbound_start,
+                outbound_date_end=outbound_end,
+                flight_type="one_way",
+                travel_class=travel_class_label,
+                non_stop=direct_flight,
+                airline=airline_code,
+            )
+            log.info(
+                "Inbound calendar summary for %s (%s -> %s): %s",
+                airline_code,
+                return_route.from_place,
+                return_route.to_place,
+                _summarize_calendar_payload(inbound_payload),
+            )
+            raw_entries_per_airline[airline_code].extend(
+                _extract_calendar_prices(inbound_payload)
             )
         except FlightCalendarError as exc:
             log.warning(
@@ -273,7 +351,13 @@ def _collect_calendar_prices_for_airlines(
                 exc,
             )
 
-    return _aggregate_calendar_prices(raw_entries)
+    aggregated: Dict[str, List[Tuple[datetime, int, bool]]] = {}
+    for airline_code, entries in raw_entries_per_airline.items():
+        aggregated_entries = _aggregate_calendar_prices(entries)
+        if aggregated_entries:
+            aggregated[airline_code] = aggregated_entries
+
+    return aggregated
 
 
 @router.get(
@@ -345,7 +429,7 @@ async def create_auto_flight_search(
         airline_codes=airline_codes,
     )
 
-    aggregated_entries = _collect_calendar_prices_for_airlines(
+    aggregated_price_map = _collect_calendar_prices_for_airlines(
         route=route,
         return_route=return_route,
         airline_codes=airline_codes,
@@ -354,14 +438,44 @@ async def create_auto_flight_search(
     )
 
     price_models: List[PriceModel] = []
-    if aggregated_entries:
+    if aggregated_price_map:
         prices_table.delete_for_auto_search(auto_search_model.auto_search_id)
-        price_models = prices_table.bulk_insert(
-            auto_search_model.auto_search_id, aggregated_entries
-        )
-        log.info(
-            "Stored %d price points for auto_search %s",
-            len(price_models),
+
+        airline_by_id = {airline.airline_id: airline for airline in airline_models}
+        link_by_code: Dict[str, AutoSearchAirlineModel] = {}
+        for link in auto_search_airline_models:
+            airline = airline_by_id.get(link.airline_id)
+            if airline and airline.code:
+                link_by_code[airline.code.upper()] = link
+
+        total_inserted = 0
+        for code, entries in aggregated_price_map.items():
+            link = link_by_code.get(code.upper())
+            if not link:
+                log.warning(
+                    "Skipping price entries for airline code %s; no matching auto_search_airline link",
+                    code,
+                )
+                continue
+            inserted = prices_table.bulk_insert(link.auto_search_airline_id, entries)
+            price_models.extend(inserted)
+            total_inserted += len(inserted)
+
+        if total_inserted:
+            log.info(
+                "Stored %d price points across %d airlines for auto_search %s",
+                total_inserted,
+                len(aggregated_price_map),
+                auto_search_model.auto_search_id,
+            )
+        else:
+            log.warning(
+                "No price entries inserted for auto_search %s after aggregation.",
+                auto_search_model.auto_search_id,
+            )
+    else:
+        log.warning(
+            "No price entries aggregated for auto_search %s. Calendar responses may be empty.",
             auto_search_model.auto_search_id,
         )
 
@@ -379,11 +493,163 @@ async def create_auto_flight_search(
         outbound_end=outbound_end,
         inbound_departure=outbound_start,
         inbound_end=outbound_end,
-        prices=price_models,
+        prices=sorted(price_models, key=lambda price: price.departure_date),
     )
 
     log.debug(
         "Auto flight search response for user %s: %s",
+        user.id,
+        response_payload.model_dump(),
+    )
+
+    return response_payload
+
+
+@router.post(
+    "/auto-search/{auto_search_id}/refresh",
+    response_model=AutoFlightSearchResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def refresh_auto_flight_search(
+    auto_search_id: str, user=Depends(get_verified_user)
+):
+    auto_search_table = AutoSearchTable()
+    routes_table = FlightRoutesTable()
+    airlines_table = AirlinesTable()
+    auto_search_airlines_table = AutoSearchAirlinesTable()
+    prices_table = PricesTable()
+
+    auto_search_model = auto_search_table.get(auto_search_id)
+    if not auto_search_model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Auto search {auto_search_id} not found.",
+        )
+
+    route = routes_table.get(auto_search_model.departure_route_id)
+    if not route:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Departure route is missing for this auto search.",
+        )
+
+    return_route: FlightRouteModel | None = None
+    if auto_search_model.return_route_id:
+        return_route = routes_table.get(auto_search_model.return_route_id)
+    if not return_route:
+        return_route = routes_table.get_or_create(route.to_place, route.from_place)
+
+    auto_search_airline_models = auto_search_airlines_table.list_for_auto_search(
+        auto_search_id
+    )
+    if not auto_search_airline_models:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This auto search does not have any airlines configured.",
+        )
+
+    airline_models: List[AirlineModel] = []
+    airline_codes: List[str] = []
+    missing_codes: List[str] = []
+
+    for link in auto_search_airline_models:
+        airline = airlines_table.get(link.airline_id)
+        if not airline:
+            log.warning(
+                "Auto search %s references missing airline %s",
+                auto_search_id,
+                link.airline_id,
+            )
+            continue
+        airline_models.append(airline)
+        if airline.code:
+            airline_codes.append(airline.code)
+        else:
+            missing_codes.append(airline.airline_id)
+
+    if missing_codes:
+        log.warning(
+            "Auto search %s has airlines without codes and will be skipped: %s",
+            auto_search_id,
+            missing_codes,
+        )
+
+    if len(airline_codes) < MIN_AIRLINES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"At least {MIN_AIRLINES} airlines with codes are required to refresh.",
+        )
+
+    aggregated_price_map = _collect_calendar_prices_for_airlines(
+        route=route,
+        return_route=return_route,
+        airline_codes=airline_codes,
+        travel_class=auto_search_model.travel_class,
+        direct_flight=auto_search_model.direct_flight,
+    )
+
+    prices_table.delete_for_auto_search(auto_search_model.auto_search_id)
+
+    price_models: List[PriceModel] = []
+    if aggregated_price_map:
+        airline_by_id = {airline.airline_id: airline for airline in airline_models}
+        link_by_code: Dict[str, AutoSearchAirlineModel] = {}
+        for link in auto_search_airline_models:
+            airline = airline_by_id.get(link.airline_id)
+            if airline and airline.code:
+                link_by_code[airline.code.upper()] = link
+
+        total_inserted = 0
+        for code, entries in aggregated_price_map.items():
+            link = link_by_code.get(code.upper())
+            if not link:
+                log.warning(
+                    "Skipping price entries for airline code %s; no matching auto_search_airline link",
+                    code,
+                )
+                continue
+            inserted = prices_table.bulk_insert(link.auto_search_airline_id, entries)
+            price_models.extend(inserted)
+            total_inserted += len(inserted)
+
+        if total_inserted:
+            log.info(
+                "Refreshed %d price points across %d airlines for auto_search %s",
+                total_inserted,
+                len(aggregated_price_map),
+                auto_search_model.auto_search_id,
+            )
+        else:
+            log.warning(
+                "No price entries inserted for auto_search %s during refresh.",
+                auto_search_model.auto_search_id,
+            )
+    else:
+        log.warning(
+            "No price entries aggregated for auto_search %s during refresh.",
+            auto_search_model.auto_search_id,
+        )
+
+    outbound_start, outbound_end = _build_date_range()
+
+    response_payload = AutoFlightSearchResponse(
+        route=route,
+        return_route=return_route,
+        airlines=airline_models,
+        auto_search=auto_search_model,
+        auto_search_airlines=auto_search_airline_models,
+        travel_class=auto_search_model.travel_class,
+        direct_flight=auto_search_model.direct_flight,
+        outbound_departure=outbound_start,
+        outbound_end=outbound_end,
+        inbound_departure=outbound_start,
+        inbound_end=outbound_end,
+        prices=sorted(price_models, key=lambda price: price.departure_date),
+        message="Auto flight search refreshed.",
+    )
+
+    log.debug(
+        "Auto flight search refresh response for user %s: %s",
         user.id,
         response_payload.model_dump(),
     )

@@ -98,9 +98,6 @@ class AutoSearch(Base):
         back_populates="auto_search",
         cascade="all, delete-orphan",
     )
-    prices = relationship(
-        "Price", back_populates="auto_search", cascade="all, delete-orphan"
-    )
 
 
 class AutoSearchAirline(Base):
@@ -127,14 +124,20 @@ class AutoSearchAirline(Base):
 
     auto_search = relationship("AutoSearch", back_populates="airlines")
     airline = relationship("Airline", back_populates="auto_search_airlines")
+    prices = relationship(
+        "Price", back_populates="auto_search_airline", cascade="all, delete-orphan"
+    )
 
 
 class Price(Base):
     __tablename__ = "price"
 
     price_id = Column(String, primary_key=True, default=generate_uuid)
-    auto_search_id = Column(
-        String, ForeignKey("auto_search.auto_search_id"), nullable=False, index=True
+    auto_search_airline_id = Column(
+        String,
+        ForeignKey("auto_search_airline.auto_search_airline_id"),
+        nullable=False,
+        index=True,
     )
     departure_date = Column(DateTime, nullable=False)
     price = Column(Integer, nullable=False)
@@ -144,26 +147,37 @@ class Price(Base):
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
-    auto_search = relationship("AutoSearch", back_populates="prices")
+    auto_search_airline = relationship(
+        "AutoSearchAirline", back_populates="prices", lazy="joined"
+    )
+
+    @property
+    def auto_search(self):
+        return self.auto_search_airline.auto_search if self.auto_search_airline else None
 
     @property
     def route(self):
-        if not self.auto_search:
+        auto_search = self.auto_search
+        if not auto_search:
             return None
-        return self.auto_search.departure_route
+        return auto_search.departure_route
 
     @property
     def airlines(self):
-        if not self.auto_search:
+        if not self.auto_search_airline or not self.auto_search_airline.airline:
             return []
-        return [
-            link.airline for link in self.auto_search.airlines if link.airline is not None
-        ]
+        return [self.auto_search_airline.airline]
 
     @property
     def airline(self):
-        airlines = self.airlines
-        return airlines[0] if airlines else None
+        if not self.auto_search_airline:
+            return None
+        return self.auto_search_airline.airline
+
+    @property
+    def auto_search_id(self):
+        auto_search = self.auto_search
+        return auto_search.auto_search_id if auto_search else None
 
 
 class AirlineModel(BaseModel):
@@ -188,10 +202,11 @@ class FlightRouteModel(BaseModel):
 
 class PriceModel(BaseModel):
     price_id: str = Field(default_factory=generate_uuid)
-    auto_search_id: str
+    auto_search_airline_id: str
     departure_date: datetime
     price: int
     is_lowest_price: bool = False
+    auto_search_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -368,14 +383,14 @@ class FlightRoutesTable:
 class PricesTable:
     def create(
         self,
-        auto_search_id: str,
+        auto_search_airline_id: str,
         departure_date: datetime,
         price: int,
         is_lowest_price: bool = False,
     ) -> PriceModel:
         with get_db() as db:
             record = Price(
-                auto_search_id=auto_search_id,
+                auto_search_airline_id=auto_search_airline_id,
                 departure_date=departure_date,
                 price=price,
                 is_lowest_price=is_lowest_price,
@@ -394,7 +409,12 @@ class PricesTable:
         with get_db() as db:
             records = (
                 db.query(Price)
-                .filter_by(auto_search_id=auto_search_id)
+                .join(
+                    AutoSearchAirline,
+                    Price.auto_search_airline_id
+                    == AutoSearchAirline.auto_search_airline_id,
+                )
+                .filter(AutoSearchAirline.auto_search_id == auto_search_id)
                 .order_by(Price.departure_date.asc())
                 .all()
             )
@@ -427,15 +447,25 @@ class PricesTable:
 
     def delete_for_auto_search(self, auto_search_id: str) -> int:
         with get_db() as db:
+            airline_rows = (
+                db.query(AutoSearchAirline.auto_search_airline_id)
+                .filter(AutoSearchAirline.auto_search_id == auto_search_id)
+                .all()
+            )
+            airline_ids = [row.auto_search_airline_id for row in airline_rows]
+            if not airline_ids:
+                return 0
             result = (
-                db.query(Price).filter_by(auto_search_id=auto_search_id).delete()
+                db.query(Price)
+                .filter(Price.auto_search_airline_id.in_(airline_ids))
+                .delete(synchronize_session=False)
             )
             db.commit()
             return result
 
     def bulk_insert(
         self,
-        auto_search_id: str,
+        auto_search_airline_id: str,
         entries: List[tuple[datetime, int, bool]],
     ) -> List[PriceModel]:
         if not entries:
@@ -444,7 +474,7 @@ class PricesTable:
             records = []
             for departure_date, price, is_lowest in entries:
                 record = Price(
-                    auto_search_id=auto_search_id,
+                    auto_search_airline_id=auto_search_airline_id,
                     departure_date=departure_date,
                     price=price,
                     is_lowest_price=is_lowest,

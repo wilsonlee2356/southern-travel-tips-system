@@ -175,20 +175,59 @@ $: airlineCodeToName = new Map(
 
 	// Run search for a specific saved search
 	const runSearch = async (searchId) => {
-		const searchIndex = savedSearches.findIndex(s => s.id === searchId);
+		const searchIndex = savedSearches.findIndex((s) => s.id === searchId);
 		if (searchIndex === -1) return;
-		
+
 		const search = savedSearches[searchIndex];
+		if (!search?.autoSearchResponse?.auto_search?.auto_search_id) {
+			console.error('Cannot refresh search: missing auto_search_id', search);
+			return;
+		}
 
-		if (!search) return;
+		const autoSearchId = search.autoSearchResponse.auto_search.auto_search_id;
 
-		savedSearches[searchIndex] = {
-			...search,
-			lastSearched: new Date().toISOString()
-		};
-		savedSearches = [...savedSearches];
-		console.debug('Auto search refreshed (no API call):', savedSearches[searchIndex]);
-		localStorage.setItem('autoFlightSearches', JSON.stringify(savedSearches));
+		const loadingCopy = new Set(loadingSearches);
+		loadingCopy.add(searchId);
+		loadingSearches = loadingCopy;
+
+		try {
+			const response = await fetch(
+				`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search/${autoSearchId}/refresh`,
+				{
+					method: 'POST',
+					credentials: 'include'
+				}
+			);
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(errorText || `Auto search refresh failed (${response.status})`);
+			}
+
+			const data = await response.json();
+			console.debug('Auto search response (refresh):', data);
+
+			savedSearches[searchIndex] = {
+				...search,
+				lastSearched: new Date().toISOString(),
+				autoSearchResponse: data,
+				error: undefined
+			};
+			savedSearches = [...savedSearches];
+			localStorage.setItem('autoFlightSearches', JSON.stringify(savedSearches));
+		} catch (error) {
+			console.error('Error refreshing search:', error);
+			savedSearches[searchIndex] = {
+				...search,
+				lastSearched: new Date().toISOString(),
+				error: error.message || 'Failed to refresh auto search'
+			};
+			savedSearches = [...savedSearches];
+		} finally {
+			const updatedLoading = new Set(loadingSearches);
+			updatedLoading.delete(searchId);
+			loadingSearches = updatedLoading;
+		}
 	};
 
 	// Delete a saved search
