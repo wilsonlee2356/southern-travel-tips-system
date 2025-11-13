@@ -1,5 +1,6 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
+import { createEventDispatcher } from 'svelte';
+import PriceLineChart from './PriceLineChart.svelte';
 
 	const dispatch = createEventDispatcher();
 
@@ -658,9 +659,7 @@ $: selectedSeriesLabel = selectedSeries
 							</div>
 
 							{#if selectedSeries}
-								<div class="min-h-[140px] flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-300">
-									View for {selectedSeriesLabel} ({selectedPriceLeg}) coming soon.
-								</div>
+								<PriceLineChart {selectedSeries} series={selectedSeries} leg={selectedPriceLeg} />
 							{:else}
 								<div class="min-h-[140px] flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-300">
 									Select an available leg to view data.
