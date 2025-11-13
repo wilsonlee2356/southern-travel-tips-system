@@ -592,7 +592,7 @@ class AutoSearchTable:
         departure_route = routes_table.get_or_create(departure_code, destination_code)
         return_route = routes_table.get_or_create(destination_code, departure_code)
 
-        auto_search = self.get_or_create(
+        auto_search = self.create(
             departure_route_id=departure_route.route_id,
             travel_class=travel_class,
             direct_flight=direct_flight,
@@ -636,6 +636,15 @@ class AutoSearchTable:
             airline_models,
             auto_search_airline_models,
         )
+
+    def list_all(self) -> List[AutoSearchModel]:
+        with get_db() as db:
+            records = (
+                db.query(AutoSearch)
+                .order_by(AutoSearch.created_at.desc())
+                .all()
+            )
+            return [AutoSearchModel.model_validate(record) for record in records]
 
 
 class AutoSearchAirlinesTable:

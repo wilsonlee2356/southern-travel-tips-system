@@ -70,6 +70,12 @@ class AutoFlightSearchResponse(BaseModel):
     message: str = "Auto flight search initiated."
 
 
+class AutoFlightDeleteResponse(BaseModel):
+    auto_search_id: str
+    prices_deleted: int
+    message: str = "Auto flight search deleted."
+
+
 def _build_date_range() -> tuple[str, str]:
     tomorrow = datetime.utcnow().date() + timedelta(days=1)
     six_months_later = tomorrow + timedelta(days=SIX_MONTHS_IN_DAYS)
@@ -360,6 +366,50 @@ def _collect_calendar_prices_for_airlines(
     return aggregated
 
 
+def _compose_auto_search_response(
+    *,
+    auto_search: AutoSearchModel,
+    route: FlightRouteModel | None,
+    return_route: FlightRouteModel | None,
+    airlines: List[AirlineModel],
+    auto_search_airlines: List[AutoSearchAirlineModel],
+    prices: List[PriceModel],
+    travel_class: int,
+    direct_flight: bool,
+    message: str,
+) -> AutoFlightSearchResponse:
+    if route is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Auto search is missing its departure route.",
+        )
+
+    if return_route is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Auto search is missing its return route.",
+        )
+
+    outbound_start, outbound_end = _build_date_range()
+    sorted_prices = sorted(prices, key=lambda price: price.departure_date)
+
+    return AutoFlightSearchResponse(
+        route=route,
+        return_route=return_route,
+        airlines=airlines,
+        auto_search=auto_search,
+        auto_search_airlines=auto_search_airlines,
+        travel_class=travel_class,
+        direct_flight=direct_flight,
+        outbound_departure=outbound_start,
+        outbound_end=outbound_end,
+        inbound_departure=outbound_start,
+        inbound_end=outbound_end,
+        prices=sorted_prices,
+        message=message,
+    )
+
+
 @router.get(
     "/airlines",
     response_model=List[AirlineModel],
@@ -479,21 +529,16 @@ async def create_auto_flight_search(
             auto_search_model.auto_search_id,
         )
 
-    outbound_start, outbound_end = _build_date_range()
-
-    response_payload = AutoFlightSearchResponse(
+    response_payload = _compose_auto_search_response(
+        auto_search=auto_search_model,
         route=route,
         return_route=return_route,
         airlines=airline_models,
-        auto_search=auto_search_model,
         auto_search_airlines=auto_search_airline_models,
+        prices=price_models,
         travel_class=payload.travel_class,
         direct_flight=payload.direct_flight,
-        outbound_departure=outbound_start,
-        outbound_end=outbound_end,
-        inbound_departure=outbound_start,
-        inbound_end=outbound_end,
-        prices=sorted(price_models, key=lambda price: price.departure_date),
+        message="Auto flight search initiated.",
     )
 
     log.debug(
@@ -503,6 +548,80 @@ async def create_auto_flight_search(
     )
 
     return response_payload
+
+
+@router.get(
+    "/auto-search",
+    response_model=List[AutoFlightSearchResponse],
+    status_code=status.HTTP_200_OK,
+)
+async def list_auto_flight_searches(user=Depends(get_verified_user)):
+    auto_search_table = AutoSearchTable()
+    routes_table = FlightRoutesTable()
+    airlines_table = AirlinesTable()
+    auto_search_airlines_table = AutoSearchAirlinesTable()
+    prices_table = PricesTable()
+
+    auto_search_models = auto_search_table.list_all()
+    responses: List[AutoFlightSearchResponse] = []
+
+    for auto_search_model in auto_search_models:
+        route = routes_table.get(auto_search_model.departure_route_id)
+        if not route:
+            log.warning(
+                "Auto search %s skipped during listing; missing departure route %s",
+                auto_search_model.auto_search_id,
+                auto_search_model.departure_route_id,
+            )
+            continue
+
+        return_route: FlightRouteModel | None = None
+        if auto_search_model.return_route_id:
+            return_route = routes_table.get(auto_search_model.return_route_id)
+        if not return_route:
+            return_route = routes_table.get_or_create(route.to_place, route.from_place)
+
+        auto_search_airline_models = auto_search_airlines_table.list_for_auto_search(
+            auto_search_model.auto_search_id
+        )
+
+        airline_models: List[AirlineModel] = []
+        for link in auto_search_airline_models:
+            airline = airlines_table.get(link.airline_id)
+            if airline:
+                airline_models.append(airline)
+            else:
+                log.warning(
+                    "Auto search %s references missing airline %s during listing",
+                    auto_search_model.auto_search_id,
+                    link.airline_id,
+                )
+
+        price_models = prices_table.list_by_auto_search(auto_search_model.auto_search_id)
+
+        try:
+            responses.append(
+                _compose_auto_search_response(
+                    auto_search=auto_search_model,
+                    route=route,
+                    return_route=return_route,
+                    airlines=airline_models,
+                    auto_search_airlines=auto_search_airline_models,
+                    prices=price_models,
+                    travel_class=auto_search_model.travel_class,
+                    direct_flight=auto_search_model.direct_flight,
+                    message="Auto flight search loaded.",
+                )
+            )
+        except HTTPException as exc:
+            log.warning(
+                "Failed to compose auto search %s: %s",
+                auto_search_model.auto_search_id,
+                exc.detail if isinstance(exc.detail, str) else exc.detail,
+            )
+
+    log.debug("Listed %d auto flight searches for user %s", len(responses), user.id)
+    return responses
 
 
 @router.post(
@@ -630,21 +749,15 @@ async def refresh_auto_flight_search(
             auto_search_model.auto_search_id,
         )
 
-    outbound_start, outbound_end = _build_date_range()
-
-    response_payload = AutoFlightSearchResponse(
+    response_payload = _compose_auto_search_response(
+        auto_search=auto_search_model,
         route=route,
         return_route=return_route,
         airlines=airline_models,
-        auto_search=auto_search_model,
         auto_search_airlines=auto_search_airline_models,
+        prices=price_models,
         travel_class=auto_search_model.travel_class,
         direct_flight=auto_search_model.direct_flight,
-        outbound_departure=outbound_start,
-        outbound_end=outbound_end,
-        inbound_departure=outbound_start,
-        inbound_end=outbound_end,
-        prices=sorted(price_models, key=lambda price: price.departure_date),
         message="Auto flight search refreshed.",
     )
 
@@ -655,4 +768,55 @@ async def refresh_auto_flight_search(
     )
 
     return response_payload
+
+
+@router.delete(
+    "/auto-search/{auto_search_id}",
+    response_model=AutoFlightDeleteResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def delete_auto_flight_search(
+    auto_search_id: str, user=Depends(get_verified_user)
+):
+    auto_search_table = AutoSearchTable()
+    routes_table = FlightRoutesTable()
+    auto_search_airlines_table = AutoSearchAirlinesTable()
+    prices_table = PricesTable()
+
+    auto_search_model = auto_search_table.get(auto_search_id)
+    if not auto_search_model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Auto search {auto_search_id} not found.",
+        )
+
+    departure_route_id = auto_search_model.departure_route_id
+    return_route_id = auto_search_model.return_route_id
+
+    prices_deleted = prices_table.delete_for_auto_search(auto_search_id)
+    auto_search_airlines_table.delete(auto_search_id)
+    auto_search_table.delete(auto_search_id)
+
+    for route_id in {departure_route_id, return_route_id}:
+        if not route_id:
+            continue
+        remaining = auto_search_table.list_by_route(route_id)
+        if not remaining:
+            deleted = routes_table.delete(route_id)
+            if deleted:
+                log.info(
+                    "Deleted unused flight route %s after removing auto_search %s",
+                    route_id,
+                    auto_search_id,
+                )
+
+    log.info(
+        "Deleted auto_search %s (prices=%d)", auto_search_id, prices_deleted
+    )
+
+    return AutoFlightDeleteResponse(
+        auto_search_id=auto_search_id,
+        prices_deleted=prices_deleted,
+        message="Auto flight search deleted.",
+    )
 
