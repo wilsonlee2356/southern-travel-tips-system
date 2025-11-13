@@ -2,7 +2,7 @@ import logging
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, validator
@@ -54,6 +54,19 @@ class AutoFlightSearchRequest(BaseModel):
         return unique
 
 
+class AirlinePriceDataPoint(BaseModel):
+    departure_date: datetime
+    price: int
+    is_lowest_price: bool = False
+
+
+class AirlinePriceSeries(BaseModel):
+    airline_id: Optional[str] = None
+    airline_code: Optional[str] = None
+    airline_name: Optional[str] = None
+    prices: List[AirlinePriceDataPoint] = Field(default_factory=list)
+
+
 class AutoFlightSearchResponse(BaseModel):
     route: FlightRouteModel
     return_route: FlightRouteModel
@@ -66,7 +79,7 @@ class AutoFlightSearchResponse(BaseModel):
     outbound_end: str
     inbound_departure: str
     inbound_end: str
-    prices: List[PriceModel] = Field(default_factory=list)
+    prices: List[AirlinePriceSeries] = Field(default_factory=list)
     message: str = "Auto flight search initiated."
 
 
@@ -392,6 +405,61 @@ def _compose_auto_search_response(
 
     outbound_start, outbound_end = _build_date_range()
     sorted_prices = sorted(prices, key=lambda price: price.departure_date)
+    airline_series_map: Dict[str, AirlinePriceSeries] = {}
+
+    airline_lookup: Dict[str, str] = {
+        airline.airline_id: (airline.code or airline.airline_id)
+        for airline in airlines
+    }
+    airline_name_lookup: Dict[str, str] = {
+        airline.airline_id: airline.name or airline.code or airline.airline_id
+        for airline in airlines
+    }
+    link_code_lookup: Dict[str, str] = {}
+    link_name_lookup: Dict[str, str] = {}
+    link_by_id: Dict[str, AutoSearchAirlineModel] = {}
+    for link in auto_search_airlines:
+        airline_id = link.airline_id
+        airline_code = airline_lookup.get(
+            airline_id, airline_id or link.auto_search_airline_id
+        )
+        airline_name = airline_name_lookup.get(airline_id, airline_code)
+        link_code_lookup[link.auto_search_airline_id] = airline_code
+        link_name_lookup[link.auto_search_airline_id] = airline_name
+        link_by_id[link.auto_search_airline_id] = link
+
+    for price in sorted_prices:
+        link = link_by_id.get(price.auto_search_airline_id)
+        airline_id: Optional[str] = link.airline_id if link else None
+
+        if link:
+            airline_code = airline_lookup.get(airline_id, airline_id or "UNKNOWN")
+            airline_name = airline_name_lookup.get(airline_id, airline_code)
+        else:
+            airline_code = link_code_lookup.get(price.auto_search_airline_id, "UNKNOWN")
+            airline_name = link_name_lookup.get(price.auto_search_airline_id, airline_code)
+
+        key = airline_code or airline_id or price.auto_search_airline_id or "UNKNOWN"
+        series = airline_series_map.get(key)
+        if not series:
+            series = AirlinePriceSeries(
+                airline_id=airline_id,
+                airline_code=airline_code or key,
+                airline_name=airline_name or airline_code or key,
+                prices=[],
+            )
+            airline_series_map[key] = series
+
+        series.prices.append(
+            AirlinePriceDataPoint(
+                departure_date=price.departure_date,
+                price=price.price,
+                is_lowest_price=price.is_lowest_price,
+            )
+        )
+
+    for series in airline_series_map.values():
+        series.prices.sort(key=lambda item: item.departure_date)
 
     return AutoFlightSearchResponse(
         route=route,
@@ -405,7 +473,7 @@ def _compose_auto_search_response(
         outbound_end=outbound_end,
         inbound_departure=outbound_start,
         inbound_end=outbound_end,
-        prices=sorted_prices,
+        prices=list(airline_series_map.values()),
         message=message,
     )
 
