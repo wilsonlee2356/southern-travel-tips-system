@@ -1,14 +1,12 @@
 <script>
+	import PriceCalendar from './PriceCalendar.svelte';
+
 	export let series = null;
 	export let leg = 'departure';
 
 	const monthFormatter = new Intl.DateTimeFormat('en-US', {
 		month: 'numeric',
 		year: 'numeric'
-	});
-	const dayFormatter = new Intl.DateTimeFormat('en-US', {
-		month: 'short',
-		day: 'numeric'
 	});
 
 	const WIDTH = 640;
@@ -33,6 +31,8 @@
 			.filter(Boolean)
 			.sort((a, b) => a.timestamp - b.timestamp);
 	};
+
+	let data = [];
 
 	$: data = createChartData(series);
 
@@ -319,6 +319,7 @@ $: visibleMonthTicks = (() => {
 		{/if}
 
 	</div>
+	<PriceCalendar calendarData={data} />
 {/if}
 
 <style>
@@ -334,6 +335,8 @@ $: visibleMonthTicks = (() => {
 		height: 280px;
 		overflow: visible;
 	}
+
+	/* Calendar styles moved to PriceCalendar */
 
 	.axis {
 		stroke: rgba(148, 163, 184, 0.6);
