@@ -1,8 +1,18 @@
 <script>
 export let calendarData = [];
+export let selectedDates = new Set();
 let priceByDate = new Map();
 let calendarMonths = [];
 let currentMonthIndex = 0;
+
+const toggleDateSelection = (dateKey) => {
+	selectedDates = new Set(selectedDates);
+	if (selectedDates.has(dateKey)) {
+		selectedDates.delete(dateKey);
+	} else {
+		selectedDates.add(dateKey);
+	}
+};
 
 	const monthNumericFormatter = new Intl.DateTimeFormat('en-US', {
 		month: 'numeric',
@@ -28,7 +38,10 @@ const createPriceMap = (data) => {
 			if (!point?.date || !Number.isFinite(point?.price)) {
 				return;
 			}
-			map.set(normalizeDateKey(point.date), point.price);
+			map.set(normalizeDateKey(point.date), {
+				price: point.price,
+				isLowest: Boolean(point?.isLowest)
+			});
 		});
 		return map;
 };
@@ -63,12 +76,15 @@ const buildMonths = (data, priceMap) => {
 			for (let day = 1; day <= daysInMonth; day += 1) {
 				const date = new Date(year, monthIndex, day);
 				const key = normalizeDateKey(date);
-				const price = priceByDate.get(key);
+				const priceData = priceByDate.get(key);
+				const price = priceData?.price;
+				const isLowest = priceData?.isLowest || false;
 				cells.push({
 					empty: false,
 					date,
 					key,
 					price,
+					isLowest,
 					hasPrice: Number.isFinite(price)
 				});
 			}
@@ -145,9 +161,25 @@ const showNextMonth = () => {
 				{#if cell.empty}
 					<div class="calendar-day empty"></div>
 				{:else}
-					<div class="calendar-day {cell.hasPrice ? 'has-price' : 'no-price'}">
+					{@const dateKey = normalizeDateKey(cell.date)}
+					{@const isSelected = selectedDates.has(dateKey)}
+					<div
+						class="calendar-day {cell.hasPrice ? 'has-price' : 'no-price'} {isSelected ? 'selected' : ''}"
+						role={cell.hasPrice ? 'button' : undefined}
+						on:click={() => {
+							if (cell.hasPrice) {
+								toggleDateSelection(dateKey);
+							}
+						}}
+						on:keydown={(e) => {
+							if (cell.hasPrice && (e.key === 'Enter' || e.key === ' ')) {
+								e.preventDefault();
+								toggleDateSelection(dateKey);
+							}
+						}}
+					>
 						<span class="calendar-date">{cell.date.getDate()}</span>
-						<span class="calendar-price">
+						<span class="calendar-price {cell.isLowest ? 'is-lowest' : ''}">
 							{cell.hasPrice ? formatPrice(cell.price) : '-'}
 						</span>
 					</div>
@@ -276,9 +308,34 @@ const showNextMonth = () => {
 		cursor: pointer;
 	}
 
+	.calendar-day.has-price.selected {
+		position: relative;
+	}
+
+	.calendar-day.has-price.selected::before {
+		content: '';
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: 60%;
+		height: 60%;
+		background: rgba(148, 163, 184, 0.25);
+		border-radius: 0.2rem;
+		z-index: 0;
+	}
+
 	.calendar-day.has-price:hover {
 		background: #0f172a;
 		border-radius: 0.4rem;
+	}
+
+	.calendar-day.has-price.selected:hover::before {
+		display: none;
+	}
+
+	.calendar-day.has-price.selected:hover {
+		background: #0f172a;
 	}
 
 	.calendar-day.no-price {
@@ -297,6 +354,8 @@ const showNextMonth = () => {
 		color: #0f172a;
 		transition: color 0.2s ease;
 		font-size: 0.65rem;
+		position: relative;
+		z-index: 1;
 	}
 
 	:global(.dark) .calendar-date {
@@ -312,13 +371,28 @@ const showNextMonth = () => {
 		margin-top: 0.2rem;
 		color: rgba(71, 85, 105, 0.95);
 		transition: color 0.2s ease;
+		position: relative;
+		z-index: 1;
+	}
+
+	.calendar-price.is-lowest {
+		color: #10b981;
+		font-weight: 700;
 	}
 
 	:global(.dark) .calendar-price {
 		color: rgba(226, 232, 240, 0.9);
 	}
 
+	:global(.dark) .calendar-price.is-lowest {
+		color: #34d399;
+	}
+
 	.calendar-day.has-price:hover .calendar-price {
+		color: #f8fafc;
+	}
+
+	.calendar-day.has-price:hover .calendar-price.is-lowest {
 		color: #f8fafc;
 	}
 

@@ -1,6 +1,7 @@
 <script>
 	import { createEventDispatcher } from 'svelte';
-import PriceLineChart from './PriceLineChart.svelte';
+	import PriceLineChart from './PriceLineChart.svelte';
+	import AIModelSelect from '$lib/components/layout/AIModelSelect.svelte';
 
 	const dispatch = createEventDispatcher();
 
@@ -568,21 +569,11 @@ $: selectedSeriesLabel = selectedSeries
 			<div class="mt-6 flex items-center justify-between gap-4">
 				<!-- Model Dropdown -->
 				<div class="flex-1 max-w-xs">
-					<label for="model-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-						AI Model
-					</label>
-					<select
+					<AIModelSelect
 						id="model-select"
-						bind:value={selectedModel}
-						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 text-sm"
-					>
-						<option value={null}>Select a model...</option>
-						{#each filteredModels as model}
-							<option value={model.id}>
-								{model.name || model.id}
-							</option>
-						{/each}
-					</select>
+						{filteredModels}
+						bind:selectedModel
+					/>
 				</div>
 				
 				<!-- Post Button -->
@@ -685,7 +676,13 @@ $: selectedSeriesLabel = selectedSeries
 							</div>
 
 							{#if selectedSeries}
-								<PriceLineChart series={selectedSeries} leg={selectedPriceLeg} />
+								<PriceLineChart
+									series={selectedSeries}
+									leg={selectedPriceLeg}
+									{filteredModels}
+									bind:selectedModel
+									on:post={(e) => dispatch('post', e.detail)}
+								/>
 							{:else}
 								<div class="min-h-[140px] flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-300">
 									Select an available leg to view data.

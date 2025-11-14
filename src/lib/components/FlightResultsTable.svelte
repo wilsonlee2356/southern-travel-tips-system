@@ -1,6 +1,7 @@
 <script>
 	import { getContext } from 'svelte';
 	import { models } from '$lib/stores';
+	import AIModelSelect from '$lib/components/layout/AIModelSelect.svelte';
 	
 	const i18n = getContext('i18n');
 	
@@ -770,24 +771,17 @@ const toggleRowExpansion = (flightId) => {
 			<div class="flex flex-col gap-4">
 				<!-- AI Model Selection -->
 				<div class="flex items-center gap-4 flex-wrap">
-					<!-- Combined AI Model Dropdown -->
-					<div class="flex flex-col flex-1 min-w-[250px]">
-						<label for="ai-model-select" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-							AI Model
-						</label>
-						<select
-							id="ai-model-select"
-							class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-							on:change={handleAIModelChange}
-							disabled={isPosting}
-							value={currentSelectedValue}
-						>
-						<option value="">Select AI Model...</option>
-						{#each aiModelOptions as option}
-							<option value={option.value}>{option.label}</option>
-						{/each}
-						</select>
-					</div>
+				<!-- Combined AI Model Dropdown -->
+				<div class="flex flex-col flex-1 min-w-[250px]">
+					<AIModelSelect
+						id="ai-model-select"
+						filteredModels={aiModelOptions}
+						selectedModel={currentSelectedValue}
+						placeholder="Select AI Model..."
+						disabled={isPosting}
+						onModelChange={handleAIModelChange}
+					/>
+				</div>
 					
 					<!-- Selected Model Info -->
 					{#if selectedModel}

@@ -1,8 +1,18 @@
 <script>
+	import { createEventDispatcher } from 'svelte';
 	import PriceCalendar from './PriceCalendar.svelte';
+	import CheapestPricesList from './CheapestPricesList.svelte';
 
 	export let series = null;
 	export let leg = 'departure';
+	export let filteredModels = [];
+	export let selectedModel = null;
+
+	const dispatch = createEventDispatcher();
+
+	const handlePost = (event) => {
+		dispatch('post', event.detail);
+	};
 
 	const monthFormatter = new Intl.DateTimeFormat('en-US', {
 		month: 'numeric',
@@ -33,6 +43,49 @@
 	};
 
 	let data = [];
+	let selectedDates = new Set();
+	let selectedDatesMap = new Map(); // Store selectedDates per calendar instance
+	let previousCalendarKey = null;
+
+	// Create unique key for this calendar instance (airline + leg + route)
+	$: calendarKey = series
+		? `${series.airline_code || series.airline_name || series.airline_id || 'unknown'}-${leg}-${series.route_from || ''}-${series.route_to || ''}`
+		: null;
+
+	// Load or initialize selectedDates when calendarKey changes (switching between airlines/legs)
+	$: {
+		if (calendarKey && calendarKey !== previousCalendarKey && series) {
+			previousCalendarKey = calendarKey;
+			
+			if (!selectedDatesMap.has(calendarKey)) {
+				// Initialize with isLowest dates for this specific calendar
+				const lowestDates = new Set();
+				const chartData = createChartData(series);
+				chartData.forEach((point) => {
+					if (point?.date instanceof Date && point?.isLowest === true) {
+						const year = point.date.getFullYear();
+						const month = String(point.date.getMonth() + 1).padStart(2, '0');
+						const day = String(point.date.getDate()).padStart(2, '0');
+						lowestDates.add(`${year}-${month}-${day}`);
+					}
+				});
+				selectedDatesMap.set(calendarKey, lowestDates);
+				selectedDates = new Set(lowestDates);
+			} else {
+				// Load existing selection for this calendar
+				selectedDates = new Set(selectedDatesMap.get(calendarKey));
+			}
+		} else if (!calendarKey) {
+			selectedDates = new Set();
+		}
+	}
+
+	// Update the map when selectedDates changes (from user interaction in PriceCalendar)
+	$: {
+		if (calendarKey && calendarKey === previousCalendarKey && selectedDates) {
+			selectedDatesMap.set(calendarKey, new Set(selectedDates));
+		}
+	}
 
 	$: data = createChartData(series);
 
@@ -319,7 +372,14 @@ $: visibleMonthTicks = (() => {
 		{/if}
 
 	</div>
-	<PriceCalendar calendarData={data} />
+	<PriceCalendar calendarData={data} bind:selectedDates />
+	<CheapestPricesList
+		calendarData={data}
+		{selectedDates}
+		{filteredModels}
+		bind:selectedModel
+		on:post={handlePost}
+	/>
 {/if}
 
 <style>
