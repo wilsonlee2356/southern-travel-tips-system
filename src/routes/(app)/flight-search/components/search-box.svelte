@@ -301,7 +301,6 @@ input[type='range'] {
        >
          <option value="round-trip">{$i18n.t('Round Trip')}</option>
          <option value="one-way">{$i18n.t('One Way')}</option>
-        <option value="multi-city">{$i18n.t('Multiple City')}</option>
        </select>
      </div>
 

@@ -3,6 +3,7 @@ export let calendarData = [];
 export let selectedDates = new Set();
 export let disabled = false; // Disable calendar interaction
 export let direction = 'departure'; // Direction prefix for date keys
+export let layout = 'calendar'; // 'calendar' for grid, 'horizontal' for one-way list
 let priceByDate = new Map();
 let calendarMonths = [];
 let currentMonthIndex = 0;
@@ -37,25 +38,47 @@ const normalizeDateKey = (date) => {
 const formatPrice = (price) =>
 	Number.isFinite(price) ? `HK$${Math.round(price).toLocaleString('en-US')}` : '-';
 
+// Helper to extract date from various formats
+const extractDate = (point) => {
+	if (point?.date instanceof Date) {
+		return point.date;
+	}
+	// Try various date field names
+	const dateStr = point?.date || point?.departure || point?.departure_date || point?.outbound_date || point?.departureDate;
+	if (!dateStr) return null;
+	const date = new Date(dateStr);
+	return date instanceof Date && !isNaN(date.getTime()) ? date : null;
+};
+
 const createPriceMap = (data) => {
-		const map = new Map();
+	const map = new Map();
 	(data || []).forEach((point) => {
-			if (!point?.date || !Number.isFinite(point?.price)) {
-				return;
-			}
-			map.set(normalizeDateKey(point.date), {
-				price: point.price,
-				isLowest: Boolean(point?.isLowest)
-			});
+		const date = extractDate(point);
+		if (!date || !Number.isFinite(point?.price)) {
+			return;
+		}
+		map.set(normalizeDateKey(date), {
+			price: point.price,
+			isLowest: Boolean(point?.isLowest || point?.is_lowest_price)
 		});
-		return map;
+	});
+	return map;
 };
 
 const buildMonths = (data, priceMap) => {
 	if (!data?.length) return [];
 
 	const sorted = [...data]
-		.filter((item) => item?.date instanceof Date && Number.isFinite(item?.timestamp))
+		.map((item) => {
+			const date = extractDate(item);
+			if (!date) return null;
+			return {
+				...item,
+				date,
+				timestamp: date.getTime()
+			};
+		})
+		.filter((item) => item && item.date instanceof Date && Number.isFinite(item.timestamp))
 		.sort((a, b) => a.timestamp - b.timestamp);
 		if (!sorted.length) return [];
 		const first = new Date(sorted[0].date);
@@ -134,66 +157,115 @@ const showNextMonth = () => {
 };
 </script>
 
-{#if calendarData?.length && calendarMonths.length}
-	<div class="calendar-container">
-		<div class="calendar-wrapper">
-			<div class="calendar-nav">
-				<button
-					type="button"
-					class="nav-button"
-					on:click={showPreviousMonth}
-					disabled={currentMonthIndex === 0}
-				>
-					←
-				</button>
-				<div class="calendar-month-label">
-					{calendarMonths[currentMonthIndex]?.label}
+{#if calendarData?.length}
+	{#if layout === 'horizontal'}
+		<!-- Horizontal list layout for one-way trips -->
+		<div class="horizontal-calendar-container">
+			<div class="horizontal-calendar-wrapper">
+				<div class="horizontal-dates-row">
+					{#each calendarData as item (item.timestamp || (item.date?.getTime ? item.date.getTime() : null) || Math.random())}
+						{@const date = extractDate(item)}
+						{#if date instanceof Date}
+							{@const dateKey = normalizeDateKey(date)}
+							{@const prefixedKey = `${direction}-${dateKey}`}
+							{@const isSelected = !disabled && selectedDates.has(prefixedKey)}
+							{@const hasPrice = item.price !== undefined && Number.isFinite(item.price)}
+							{@const isLowest = Boolean(item?.isLowest || item?.is_lowest_price)}
+							<div
+								class="horizontal-date-item {hasPrice ? 'has-price' : 'no-price'} {isSelected ? 'selected' : ''} {disabled ? 'disabled' : ''}"
+								role={hasPrice && !disabled ? 'button' : undefined}
+								on:click={() => {
+									if (hasPrice && !disabled) {
+										toggleDateSelection(dateKey);
+									}
+								}}
+								on:keydown={(e) => {
+									if (hasPrice && !disabled && (e.key === 'Enter' || e.key === ' ')) {
+										e.preventDefault();
+										toggleDateSelection(dateKey);
+									}
+								}}
+							>
+								<div class="horizontal-date-label">
+									{new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)}
+								</div>
+								<div class="horizontal-price {isLowest ? 'is-lowest' : ''}">
+									{hasPrice ? formatPrice(item.price) : '-'}
+								</div>
+							</div>
+						{/if}
+					{/each}
 				</div>
-				<button
-					type="button"
-					class="nav-button"
-					on:click={showNextMonth}
-					disabled={currentMonthIndex === calendarMonths.length - 1}
-				>
-					→
-				</button>
-			</div>
-			<div class="calendar-grid">
-			{#each weekdayLabels as weekday}
-				<div class="calendar-weekday">{weekday}</div>
-			{/each}
-			{#each calendarMonths[currentMonthIndex]?.cells as cell (cell.key)}
-				{#if cell.empty}
-					<div class="calendar-day empty"></div>
-				{:else}
-					{@const dateKey = normalizeDateKey(cell.date)}
-					{@const prefixedKey = `${direction}-${dateKey}`}
-					{@const isSelected = !disabled && selectedDates.has(prefixedKey)}
-					<div
-						class="calendar-day {cell.hasPrice ? 'has-price' : 'no-price'} {isSelected ? 'selected' : ''} {disabled ? 'disabled' : ''}"
-						role={cell.hasPrice && !disabled ? 'button' : undefined}
-						on:click={() => {
-							if (cell.hasPrice && !disabled) {
-								toggleDateSelection(dateKey);
-							}
-						}}
-						on:keydown={(e) => {
-							if (cell.hasPrice && !disabled && (e.key === 'Enter' || e.key === ' ')) {
-								e.preventDefault();
-								toggleDateSelection(dateKey);
-							}
-						}}
-					>
-						<span class="calendar-date">{cell.date.getDate()}</span>
-						<span class="calendar-price {cell.isLowest ? 'is-lowest' : ''}">
-							{cell.hasPrice ? formatPrice(cell.price) : '-'}
-						</span>
-					</div>
-				{/if}
-			{/each}
 			</div>
 		</div>
-	</div>
+	{:else}
+		<!-- Calendar grid layout for round trips -->
+		{#if calendarMonths.length}
+			<div class="calendar-container">
+				<div class="calendar-wrapper">
+					<div class="calendar-nav">
+						<button
+							type="button"
+							class="nav-button"
+							on:click={showPreviousMonth}
+							disabled={currentMonthIndex === 0}
+						>
+							←
+						</button>
+						<div class="calendar-month-label">
+							{calendarMonths[currentMonthIndex]?.label}
+						</div>
+						<button
+							type="button"
+							class="nav-button"
+							on:click={showNextMonth}
+							disabled={currentMonthIndex === calendarMonths.length - 1}
+						>
+							→
+						</button>
+					</div>
+					<div class="calendar-grid">
+					{#each weekdayLabels as weekday}
+						<div class="calendar-weekday">{weekday}</div>
+					{/each}
+					{#each calendarMonths[currentMonthIndex]?.cells as cell (cell.key)}
+						{#if cell.empty}
+							<div class="calendar-day empty"></div>
+						{:else}
+							{@const dateKey = normalizeDateKey(cell.date)}
+							{@const prefixedKey = `${direction}-${dateKey}`}
+							{@const isSelected = !disabled && selectedDates.has(prefixedKey)}
+							<div
+								class="calendar-day {cell.hasPrice ? 'has-price' : 'no-price'} {isSelected ? 'selected' : ''} {disabled ? 'disabled' : ''}"
+								role={cell.hasPrice && !disabled ? 'button' : undefined}
+								on:click={() => {
+									if (cell.hasPrice && !disabled) {
+										toggleDateSelection(dateKey);
+									}
+								}}
+								on:keydown={(e) => {
+									if (cell.hasPrice && !disabled && (e.key === 'Enter' || e.key === ' ')) {
+										e.preventDefault();
+										toggleDateSelection(dateKey);
+									}
+								}}
+							>
+								<span class="calendar-date">{cell.date.getDate()}</span>
+								<span class="calendar-price {cell.isLowest ? 'is-lowest' : ''}">
+									{cell.hasPrice ? formatPrice(cell.price) : '-'}
+								</span>
+							</div>
+						{/if}
+					{/each}
+					</div>
+				</div>
+			</div>
+		{:else}
+			<div class="calendar-empty">
+				Daily price calendar will appear once data is available.
+			</div>
+		{/if}
+	{/if}
 {:else}
 	<div class="calendar-empty">
 		Daily price calendar will appear once data is available.
@@ -423,6 +495,115 @@ const showNextMonth = () => {
 	:global(.dark) .calendar-empty {
 		border-color: rgba(148, 163, 184, 0.3);
 		color: rgba(226, 232, 240, 0.65);
+	}
+
+	/* Horizontal layout styles for one-way trips */
+	.horizontal-calendar-container {
+		margin-top: 1rem;
+		width: 100%;
+	}
+
+	.horizontal-calendar-wrapper {
+		width: 100%;
+		overflow-x: auto;
+		overflow-y: visible;
+		padding: 0.5rem 0;
+	}
+
+	.horizontal-dates-row {
+		display: flex;
+		gap: 0.5rem;
+		min-width: min-content;
+		padding: 0 0.25rem;
+	}
+
+	.horizontal-date-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-start;
+		min-width: 60px;
+		padding: 0.5rem 0.4rem;
+		border-radius: 0.5rem;
+		background: transparent;
+		border: 1px solid transparent;
+		cursor: pointer;
+		transition: background 0.2s ease, border-color 0.2s ease;
+		flex-shrink: 0;
+	}
+
+	.horizontal-date-item.has-price:hover:not(.disabled) {
+		background: rgba(15, 23, 42, 0.08);
+		border-color: rgba(148, 163, 184, 0.3);
+	}
+
+	.horizontal-date-item.has-price.selected {
+		background: rgba(148, 163, 184, 0.15);
+		border-color: rgba(148, 163, 184, 0.5);
+	}
+
+	.horizontal-date-item.has-price.selected:hover:not(.disabled) {
+		background: rgba(15, 23, 42, 0.12);
+	}
+
+	.horizontal-date-item.no-price {
+		opacity: 0.4;
+		cursor: default;
+	}
+
+	.horizontal-date-item.disabled {
+		cursor: default;
+		opacity: 0.6;
+	}
+
+	.horizontal-date-label {
+		font-size: 0.7rem;
+		font-weight: 600;
+		color: #0f172a;
+		margin-bottom: 0.3rem;
+		text-align: center;
+		white-space: nowrap;
+	}
+
+	:global(.dark) .horizontal-date-label {
+		color: #f8fafc;
+	}
+
+	.horizontal-price {
+		font-size: 0.75rem;
+		color: rgba(71, 85, 105, 0.95);
+		font-weight: 500;
+		text-align: center;
+		white-space: nowrap;
+	}
+
+	.horizontal-price.is-lowest {
+		color: #10b981;
+		font-weight: 700;
+	}
+
+	:global(.dark) .horizontal-price {
+		color: rgba(226, 232, 240, 0.9);
+	}
+
+	:global(.dark) .horizontal-price.is-lowest {
+		color: #34d399;
+	}
+
+	.horizontal-date-item.has-price:hover:not(.disabled) .horizontal-date-label {
+		color: #0f172a;
+	}
+
+	.horizontal-date-item.has-price:hover:not(.disabled) .horizontal-price {
+		color: rgba(71, 85, 105, 0.95);
+	}
+
+	:global(.dark) .horizontal-date-item.has-price:hover:not(.disabled) .horizontal-date-label {
+		color: #f8fafc;
+	}
+
+	:global(.dark) .horizontal-date-item.has-price:hover:not(.disabled) .horizontal-price {
+		color: rgba(226, 232, 240, 0.9);
 	}
 </style>
 

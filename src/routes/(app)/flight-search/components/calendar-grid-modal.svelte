@@ -90,7 +90,8 @@ const extractCalendarEntries = (data, defaultCurrency) => {
 			value.returnDate ||
 			value.inboundDate;
 
-		if (!departureDate || !returnDate) {
+		// Allow one-way trips (only departure date required)
+		if (!departureDate) {
 			return;
 		}
 
@@ -130,27 +131,34 @@ const extractCalendarEntries = (data, defaultCurrency) => {
 		});
 	};
 
+	// Handle case where data.calendar is an array (Google format)
 	if (Array.isArray(data.calendar)) {
 		data.calendar.forEach((item) => addEntry(item, item));
 	}
+	// Handle case where data itself is an array (direct calendar array)
+	else if (Array.isArray(data)) {
+		data.forEach((item) => addEntry(item, item));
+	}
+	else {
+		const visit = (value) => {
+			if (Array.isArray(value)) {
+				value.forEach(visit);
+				return;
+			}
 
-	const visit = (value) => {
-		if (Array.isArray(value)) {
-			value.forEach(visit);
-			return;
+			if (value && typeof value === 'object') {
+				addEntry(value, value);
+				Object.values(value).forEach(visit);
+			}
+		};
+
+		if (!Array.isArray(data.calendar)) {
+			visit(data);
 		}
-
-		if (value && typeof value === 'object') {
-			addEntry(value, value);
-			Object.values(value).forEach(visit);
-		}
-	};
-
-	if (!Array.isArray(data.calendar)) {
-		visit(data);
 	}
 
-	return entries.filter((entry) => entry.departureDate && entry.returnDate);
+	// Allow entries with only departure date (one-way trips)
+	return entries.filter((entry) => entry.departureDate);
 };
 
 	const parseDate = (dateString) => {
@@ -235,17 +243,37 @@ let highPriceThreshold = null;
 		let maxPrice = null;
 		const priceValues = [];
 
+		// Check if this is a one-way trip (no return dates)
+		const isOneWay = rawEntries.every(entry => !entry.returnDate);
+		
 		for (const entry of rawEntries) {
 			outboundSet.add(entry.departureDate);
-			returnSet.add(entry.returnDate);
-
-			if (!matrix.has(entry.returnDate)) {
-				matrix.set(entry.returnDate, new Map());
+			if (entry.returnDate) {
+				returnSet.add(entry.returnDate);
 			}
-			const row = matrix.get(entry.returnDate);
-			const existing = row.get(entry.departureDate);
-			if (!existing || ((entry.priceValue ?? Number.POSITIVE_INFINITY) < (existing.priceValue ?? Number.POSITIVE_INFINITY))) {
-				row.set(entry.departureDate, entry);
+
+			if (isOneWay) {
+				// For one-way trips, use a special key or just departure date
+				const oneWayKey = 'ONE_WAY';
+				if (!matrix.has(oneWayKey)) {
+					matrix.set(oneWayKey, new Map());
+				}
+				const row = matrix.get(oneWayKey);
+				const existing = row.get(entry.departureDate);
+				if (!existing || ((entry.priceValue ?? Number.POSITIVE_INFINITY) < (existing.priceValue ?? Number.POSITIVE_INFINITY))) {
+					row.set(entry.departureDate, entry);
+				}
+			} else {
+				// For round trips, use return date as row key
+				const returnKey = entry.returnDate || 'NO_RETURN';
+				if (!matrix.has(returnKey)) {
+					matrix.set(returnKey, new Map());
+				}
+				const row = matrix.get(returnKey);
+				const existing = row.get(entry.departureDate);
+				if (!existing || ((entry.priceValue ?? Number.POSITIVE_INFINITY) < (existing.priceValue ?? Number.POSITIVE_INFINITY))) {
+					row.set(entry.departureDate, entry);
+				}
 			}
 
 			if (entry.priceValue != null) {
@@ -260,7 +288,9 @@ let highPriceThreshold = null;
 		}
 
 		outboundDates = Array.from(outboundSet).sort(compareDates);
-		returnDates = Array.from(returnSet).sort(compareDates);
+		// For one-way trips, ensure we show up to 10 dates (don't limit if less than 10)
+		// The data should already be limited to 10 in limitCalendarDataset, but ensure we show all available
+		returnDates = isOneWay ? ['ONE_WAY'] : Array.from(returnSet).sort(compareDates);
 		priceMatrix = matrix;
 		priceRange = { min: minPrice, max: maxPrice };
 
@@ -274,7 +304,8 @@ let highPriceThreshold = null;
 			lowPriceThreshold = null;
 			highPriceThreshold = null;
 		}
-		hasCalendarMatrix = outboundDates.length > 0 && returnDates.length > 0;
+		// Allow one-way trips (only departure dates required)
+		hasCalendarMatrix = outboundDates.length > 0;
 	}
 
 const formatPriceValue = (value) => {
@@ -509,7 +540,9 @@ const getEntryDurationLabel = (entry) => {
 {formatDateLabel(outbound)}
 </th>
 {/each}
+{#if !(returnDates.length === 1 && returnDates[0] === 'ONE_WAY')}
 <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 text-center border border-gray-300 dark:border-gray-600 w-32"></th>
+{/if}
 </tr>
 </thead>
 <tbody>
@@ -532,9 +565,11 @@ const getEntryDurationLabel = (entry) => {
 {/if}
 </td>
 {/each}
+{#if !(returnDates.length === 1 && returnDates[0] === 'ONE_WAY')}
 <td class={`px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 text-center align-middle border border-gray-300 dark:border-gray-600 w-32 ${isSelectedReturn(returnDate) ? 'bg-gray-100 dark:bg-gray-800' : ''}`}>
 {formatDateLabel(returnDate)}
 </td>
+{/if}
 </tr>
 {/each}
 </tbody>

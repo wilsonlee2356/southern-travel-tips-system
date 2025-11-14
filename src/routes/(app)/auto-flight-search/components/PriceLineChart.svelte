@@ -49,17 +49,39 @@
 	const PADDING = { top: 24, right: 32, bottom: 48, left: 85 }; // Increased left padding for y-axis labels
 
 	const createChartData = (input) => {
+		// Handle case where input is already an array (like Google calendar format)
+		if (Array.isArray(input)) {
+			return input
+				.map((point) => {
+					const dateStr = point?.departure || point?.departure_date || point?.date;
+					const date = dateStr ? new Date(dateStr) : null;
+					const price = Number(point?.price ?? NaN);
+					return date && !Number.isNaN(date.getTime()) && !Number.isNaN(price)
+						? {
+								date,
+								timestamp: date.getTime(),
+								price,
+								isLowest: Boolean(point?.is_lowest_price || point?.isLowest)
+						  }
+						: null;
+				})
+				.filter(Boolean)
+				.sort((a, b) => a.timestamp - b.timestamp);
+		}
+		
+		// Handle case where input has a prices array
 		if (!input?.prices || !Array.isArray(input.prices)) return [];
 		return input.prices
 			.map((point) => {
-				const date = point?.departure_date ? new Date(point.departure_date) : null;
+				const dateStr = point?.departure_date || point?.departure || point?.date;
+				const date = dateStr ? new Date(dateStr) : null;
 				const price = Number(point?.price ?? NaN);
-				return date && !Number.isNaN(price)
+				return date && !Number.isNaN(date.getTime()) && !Number.isNaN(price)
 					? {
 							date,
 							timestamp: date.getTime(),
 							price,
-							isLowest: Boolean(point?.is_lowest_price)
+							isLowest: Boolean(point?.is_lowest_price || point?.isLowest)
 					  }
 					: null;
 			})
@@ -696,14 +718,34 @@ $: visibleMonthTicks = (() => {
 			bind:selectedDates={overallSelectedDates}
 			direction={leg}
 			disabled={true}
+			layout="horizontal"
 		/>
-	{:else}
+	{:else if data && data.length > 0}
+		{@const hasDeparture = !!departureSeries}
+		{@const hasReturn = !!returnSeries}
+		{@const isOneWay = (hasDeparture && !hasReturn) || (!hasDeparture && hasReturn)}
 		<PriceCalendar 
 			calendarData={data} 
 			bind:selectedDates
 			direction={leg}
 			disabled={false}
+			layout={isOneWay ? 'horizontal' : 'calendar'}
 		/>
+	{:else if allDataPoints && allDataPoints.length > 0}
+		{@const hasDeparture = !!departureSeries}
+		{@const hasReturn = !!returnSeries}
+		{@const isOneWay = (hasDeparture && !hasReturn) || (!hasDeparture && hasReturn)}
+		<PriceCalendar 
+			calendarData={allDataPoints} 
+			bind:selectedDates
+			direction={leg}
+			disabled={false}
+			layout={isOneWay ? 'horizontal' : 'calendar'}
+		/>
+	{:else}
+		<div class="calendar-empty">
+			No price data available for this selection.
+		</div>
 	{/if}
 	{#if !(allSeries && allSeries.length > 0)}
 		<CheapestPricesList

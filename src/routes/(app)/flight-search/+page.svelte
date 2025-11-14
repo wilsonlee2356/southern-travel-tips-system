@@ -215,8 +215,13 @@ const limitCalendarDataset = (data, baseOutbound, baseReturn) => {
 		return null;
 	}
 
-	const isOutboundInRange = createRangeChecker(baseOutbound, CALENDAR_DISPLAY_DAYS_BEFORE, CALENDAR_DISPLAY_DAYS_AFTER);
+	// For one-way trips, show more dates (10 days total: 5 before + 5 after)
+	// For round trips, use the default range (3 before + 3 after)
 	const hasReturnAnchor = Boolean(baseReturn);
+	const daysBefore = hasReturnAnchor ? CALENDAR_DISPLAY_DAYS_BEFORE : 5;
+	const daysAfter = hasReturnAnchor ? CALENDAR_DISPLAY_DAYS_AFTER : 5;
+	
+	const isOutboundInRange = createRangeChecker(baseOutbound, daysBefore, daysAfter);
 	const isReturnInRange = hasReturnAnchor
 		? createRangeChecker(baseReturn, CALENDAR_DISPLAY_DAYS_BEFORE, CALENDAR_DISPLAY_DAYS_AFTER)
 		: () => true;
@@ -255,21 +260,45 @@ const limitCalendarDataset = (data, baseOutbound, baseReturn) => {
 	});
 
 	if (Array.isArray(data.calendar)) {
-		limited.calendar = data.calendar
-			.filter((entry) => {
-				const outboundDate = extractDepartureDate(entry);
-				if (!outboundDate || !isOutboundInRange(outboundDate)) {
-					return false;
-				}
-				if (hasReturnAnchor) {
+		let filtered;
+		
+		if (hasReturnAnchor) {
+			// For round trips, filter by date range
+			filtered = data.calendar
+				.filter((entry) => {
+					const outboundDate = extractDepartureDate(entry);
+					if (!outboundDate || !isOutboundInRange(outboundDate)) {
+						return false;
+					}
 					const returnDate = extractReturnDate(entry);
 					if (!returnDate || !isReturnInRange(returnDate)) {
 						return false;
 					}
-				}
-				return true;
-			})
-			.map((entry) => ({ ...entry }));
+					return true;
+				})
+				.map((entry) => ({ ...entry }));
+		} else {
+			// For one-way trips, take first 10 items (sorted by date if possible)
+			filtered = data.calendar
+				.map((entry) => {
+					const outboundDate = extractDepartureDate(entry);
+					return { ...entry, _sortDate: outboundDate };
+				})
+				.filter((entry) => entry._sortDate) // Only include entries with valid dates
+				.sort((a, b) => {
+					// Sort by date
+					const dateA = toNormalizedDate(a._sortDate);
+					const dateB = toNormalizedDate(b._sortDate);
+					if (dateA && dateB) {
+						return dateA.getTime() - dateB.getTime();
+					}
+					return 0;
+				})
+				.slice(0, 10) // Take first 10
+				.map(({ _sortDate, ...entry }) => entry); // Remove sort helper
+		}
+		
+		limited.calendar = filtered;
 	} else {
 		limited.calendar = [];
 	}
