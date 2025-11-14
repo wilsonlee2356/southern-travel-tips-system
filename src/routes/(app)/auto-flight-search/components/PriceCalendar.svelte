@@ -1,11 +1,13 @@
 <script>
 export let calendarData = [];
 export let selectedDates = new Set();
+export let disabled = false; // Disable calendar interaction
 let priceByDate = new Map();
 let calendarMonths = [];
 let currentMonthIndex = 0;
 
 const toggleDateSelection = (dateKey) => {
+	if (disabled) return; // Don't allow selection when disabled
 	selectedDates = new Set(selectedDates);
 	if (selectedDates.has(dateKey)) {
 		selectedDates.delete(dateKey);
@@ -162,17 +164,17 @@ const showNextMonth = () => {
 					<div class="calendar-day empty"></div>
 				{:else}
 					{@const dateKey = normalizeDateKey(cell.date)}
-					{@const isSelected = selectedDates.has(dateKey)}
+					{@const isSelected = !disabled && selectedDates.has(dateKey)}
 					<div
-						class="calendar-day {cell.hasPrice ? 'has-price' : 'no-price'} {isSelected ? 'selected' : ''}"
-						role={cell.hasPrice ? 'button' : undefined}
+						class="calendar-day {cell.hasPrice ? 'has-price' : 'no-price'} {isSelected ? 'selected' : ''} {disabled ? 'disabled' : ''}"
+						role={cell.hasPrice && !disabled ? 'button' : undefined}
 						on:click={() => {
-							if (cell.hasPrice) {
+							if (cell.hasPrice && !disabled) {
 								toggleDateSelection(dateKey);
 							}
 						}}
 						on:keydown={(e) => {
-							if (cell.hasPrice && (e.key === 'Enter' || e.key === ' ')) {
+							if (cell.hasPrice && !disabled && (e.key === 'Enter' || e.key === ' ')) {
 								e.preventDefault();
 								toggleDateSelection(dateKey);
 							}
@@ -325,16 +327,20 @@ const showNextMonth = () => {
 		z-index: 0;
 	}
 
-	.calendar-day.has-price:hover {
+	.calendar-day.has-price:hover:not(.disabled) {
 		background: #0f172a;
 		border-radius: 0.4rem;
 	}
 
-	.calendar-day.has-price.selected:hover::before {
+	.calendar-day.disabled {
+		cursor: default;
+	}
+
+	.calendar-day.has-price.selected:hover:not(.disabled)::before {
 		display: none;
 	}
 
-	.calendar-day.has-price.selected:hover {
+	.calendar-day.has-price.selected:hover:not(.disabled) {
 		background: #0f172a;
 	}
 
@@ -362,7 +368,7 @@ const showNextMonth = () => {
 		color: #f8fafc;
 	}
 
-	.calendar-day.has-price:hover .calendar-date {
+	.calendar-day.has-price:hover:not(.disabled) .calendar-date {
 		color: #f8fafc;
 	}
 
@@ -388,11 +394,11 @@ const showNextMonth = () => {
 		color: #34d399;
 	}
 
-	.calendar-day.has-price:hover .calendar-price {
+	.calendar-day.has-price:hover:not(.disabled) .calendar-price {
 		color: #f8fafc;
 	}
 
-	.calendar-day.has-price:hover .calendar-price.is-lowest {
+	.calendar-day.has-price:hover:not(.disabled) .calendar-price.is-lowest {
 		color: #f8fafc;
 	}
 

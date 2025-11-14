@@ -771,17 +771,17 @@ const toggleRowExpansion = (flightId) => {
 			<div class="flex flex-col gap-4">
 				<!-- AI Model Selection -->
 				<div class="flex items-center gap-4 flex-wrap">
-				<!-- Combined AI Model Dropdown -->
-				<div class="flex flex-col flex-1 min-w-[250px]">
+					<!-- Combined AI Model Dropdown -->
+					<div class="flex flex-col flex-1 min-w-[250px]">
 					<AIModelSelect
-						id="ai-model-select"
+							id="ai-model-select"
 						filteredModels={aiModelOptions}
 						selectedModel={currentSelectedValue}
 						placeholder="Select AI Model..."
-						disabled={isPosting}
+							disabled={isPosting}
 						onModelChange={handleAIModelChange}
 					/>
-				</div>
+					</div>
 					
 					<!-- Selected Model Info -->
 					{#if selectedModel}

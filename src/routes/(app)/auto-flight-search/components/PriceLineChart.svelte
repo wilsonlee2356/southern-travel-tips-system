@@ -4,11 +4,28 @@
 	import CheapestPricesList from './CheapestPricesList.svelte';
 
 	export let series = null;
+	export let allSeries = null; // Array of series for "Overall" view
+	export let departureSeries = null; // Departure series for combining with return
+	export let returnSeries = null; // Return series for combining with return
 	export let leg = 'departure';
 	export let filteredModels = [];
 	export let selectedModel = null;
 
 	const dispatch = createEventDispatcher();
+
+	// Define 10 distinct colors for airlines
+	const AIRLINE_COLORS = [
+		'#3B82F6', // Blue
+		'#EF4444', // Red
+		'#10B981', // Green
+		'#F59E0B', // Amber
+		'#8B5CF6', // Purple
+		'#EC4899', // Pink
+		'#06B6D4', // Cyan
+		'#F97316', // Orange
+		'#84CC16', // Lime
+		'#6366F1', // Indigo
+	];
 
 	const handlePost = (event) => {
 		dispatch('post', event.detail);
@@ -19,9 +36,9 @@
 		year: 'numeric'
 	});
 
-	const WIDTH = 640;
-	const HEIGHT = 260;
-	const PADDING = { top: 24, right: 32, bottom: 48, left: 56 };
+	const WIDTH = 1600; // Increased for zoomed view
+	const HEIGHT = 400; // Increased proportionally
+	const PADDING = { top: 24, right: 32, bottom: 48, left: 85 }; // Increased left padding for y-axis labels
 
 	const createChartData = (input) => {
 		if (!input?.prices || !Array.isArray(input.prices)) return [];
@@ -44,64 +61,208 @@
 
 	let data = [];
 	let selectedDates = new Set();
+	let overallSelectedDates = new Set(); // Separate selectedDates for Overall view (not used for list)
 	let selectedDatesMap = new Map(); // Store selectedDates per calendar instance
 	let previousCalendarKey = null;
 
 	// Create unique key for this calendar instance (airline + leg + route)
-	$: calendarKey = series
-		? `${series.airline_code || series.airline_name || series.airline_id || 'unknown'}-${leg}-${series.route_from || ''}-${series.route_to || ''}`
-		: null;
+	$: calendarKey = (() => {
+		if (allSeries && allSeries.length > 0) {
+			// "Overall" view - use a special key
+			return `OVERALL-${leg}`;
+		}
+		if (series) {
+			return `${series.airline_code || series.airline_name || series.airline_id || 'unknown'}-${leg}-${series.route_from || ''}-${series.route_to || ''}`;
+		}
+		return null;
+	})();
 
 	// Load or initialize selectedDates when calendarKey changes (switching between airlines/legs)
 	$: {
-		if (calendarKey && calendarKey !== previousCalendarKey && series) {
+		if (calendarKey && calendarKey !== previousCalendarKey) {
 			previousCalendarKey = calendarKey;
 			
-			if (!selectedDatesMap.has(calendarKey)) {
-				// Initialize with isLowest dates for this specific calendar
-				const lowestDates = new Set();
-				const chartData = createChartData(series);
-				chartData.forEach((point) => {
-					if (point?.date instanceof Date && point?.isLowest === true) {
-						const year = point.date.getFullYear();
-						const month = String(point.date.getMonth() + 1).padStart(2, '0');
-						const day = String(point.date.getDate()).padStart(2, '0');
-						lowestDates.add(`${year}-${month}-${day}`);
+			// For "Overall" view, use separate selectedDates that doesn't affect individual airlines
+			if (allSeries && allSeries.length > 0) {
+				if (overallSelectedDates.size === 0) {
+					// Initialize with isLowest dates for Overall view
+					const lowestDates = new Set();
+					allDataPoints.forEach((point) => {
+						if (point?.date instanceof Date && point?.isLowest === true) {
+							const year = point.date.getFullYear();
+							const month = String(point.date.getMonth() + 1).padStart(2, '0');
+							const day = String(point.date.getDate()).padStart(2, '0');
+							lowestDates.add(`${year}-${month}-${day}`);
+						}
+					});
+					overallSelectedDates = new Set(lowestDates);
+				}
+				selectedDates = new Set(overallSelectedDates);
+			} else if (series) {
+				// For single airline view
+				// Initialize both departure and return calendars if they haven't been initialized yet
+				if (departureSeries) {
+					const depKey = `${departureSeries.airline_code || departureSeries.airline_name || departureSeries.airline_id || 'unknown'}-departure-${departureSeries.route_from || ''}-${departureSeries.route_to || ''}`;
+					if (!selectedDatesMap.has(depKey)) {
+						const depLowestDates = new Set();
+						const depChartData = createChartData(departureSeries);
+						depChartData.forEach((point) => {
+							if (point?.date instanceof Date && point?.isLowest === true) {
+								const year = point.date.getFullYear();
+								const month = String(point.date.getMonth() + 1).padStart(2, '0');
+								const day = String(point.date.getDate()).padStart(2, '0');
+								depLowestDates.add(`${year}-${month}-${day}`);
+							}
+						});
+						selectedDatesMap.set(depKey, depLowestDates);
 					}
-				});
-				selectedDatesMap.set(calendarKey, lowestDates);
-				selectedDates = new Set(lowestDates);
-			} else {
-				// Load existing selection for this calendar
-				selectedDates = new Set(selectedDatesMap.get(calendarKey));
+				}
+				
+				if (returnSeries) {
+					const retKey = `${returnSeries.airline_code || returnSeries.airline_name || returnSeries.airline_id || 'unknown'}-return-${returnSeries.route_from || ''}-${returnSeries.route_to || ''}`;
+					if (!selectedDatesMap.has(retKey)) {
+						const retLowestDates = new Set();
+						const retChartData = createChartData(returnSeries);
+						retChartData.forEach((point) => {
+							if (point?.date instanceof Date && point?.isLowest === true) {
+								const year = point.date.getFullYear();
+								const month = String(point.date.getMonth() + 1).padStart(2, '0');
+								const day = String(point.date.getDate()).padStart(2, '0');
+								retLowestDates.add(`${year}-${month}-${day}`);
+							}
+						});
+						selectedDatesMap.set(retKey, retLowestDates);
+					}
+				}
+				
+				// Load or initialize current calendar
+				if (!selectedDatesMap.has(calendarKey)) {
+					// Initialize with isLowest dates for this specific calendar
+					const lowestDates = new Set();
+					const chartData = createChartData(series);
+					chartData.forEach((point) => {
+						if (point?.date instanceof Date && point?.isLowest === true) {
+							const year = point.date.getFullYear();
+							const month = String(point.date.getMonth() + 1).padStart(2, '0');
+							const day = String(point.date.getDate()).padStart(2, '0');
+							lowestDates.add(`${year}-${month}-${day}`);
+						}
+					});
+					selectedDatesMap.set(calendarKey, lowestDates);
+					selectedDates = new Set(lowestDates);
+				} else {
+					// Load existing selection for this calendar
+					selectedDates = new Set(selectedDatesMap.get(calendarKey));
+				}
 			}
 		} else if (!calendarKey) {
 			selectedDates = new Set();
 		}
 	}
 
-	// Update the map when selectedDates changes (from user interaction in PriceCalendar)
+	// Update the map immediately when selectedDates changes (from user interaction in PriceCalendar)
+	// This ensures both calendars' selections are always saved and available for the combined list
 	$: {
-		if (calendarKey && calendarKey === previousCalendarKey && selectedDates) {
-			selectedDatesMap.set(calendarKey, new Set(selectedDates));
+		if (calendarKey && selectedDates) {
+			// For Overall view, update overallSelectedDates (but it won't affect individual airlines)
+			if (allSeries && allSeries.length > 0) {
+				overallSelectedDates = new Set(selectedDates);
+			} else if (series) {
+				// For individual airline, always update the map immediately
+				selectedDatesMap.set(calendarKey, new Set(selectedDates));
+			}
 		}
 	}
 
-	$: data = createChartData(series);
+	// Create combined selectedDates from both departure and return for the list
+	// This combines selections from both calendars into one unified list
+	$: combinedSelectedDates = (() => {
+		const combined = new Set();
+		
+		// For "Overall" view, use the overall calendar's selectedDates
+		if (allSeries && allSeries.length > 0) {
+			if (selectedDates) {
+				selectedDates.forEach(date => combined.add(date));
+			}
+			return combined;
+		}
+		
+		// Always get departure calendar selectedDates (from map or current if active)
+		if (departureSeries) {
+			const depKey = `${departureSeries.airline_code || departureSeries.airline_name || departureSeries.airline_id || 'unknown'}-departure-${departureSeries.route_from || ''}-${departureSeries.route_to || ''}`;
+			// Use current selectedDates if departure tab is active, otherwise get from map
+			let depDates = selectedDatesMap.get(depKey);
+			if (calendarKey === depKey && selectedDates) {
+				depDates = selectedDates; // Use current (most up-to-date) if this is the active calendar
+			}
+			if (depDates) {
+				depDates.forEach(date => combined.add(date));
+			}
+		}
+		
+		// Always get return calendar selectedDates (from map or current if active)
+		if (returnSeries) {
+			const retKey = `${returnSeries.airline_code || returnSeries.airline_name || returnSeries.airline_id || 'unknown'}-return-${returnSeries.route_from || ''}-${returnSeries.route_to || ''}`;
+			// Use current selectedDates if return tab is active, otherwise get from map
+			let retDates = selectedDatesMap.get(retKey);
+			if (calendarKey === retKey && selectedDates) {
+				retDates = selectedDates; // Use current (most up-to-date) if this is the active calendar
+			}
+			if (retDates) {
+				retDates.forEach(date => combined.add(date));
+			}
+		}
+		
+		// If no departure/return series, use current selectedDates
+		if (combined.size === 0 && selectedDates) {
+			selectedDates.forEach(date => combined.add(date));
+		}
+		
+		return combined;
+	})();
 
-	$: timestamps = data.map((d) => d.timestamp);
-	$: prices = data.map((d) => d.price);
+	// Process single series or multiple series
+	$: data = allSeries && allSeries.length > 0 ? [] : createChartData(series);
+	
+	// Process multiple series for "Overall" view
+	$: multiSeriesData = (() => {
+		if (!allSeries || allSeries.length === 0) return [];
+		return allSeries.map((s, index) => {
+			const seriesData = createChartData(s);
+			const airlineName = s?.airline_name ?? s?.airline_code ?? `Airline ${index + 1}`;
+			const color = AIRLINE_COLORS[index % AIRLINE_COLORS.length];
+			return {
+				airlineName,
+				airlineCode: s?.airline_code ?? s?.airline_id ?? '',
+				color,
+				data: seriesData
+			};
+		});
+	})();
 
-	$: minX = Math.min(...timestamps);
-	$: maxX = Math.max(...timestamps);
+	// Combine all data for min/max calculations
+	$: allDataPoints = (() => {
+		if (allSeries && allSeries.length > 0) {
+			const combined = multiSeriesData.flatMap((s) => s.data);
+			// Sort by timestamp for hover detection
+			return combined.sort((a, b) => a.timestamp - b.timestamp);
+		}
+		return data;
+	})();
+
+	$: timestamps = allDataPoints.map((d) => d.timestamp);
+	$: prices = allDataPoints.map((d) => d.price);
+
+	$: minX = timestamps.length > 0 ? Math.min(...timestamps) : 0;
+	$: maxX = timestamps.length > 0 ? Math.max(...timestamps) : 0;
 
 	const Y_STEP = 1000;
 const MIN_TICK_SPACING = 60;
 	const snapDown = (value, step) => Math.floor(value / step) * step;
 	const snapUp = (value, step) => Math.ceil(value / step) * step;
 
-	$: minYRaw = Math.min(...prices);
-	$: maxYRaw = Math.max(...prices);
+	$: minYRaw = prices.length > 0 ? Math.min(...prices) : 0;
+	$: maxYRaw = prices.length > 0 ? Math.max(...prices) : Y_STEP;
 	$: minY = Number.isFinite(minYRaw) ? snapDown(minYRaw, Y_STEP) : 0;
 	$: maxY = Number.isFinite(maxYRaw) ? snapUp(maxYRaw, Y_STEP) : Y_STEP;
 	$: {
@@ -159,9 +320,24 @@ const MIN_TICK_SPACING = 60;
 
 	$: pathData = toSmoothPath(scaledPoints);
 
+	// Process multiple series for rendering
+	$: multiSeriesScaled = multiSeriesData.map((seriesInfo) => ({
+		...seriesInfo,
+		scaledPoints: seriesInfo.data.map((point) => ({
+			...point,
+			x: scaleX(point.timestamp),
+			y: scaleY(point.price)
+		}))
+	}));
+
+	$: multiSeriesPaths = multiSeriesScaled.map((seriesInfo) => ({
+		...seriesInfo,
+		pathData: toSmoothPath(seriesInfo.scaledPoints)
+	}));
+
 	$: monthTicks = (() => {
 		const map = new Map();
-		data.forEach((point) => {
+		allDataPoints.forEach((point) => {
 			const key = `${point.date.getFullYear()}-${point.date.getMonth()}`;
 			if (!map.has(key)) {
 				map.set(key, point.date);
@@ -200,7 +376,8 @@ $: visibleMonthTicks = (() => {
 })();
 
 	$: yTicks = (() => {
-		if (data.length === 0) return [];
+		// Use allDataPoints to determine if we have data (works for both single and multi-series)
+		if (allDataPoints.length === 0) return [];
 		const ticks = [];
 		for (let value = minY; value <= maxY; value += Y_STEP) {
 			ticks.push(value);
@@ -214,28 +391,116 @@ $: visibleMonthTicks = (() => {
 	const formatPrice = (price) => `HK$${Math.round(price).toLocaleString('en-US')}`;
 	const formatDateLabel = (date) => monthFormatter.format(date);
 
+	// Combine departure and return data for CheapestPricesList
+	$: combinedCalendarData = (() => {
+		// For "Overall" view, combine all airlines' data
+		if (allSeries && allSeries.length > 0) {
+			const combined = [];
+			allSeries.forEach((s) => {
+				const seriesData = createChartData(s);
+				seriesData.forEach((point) => {
+					combined.push({
+						...point,
+						route_from: s.route_from || '',
+						route_to: s.route_to || '',
+						direction: s.direction || leg
+					});
+				});
+			});
+			return combined;
+		}
+		
+		const combined = [];
+		
+		// Add departure data
+		if (departureSeries) {
+			const departureData = createChartData(departureSeries);
+			departureData.forEach((point) => {
+				combined.push({
+					...point,
+					route_from: departureSeries.route_from || '',
+					route_to: departureSeries.route_to || '',
+					direction: 'departure'
+				});
+			});
+		}
+		
+		// Add return data
+		if (returnSeries) {
+			const returnData = createChartData(returnSeries);
+			returnData.forEach((point) => {
+				combined.push({
+					...point,
+					route_from: returnSeries.route_from || '',
+					route_to: returnSeries.route_to || '',
+					direction: 'return'
+				});
+			});
+		}
+		
+		// If no departure/return series, use current data
+		if (combined.length === 0) {
+			return data.map((point) => ({
+				...point,
+				route_from: series?.route_from || '',
+				route_to: series?.route_to || '',
+				direction: leg
+			}));
+		}
+		
+		return combined;
+	})();
+
 	let hoveredPoint = null;
 
+	// Clear hover point when switching to "Overall" view
+	$: {
+		if (allSeries && allSeries.length > 0) {
+			hoveredPoint = null;
+		}
+	}
+
 	const handleMouseMove = (event) => {
-		if (!scaledPoints.length) {
+		// Disable hover for "Overall" view (multiple airlines)
+		if (allSeries && allSeries.length > 0) {
+			hoveredPoint = null;
+			return;
+		}
+		
+		// Use data for single airline view
+		const pointsToUse = data;
+		if (!pointsToUse.length) {
 			hoveredPoint = null;
 			return;
 		}
 
 		const rect = event.currentTarget.getBoundingClientRect();
+		const containerRect = event.currentTarget.closest('.chart-container')?.getBoundingClientRect();
 		const relativeX = (event.clientX - rect.left) / rect.width;
 		const svgXRaw = relativeX * WIDTH;
 		const clampedX = Math.max(PADDING.left, Math.min(WIDTH - PADDING.right, svgXRaw));
+		
+		// Calculate container-relative position for tooltip
+		const containerX = containerRect 
+			? ((clampedX / WIDTH) * rect.width) + (rect.left - containerRect.left)
+			: (clampedX / WIDTH) * rect.width;
+		const containerY = containerRect
+			? rect.top - containerRect.top
+			: 0;
 
 		let priceValue;
 		let timestampValue;
 
-		if (scaledPoints.length === 1) {
-			priceValue = data[0]?.price ?? 0;
-			timestampValue = data[0]?.timestamp ?? minX;
+		if (pointsToUse.length === 1) {
+			priceValue = pointsToUse[0]?.price ?? 0;
+			timestampValue = pointsToUse[0]?.timestamp ?? minX;
+			const svgX = scaleX(timestampValue);
+			const svgY = scaleY(priceValue);
 			hoveredPoint = {
-				x: scaleX(timestampValue),
-				y: scaleY(priceValue),
+				x: svgX,
+				y: svgY,
+				containerX: containerX,
+				containerY: containerY + (svgY / HEIGHT) * rect.height,
 				price: priceValue,
 				timestamp: timestampValue,
 			};
@@ -250,15 +515,15 @@ $: visibleMonthTicks = (() => {
 
 		let segmentIndex = 0;
 		while (
-			segmentIndex < scaledPoints.length - 1 &&
-			targetTimestamp > data[segmentIndex + 1].timestamp
+			segmentIndex < pointsToUse.length - 1 &&
+			targetTimestamp > pointsToUse[segmentIndex + 1].timestamp
 		) {
 			segmentIndex += 1;
 		}
 
-		const p1 = data[segmentIndex];
+		const p1 = pointsToUse[segmentIndex];
 		const p2 =
-			segmentIndex === data.length - 1 ? data[segmentIndex] : data[segmentIndex + 1];
+			segmentIndex === pointsToUse.length - 1 ? pointsToUse[segmentIndex] : pointsToUse[segmentIndex + 1];
 
 		let interpolatedPrice = p1.price;
 		if (p2.timestamp !== p1.timestamp) {
@@ -276,6 +541,8 @@ $: visibleMonthTicks = (() => {
 		hoveredPoint = {
 			x,
 			y,
+			containerX: containerX,
+			containerY: containerY + (y / HEIGHT) * rect.height,
 			price: priceValue,
 			timestamp: timestampValue,
 		};
@@ -286,12 +553,7 @@ $: visibleMonthTicks = (() => {
 	};
 </script>
 
-{#if data.length === 0}
-	<div class="chart-empty">
-		No price data available yet for this {leg} leg.
-	</div>
-{:else}
-	<div class="chart-container">
+<div class="chart-container">
 		<svg
 			class="chart"
 			viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
@@ -317,7 +579,7 @@ $: visibleMonthTicks = (() => {
 					y2={y}
 					class="grid-line"
 				/>
-				<text x={PADDING.left - 12} y={y} class="tick-label y-label">
+				<text x={PADDING.left - 24} y={y} class="tick-label y-label">
 					{formatPrice(tick)}
 				</text>
 			{/each}
@@ -344,21 +606,27 @@ $: visibleMonthTicks = (() => {
 				</text>
 			{/each}
 
-			<!-- Line -->
-			<path d={pathData} class="line" />
+			<!-- Lines -->
+			{#if allSeries && allSeries.length > 0}
+				{#each multiSeriesPaths as seriesInfo}
+					{#if seriesInfo.pathData}
+						<path d={seriesInfo.pathData} class="line" style="stroke: {seriesInfo.color};" />
+					{/if}
+				{/each}
+			{:else if data.length > 0}
+				<path d={pathData} class="line" />
+			{/if}
 
-			<!-- Hover Point -->
-			{#if hoveredPoint}
+			<!-- Hover Point (only for single airline view) -->
+			{#if hoveredPoint && !(allSeries && allSeries.length > 0)}
 				<circle cx={hoveredPoint.x} cy={hoveredPoint.y} r={6} class="hover-point" />
 			{/if}
 		</svg>
 
-		{#if hoveredPoint}
+		{#if hoveredPoint && !(allSeries && allSeries.length > 0)}
 			<div
 				class="chart-tooltip"
-				style={`left: calc(${(hoveredPoint.x / WIDTH) * 100}% - 64px); top: ${(
-					PADDING.top / HEIGHT
-				) * 100}%;`}
+				style={`left: ${hoveredPoint.containerX ?? hoveredPoint.x}px; top: ${(hoveredPoint.containerY ?? hoveredPoint.y) - 8}px;`}
 			>
 				<div class="tooltip-price">{formatPrice(hoveredPoint.price)}</div>
 				<div class="tooltip-date">
@@ -372,28 +640,90 @@ $: visibleMonthTicks = (() => {
 		{/if}
 
 	</div>
-	<PriceCalendar calendarData={data} bind:selectedDates />
-	<CheapestPricesList
-		calendarData={data}
-		{selectedDates}
-		{filteredModels}
-		bind:selectedModel
-		on:post={handlePost}
-	/>
-{/if}
+
+	<!-- Legend for multiple airlines -->
+	{#if allSeries && allSeries.length > 0 && multiSeriesData.length > 0}
+		<div class="chart-legend">
+			{#each multiSeriesData as seriesInfo}
+				<div class="legend-item">
+					<div class="legend-color" style="background-color: {seriesInfo.color};"></div>
+					<span class="legend-label">{seriesInfo.airlineName}</span>
+				</div>
+			{/each}
+		</div>
+	{/if}
+
+	{#if allSeries && allSeries.length > 0}
+		<PriceCalendar 
+			calendarData={allDataPoints} 
+			bind:selectedDates={overallSelectedDates}
+			disabled={true}
+		/>
+	{:else}
+		<PriceCalendar 
+			calendarData={data} 
+			bind:selectedDates
+			disabled={false}
+		/>
+	{/if}
+	{#if !(allSeries && allSeries.length > 0)}
+		<CheapestPricesList
+			calendarData={combinedCalendarData}
+			selectedDates={combinedSelectedDates}
+			{filteredModels}
+			bind:selectedModel
+			on:post={handlePost}
+		/>
+	{/if}
 
 <style>
 	.chart-container {
 		width: 100%;
-		max-width: 720px;
+		overflow-x: auto;
+		overflow-y: visible; /* Changed to visible to allow tooltip to show above */
 		margin: 0 auto;
 		position: relative;
+		-webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+		scrollbar-width: thin; /* Firefox */
+		scrollbar-color: rgba(148, 163, 184, 0.5) transparent; /* Firefox */
+		z-index: 1; /* Ensure container is above other elements */
+	}
+
+	.chart-container::-webkit-scrollbar {
+		height: 8px; /* Chrome, Safari, Edge */
+	}
+
+	.chart-container::-webkit-scrollbar-track {
+		background: rgba(148, 163, 184, 0.1);
+		border-radius: 4px;
+	}
+
+	.chart-container::-webkit-scrollbar-thumb {
+		background: rgba(148, 163, 184, 0.5);
+		border-radius: 4px;
+	}
+
+	.chart-container::-webkit-scrollbar-thumb:hover {
+		background: rgba(148, 163, 184, 0.7);
+	}
+
+	:global(.dark) .chart-container::-webkit-scrollbar-track {
+		background: rgba(148, 163, 184, 0.15);
+	}
+
+	:global(.dark) .chart-container::-webkit-scrollbar-thumb {
+		background: rgba(148, 163, 184, 0.6);
+	}
+
+	:global(.dark) .chart-container::-webkit-scrollbar-thumb:hover {
+		background: rgba(148, 163, 184, 0.8);
 	}
 
 	.chart {
-		width: 100%;
-		height: 280px;
+		width: 1600px; /* Match WIDTH constant */
+		height: 400px; /* Match HEIGHT constant */
 		overflow: visible;
+		min-width: 100%; /* Ensure it's at least full width */
 	}
 
 	/* Calendar styles moved to PriceCalendar */
@@ -440,7 +770,7 @@ $: visibleMonthTicks = (() => {
 
 	.chart-tooltip {
 		position: absolute;
-		transform: translateY(-100%);
+		transform: translate(-50%, -100%); /* Center horizontally, position above */
 		background: rgba(15, 23, 42, 0.95);
 		color: #f8fafc;
 		padding: 0.4rem 0.7rem;
@@ -451,6 +781,9 @@ $: visibleMonthTicks = (() => {
 		min-width: 120px;
 		text-align: center;
 		box-shadow: 0 8px 16px rgba(15, 23, 42, 0.2);
+		z-index: 9999; /* Ensure tooltip is above everything */
+		margin-top: -8px; /* Add space above the hover point */
+		white-space: nowrap; /* Prevent text wrapping */
 	}
 
 	.chart-tooltip::after {
@@ -473,15 +806,38 @@ $: visibleMonthTicks = (() => {
 		opacity: 0.85;
 	}
 
-	.chart-empty {
-		min-height: 140px;
+	.chart-legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1rem;
+		margin-top: 1rem;
+		padding: 0.75rem;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.legend-item {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		background: rgba(148, 163, 184, 0.1);
-		color: rgba(71, 85, 105, 0.8);
-		border: 1px dashed rgba(148, 163, 184, 0.4);
-		border-radius: 0.75rem;
+		gap: 0.5rem;
 	}
+
+	.legend-color {
+		width: 12px;
+		height: 12px;
+		border-radius: 2px;
+		flex-shrink: 0;
+	}
+
+	.legend-label {
+		font-size: 0.875rem;
+		color: rgba(71, 85, 105, 0.9);
+		white-space: nowrap;
+	}
+
+	:global(.dark) .legend-label {
+		color: rgba(226, 232, 240, 0.9);
+	}
+
 </style>
 

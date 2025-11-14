@@ -29,6 +29,16 @@
 		}).format(date);
 	};
 
+	const getUniqueKey = (item, index) => {
+		// Create a unique key using date, direction, route, and index as fallback
+		const dateKey = item.date instanceof Date ? item.date.getTime() : '';
+		const direction = item.direction || '';
+		const routeFrom = item.route_from || '';
+		const routeTo = item.route_to || '';
+		// Include index to ensure uniqueness even if all other fields match
+		return `${dateKey}-${direction}-${routeFrom}-${routeTo}-${index}`;
+	};
+
 	$: cheapestPrices = (() => {
 		if (!calendarData?.length || !selectedDates?.size) return [];
 
@@ -40,12 +50,24 @@
 					Number.isFinite(item?.price) &&
 					selectedDates.has(normalizeDateKey(item.date))
 			)
-			.sort((a, b) => a.timestamp - b.timestamp) // Sort by date
+			.sort((a, b) => {
+				// Sort by date first, then by direction (departure before return)
+				if (a.timestamp !== b.timestamp) {
+					return a.timestamp - b.timestamp;
+				}
+				// If same date, departure comes before return
+				if (a.direction === 'departure' && b.direction === 'return') return -1;
+				if (a.direction === 'return' && b.direction === 'departure') return 1;
+				return 0;
+			})
 			.map((item) => ({
 				date: item.date,
 				price: item.price,
 				formattedDate: formatDate(item.date),
-				formattedPrice: formatPrice(item.price)
+				formattedPrice: formatPrice(item.price),
+				route_from: item.route_from || '',
+				route_to: item.route_to || '',
+				direction: item.direction || ''
 			}));
 
 		return selectedPrices;
@@ -76,9 +98,16 @@
 			<span class="cheapest-prices-count">{cheapestPrices.length} dates</span>
 		</div>
 		<div class="cheapest-prices-list">
-			{#each cheapestPrices as item (item.date.getTime())}
+			{#each cheapestPrices as item, index (getUniqueKey(item, index))}
 				<div class="cheapest-price-item">
-					<span class="cheapest-price-date">{item.formattedDate}</span>
+					<div class="cheapest-price-left">
+						<span class="cheapest-price-date">{item.formattedDate}</span>
+						{#if item.route_from && item.route_to}
+							<span class="cheapest-price-route">
+								{item.route_from} → {item.route_to}
+							</span>
+						{/if}
+					</div>
 					<span class="cheapest-price-value">{item.formattedPrice}</span>
 				</div>
 			{/each}
@@ -177,6 +206,13 @@
 		transition: background 0.15s ease;
 	}
 
+	.cheapest-price-left {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		flex: 1;
+	}
+
 	.cheapest-price-item:last-child {
 		border-bottom: none;
 	}
@@ -197,6 +233,16 @@
 
 	:global(.dark) .cheapest-price-date {
 		color: rgba(226, 232, 240, 0.9);
+	}
+
+	.cheapest-price-route {
+		font-size: 0.7rem;
+		color: rgba(71, 85, 105, 0.7);
+		font-weight: 400;
+	}
+
+	:global(.dark) .cheapest-price-route {
+		color: rgba(226, 232, 240, 0.7);
 	}
 
 	.cheapest-price-value {

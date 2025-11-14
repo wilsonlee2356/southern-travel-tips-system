@@ -194,7 +194,18 @@ $: priceAirlineList = (() => {
 			group.extra.push(series);
 		}
 	}
-	return Array.from(map.values());
+	const airlineList = Array.from(map.values());
+	// Add "Overall" as the first item
+	return [
+		{
+			code: 'OVERALL',
+			name: 'Overall',
+			departure: true, // Mark as available for departure
+			return: true, // Mark as available for return
+			extra: [],
+		},
+		...airlineList
+	];
 })();
 $: {
 	if (!selectedSearch || priceAirlineList.length === 0) {
@@ -211,6 +222,10 @@ $: selectedAirlineGroup =
 	priceAirlineList.find((group) => group.code === selectedPriceAirlineCode) ?? null;
 $: availableLegs = (() => {
 	if (!selectedAirlineGroup) return [];
+	// "Overall" always has both departure and return available
+	if (selectedAirlineGroup.code === 'OVERALL') {
+		return ['departure', 'return'];
+	}
 	const legs = [];
 	if (selectedAirlineGroup.departure) legs.push('departure');
 	if (selectedAirlineGroup.return) legs.push('return');
@@ -224,10 +239,36 @@ $: {
 }
 $: selectedSeries = (() => {
 	if (!selectedAirlineGroup) return null;
+	// "Overall" shows all airlines
+	if (selectedAirlineGroup.code === 'OVERALL') {
+		return null; // Will be handled by allSeriesForOverall
+	}
 	if (selectedPriceLeg === 'return') {
 		return selectedAirlineGroup.return ?? selectedAirlineGroup.departure ?? selectedAirlineGroup.extra[0] ?? null;
 	}
 	return selectedAirlineGroup.departure ?? selectedAirlineGroup.return ?? selectedAirlineGroup.extra[0] ?? null;
+})();
+
+// Collect all airlines' series for the "Overall" tab
+$: allSeriesForOverall = (() => {
+	if (!selectedAirlineGroup || selectedAirlineGroup.code !== 'OVERALL') {
+		return [];
+	}
+	// Get all airlines except "Overall"
+	const airlines = priceAirlineList.filter((group) => group.code !== 'OVERALL');
+	const allSeries = [];
+	for (const airline of airlines) {
+		let series = null;
+		if (selectedPriceLeg === 'return') {
+			series = airline.return ?? airline.departure ?? airline.extra[0] ?? null;
+		} else {
+			series = airline.departure ?? airline.return ?? airline.extra[0] ?? null;
+		}
+		if (series) {
+			allSeries.push(series);
+		}
+	}
+	return allSeries;
 })();
 $: selectedSeriesLabel = selectedSeries
 	? `${selectedSeries.airline_name ?? selectedSeries.airline_code ?? 'Unknown Airline'}${
@@ -675,9 +716,12 @@ $: selectedSeriesLabel = selectedSeries
 								{/each}
 							</div>
 
-							{#if selectedSeries}
+							{#if selectedSeries || selectedAirlineGroup?.code === 'OVERALL'}
 								<PriceLineChart
-									series={selectedSeries}
+									series={selectedAirlineGroup?.code === 'OVERALL' ? null : selectedSeries}
+									allSeries={selectedAirlineGroup?.code === 'OVERALL' ? allSeriesForOverall : null}
+									departureSeries={selectedAirlineGroup?.code === 'OVERALL' ? null : (selectedAirlineGroup?.departure ?? null)}
+									returnSeries={selectedAirlineGroup?.code === 'OVERALL' ? null : (selectedAirlineGroup?.return ?? null)}
 									leg={selectedPriceLeg}
 									{filteredModels}
 									bind:selectedModel
