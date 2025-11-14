@@ -2,6 +2,8 @@
 import { mobile, showSidebar, user, showArchivedChats, models } from '$lib/stores';
 import { getContext, onMount } from 'svelte';
 import { WEBUI_API_BASE_URL } from '$lib/constants';
+import { goto } from '$app/navigation';
+import { generateAIFlightAnalysisForAutoSearch } from '$lib/utils/flightPostHandler.js';
 	const i18n = getContext('i18n');
 
 	import UserMenu from '$lib/components/layout/Sidebar/UserMenu.svelte';
@@ -605,6 +607,100 @@ $: airlineCodeToName = new Map(
 	const removeSelectedFlight = (flightKey) => {
 		selectedFlights = selectedFlights.filter(f => f.key !== flightKey);
 	};
+
+	// Handle post from CheapestPricesList
+	const handleAutoSearchPost = async (event) => {
+		const { selectedDates, model, airlineCode, airlineName } = event.detail;
+		const selectedSearch = savedSearches.find(s => s.id === selectedSearchId);
+		
+		if (!selectedSearch || !selectedSearch.autoSearchResponse) {
+			alert('Please select a search first');
+			return;
+		}
+
+		if (!selectedDates || selectedDates.length === 0) {
+			alert('Please select at least one date to post');
+			return;
+		}
+
+		if (!model) {
+			alert('Please select an AI model to use for content generation');
+			return;
+		}
+
+		try {
+			// Get route information from the selected search
+			const route = selectedSearch.autoSearchResponse?.route;
+			const departurePlace = route?.from_place || '';
+			const returnPlace = route?.to_place || '';
+
+			// Filter selectedDates to only include dates from the current airline
+			// Since combinedCalendarData in PriceLineChart is already filtered to the current airline
+			// when viewing a specific airline (not "Overall"), the selectedDates should already
+			// be filtered. But we add an extra check here to ensure we only use the current airline's data.
+			let filteredSelectedDates = selectedDates;
+			
+			// If airlineCode is provided, filter to only include dates from that airline
+			if (airlineCode && selectedDates.length > 0) {
+				filteredSelectedDates = selectedDates.filter(d => {
+					// Check if the date's airline_code matches the current airline
+					// If airline_code is not available in the date object, we trust that
+					// combinedCalendarData was already filtered correctly
+					return !d.airline_code || d.airline_code === airlineCode;
+				});
+			}
+			
+			// Find the lowest price from filtered selected dates
+			const lowestPrice = Math.min(...filteredSelectedDates.map(d => d.price));
+
+			// Separate departure and return dates (using filtered dates)
+			const departureDates = filteredSelectedDates
+				.filter(d => d.direction === 'departure')
+				.map(d => d.formattedDate);
+			const returnDates = filteredSelectedDates
+				.filter(d => d.direction === 'return')
+				.map(d => d.formattedDate);
+
+			// Format flight data for auto-search
+			const flightData = {
+				departurePlace,
+				returnPlace,
+				lowestPrice,
+				departureDates,
+				returnDates
+			};
+
+			// Generate AI analysis with modified prompt
+			const aiAnalysis = await generateAIFlightAnalysisForAutoSearch(flightData, model);
+
+			// Format post data
+			const postData = {
+				airline: airlineName || airlineCode || 'Multiple Airlines',
+				returnPrice: lowestPrice,
+				departureDate: departureDates.join(', '),
+				returnDate: returnDates.join(', '),
+				startingPlace: departurePlace,
+				destination: returnPlace,
+				seatClass: travelClassReverseMap[selectedSearch.autoSearchResponse?.travel_class] || 'ECONOMY',
+				departureDates: departureDates,
+				returnDates: returnDates
+			};
+
+			// Combine with AI analysis
+			const completePostData = {
+				...postData,
+				aiAnalysis: aiAnalysis,
+				modelInfo: model
+			};
+
+			// Store in sessionStorage and navigate to post page
+			sessionStorage.setItem('flightPostData', JSON.stringify(completePostData));
+			goto('/post');
+		} catch (error) {
+			console.error('Error posting auto-search:', error);
+			alert('Failed to generate post. Please try again.');
+		}
+	};
 </script>
 
 <div
@@ -759,6 +855,7 @@ $: airlineCodeToName = new Map(
 								on:updateModel={(e) => (selectedModel = e.detail)}
 								on:updateHoveredBar={(e) => updateHoveredBar(e.detail)}
 								on:deselectFlight={(e) => deselectFlight(e.detail)}
+								on:post={handleAutoSearchPost}
 							/>
 						</div>
 					</div>

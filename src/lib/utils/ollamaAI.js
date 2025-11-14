@@ -386,7 +386,7 @@ export class OllamaAIClient {
  * @param {string} response - Raw AI response
  * @returns {string} Cleaned JSON string
  */
-function cleanJsonResponse(response) {
+export function cleanJsonResponse(response) {
 	// Remove markdown formatting
 	let cleaned = response.replace(/^```json\s*/, '').replace(/\s*```$/, '');
 	
@@ -737,6 +737,56 @@ Use your knowledge base to provide accurate airline information and route insigh
 		});
 		console.log('🎯 Number of route groups:', Object.keys(routeGroups).length);
 		console.log('🎯 Route groups:', routeGroups);
+		console.log('🎯 ═══════════════════════════════════════════════════════════');
+		console.log('🎯 FINAL PROMPT:');
+		console.log(prompt);
+		console.log('🎯 ═══════════════════════════════════════════════════════════');
+
+		return await this.client.generateResponse(prompt, {
+			temperature: 0.4, // Balanced creativity and accuracy
+			max_tokens: 800,
+			adapterInfo: this.adapterInfo // Pass adapter info for interception
+		});
+	}
+
+	/**
+	 * Generate initial flight analysis for auto-search with modified ticket format
+	 * @param {Object} flightData - Flight data with departurePlace, returnPlace, lowestPrice, departureDates, returnDates
+	 * @returns {Promise<string>} AI-generated JSON response
+	 */
+	async generateInitialFlightAnalysisForAutoSearch(flightData) {
+		const departurePlace = flightData.departurePlace || '香港';
+		const returnPlace = flightData.returnPlace || '';
+		const lowestPrice = flightData.lowestPrice || 0;
+		const departureDates = flightData.departureDates || [];
+		const returnDates = flightData.returnDates || [];
+
+		// Format dates as comma-separated string
+		const departureDatesStr = departureDates.join('、');
+		const returnDatesStr = returnDates.join('、');
+
+		// Build ticket data string with modified format
+		// Only includes: lowest price, departure place, return place, all departure dates, all return dates
+		const ticketDataString = `[出發地點：${departurePlace} 目的地：${returnPlace} 最低來回價錢：$${lowestPrice} 出發日期：${departureDatesStr} 回程日期：${returnDatesStr}]`;
+
+		// Use the same prompt structure as regular flight search, but with modified ticket format
+		const prompt = `你係廣東話銷售語氣專家，仿例中語氣，輸JSON，每來回一對象，出發地取首票${departurePlace}，destination取首票${returnPlace}，選最平價，含destination、header、short_comment、summary、tourist_spot、promote_text。destination取非香港地。header必以一至二獨立促銷句開首，含超前部署、平、抵、減之一，推廣機票，首一至二促銷句禁含驚嘆詞，與後接航司、價、期資訊分開。short_comment一至二句，限二十字，多變語氣，述地或價優（如直航減到咁平，心動！）。summary約八十字，句以逗點斷，每句宜長，約二三十字，述價、地景、促行，依資料，勿增詞。destination、header、short_comment、summary、promote_text用繁體廣東話，promote_text短句分行，限二行，述價、航優或地景，可含行李。tourist_spot用英文，隨選目的地名勝。價港幣，出發地香港，假設連稅、2025/2026。
+
+## 例
+### 東京
+{"destination":"東京","header":"超前部署！人氣日本目的地！ANA來回連稅$2,323起！2025年9月出發","short_comment":"想嚟日本旅行？呢個又幾抵玩！","summary":"二千五唔使飛東京真係好抵玩，航班時間都好多選擇，早/凌晨去晚返都得，日子選擇都唔少，東京最快10月下旬就開始有紅葉，想去睇可以plan一plan佢啦～","tourist_spot":"Shibuya Crossing","promote_text":"直航抵飛！\n加埋寄艙行李都唔使二千四！"}
+### 福岡
+{"destination":"福岡","header":"難得減到咁平！德威航空來回連稅$1,885起！2025年10月出發","short_comment":"正！福岡難得減到咁平！","summary":"減到千四有找包埋行李，平時要二千樓上㗎！真係勁抵買呀！航班時間中去黃昏返都幾唔錯，想去福岡玩就要快啲睇睇啦～","tourist_spot":"Canal City","promote_text":"激抵！平飛福岡！\n包15kg行李真平！"}
+### 曼谷
+{"destination":"曼谷","header":"千五有找去曼谷！泰航來回連稅$1,500起！2026年1月出發","short_comment":"嘩！平到唔信～","summary":"搭國泰呢口價，一日有多達七班機揀，可以早去晚返，連暑假都照有平，好值得入手！去曼谷食玩買返幾日叉叉電啦～","tourist_spot":"Grand Palace","promote_text":"抵價飛泰國！\n千五有找！"}
+### 墨爾本
+{"destination":"墨爾本","header":"唔係廉航都咁抵！減到下年暑假！汶萊皇家航空來回墨爾本連稅$3,833起！10月至2026年8月指定日子出發","short_comment":"久違了！想四千有找飛澳洲，仲有佢！","summary":"呢口價去澳洲，唔係搭廉航真係超抵玩！仲要包25kg行李，多過國泰同港航，性價比高！不過留意回程需於汶萊過夜轉機，可以當係出去半日遊自製一票兩地～","tourist_spot":"Carlton Gardens","promote_text":"唔係廉航都咁抵飛！\n減到下年暑假都有！"}
+
+## 資料：${ticketDataString}`;
+
+		console.log('🎯 ═══════════════════════════════════════════════════════════');
+		console.log('🎯 AUTO-SEARCH FLIGHT ANALYSIS PROMPT:');
+		console.log('🎯 Flight data:', flightData);
 		console.log('🎯 ═══════════════════════════════════════════════════════════');
 		console.log('🎯 FINAL PROMPT:');
 		console.log(prompt);

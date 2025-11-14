@@ -3,7 +3,7 @@
  * Handles posting selected flights to the Post review page with AI analysis
  */
 
-import { OllamaAIClient, FlightAIHelper } from './ollamaAI.js';
+import { OllamaAIClient, FlightAIHelper, cleanJsonResponse } from './ollamaAI.js';
 import { generateScenicImage, extractDestination } from '$lib/apis/pollinations/index.js';
 
 /**
@@ -419,6 +419,70 @@ export async function generateAIFlightAnalysisWithStages(flightData, onStageUpda
 			content: `Great flight deal found! ${firstFlight.airline} from ${firstFlight.startingPlace} to ${firstFlight.destination}`,
 			summary: `Excellent flight deal with ${firstFlight.airline}! Price: $${firstFlight.cost} for ${firstFlight.startingPlace} → ${firstFlight.destination}`,
 			destination: firstFlight.destination,
+			tourist_spot: '',
+			promote_text: ''
+		};
+	}
+}
+
+/**
+ * Generates AI analysis for auto-flight-search data using modified prompt
+ * @param {Object} flightData - Flight data object with departurePlace, returnPlace, lowestPrice, departureDates, returnDates
+ * @param {Object} modelToUse - The AI model to use for analysis
+ * @returns {Promise<Object>} AI analysis with header, content, and summary
+ */
+export async function generateAIFlightAnalysisForAutoSearch(flightData, modelToUse = null) {
+	try {
+		// Determine which model to use
+		let modelName = 'qwen2.5:14b'; // Default fallback
+		
+		if (modelToUse) {
+			if (modelToUse.id && modelToUse.owned_by && modelToUse.owned_by !== 'ollama') {
+				// External API model (e.g., Gemini)
+				modelName = modelToUse.id;
+			} else if (modelToUse.ollama_model_name) {
+				modelName = modelToUse.ollama_model_name;
+			} else if (modelToUse.rag_model_name) {
+				modelName = modelToUse.rag_model_name;
+			} else if (modelToUse.merged_model_name) {
+				modelName = modelToUse.merged_model_name;
+			} else if (modelToUse.base_model) {
+				modelName = modelToUse.base_model;
+			}
+		}
+		
+		console.log('🔍 Final model name selected for auto-search:', modelName);
+		
+		const client = new OllamaAIClient({ model: modelName });
+		const flightHelper = new FlightAIHelper(client);
+		
+		console.log('Starting AI analysis for auto-search flight data:', flightData);
+		
+		// Use the modified prompt for auto-search
+		const analysis = await flightHelper.generateInitialFlightAnalysisForAutoSearch(flightData);
+		console.log('Final analysis result for auto-search:', analysis);
+		
+		// Parse the JSON response
+		const cleanedResponse = cleanJsonResponse(analysis);
+		const parsedContent = JSON.parse(cleanedResponse);
+		
+		return {
+			header: parsedContent.header || `Flight Deal: ${flightData.returnPlace}`,
+			content: parsedContent.short_comment || `Great flight deal found! From ${flightData.departurePlace} to ${flightData.returnPlace}`,
+			summary: parsedContent.summary || `Excellent flight deal! Price: HK$${flightData.lowestPrice} for ${flightData.departurePlace} → ${flightData.returnPlace}`,
+			destination: parsedContent.destination || flightData.returnPlace,
+			tourist_spot: parsedContent.tourist_spot || '',
+			promote_text: parsedContent.promote_text || ''
+		};
+	} catch (error) {
+		console.error('Error generating AI analysis for auto-search:', error);
+		
+		// Fallback to default values if AI fails
+		return {
+			header: `Flight Deal: ${flightData.returnPlace}`,
+			content: `Great flight deal found! From ${flightData.departurePlace} to ${flightData.returnPlace}`,
+			summary: `Excellent flight deal! Price: HK$${flightData.lowestPrice} for ${flightData.departurePlace} → ${flightData.returnPlace}`,
+			destination: flightData.returnPlace,
 			tourist_spot: '',
 			promote_text: ''
 		};

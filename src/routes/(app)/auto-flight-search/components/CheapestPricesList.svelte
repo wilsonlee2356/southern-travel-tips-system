@@ -67,7 +67,9 @@
 				formattedPrice: formatPrice(item.price),
 				route_from: item.route_from || '',
 				route_to: item.route_to || '',
-				direction: item.direction || ''
+				direction: item.direction || '',
+				airline_code: item.airline_code || '',
+				airline_name: item.airline_name || ''
 			}));
 
 		return selectedPrices;

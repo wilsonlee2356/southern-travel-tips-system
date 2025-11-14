@@ -28,7 +28,15 @@
 	];
 
 	const handlePost = (event) => {
-		dispatch('post', event.detail);
+		// Add airline identifier to ensure only current airline's data is used
+		const airlineCode = series?.airline_code || series?.airline_name || series?.airline_id || null;
+		const airlineName = series?.airline_name || series?.airline_code || null;
+		
+		dispatch('post', {
+			...event.detail,
+			airlineCode,
+			airlineName
+		});
 	};
 
 	const monthFormatter = new Intl.DateTimeFormat('en-US', {
@@ -412,7 +420,7 @@ $: visibleMonthTicks = (() => {
 		
 		const combined = [];
 		
-		// Add departure data
+		// Add departure data (only for current airline)
 		if (departureSeries) {
 			const departureData = createChartData(departureSeries);
 			departureData.forEach((point) => {
@@ -420,12 +428,14 @@ $: visibleMonthTicks = (() => {
 					...point,
 					route_from: departureSeries.route_from || '',
 					route_to: departureSeries.route_to || '',
-					direction: 'departure'
+					direction: 'departure',
+					airline_code: departureSeries.airline_code || departureSeries.airline_id || '',
+					airline_name: departureSeries.airline_name || departureSeries.airline_code || ''
 				});
 			});
 		}
 		
-		// Add return data
+		// Add return data (only for current airline)
 		if (returnSeries) {
 			const returnData = createChartData(returnSeries);
 			returnData.forEach((point) => {
@@ -433,7 +443,9 @@ $: visibleMonthTicks = (() => {
 					...point,
 					route_from: returnSeries.route_from || '',
 					route_to: returnSeries.route_to || '',
-					direction: 'return'
+					direction: 'return',
+					airline_code: returnSeries.airline_code || returnSeries.airline_id || '',
+					airline_name: returnSeries.airline_name || returnSeries.airline_code || ''
 				});
 			});
 		}
