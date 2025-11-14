@@ -196,8 +196,21 @@ $: airlineCodeToName = new Map(
 
 	// Function to check if a model is allowed
 	const isAllowedModel = (model) => {
-		let modelId = (model.id || '').toLowerCase().trim();
-		let modelName = (model.name || '').toLowerCase().trim();
+		// Always allow Ollama models
+		if (model?.owned_by === 'ollama') {
+			return true;
+		}
+		// Fallback: if owned_by is missing/undefined, check for Ollama-specific properties
+		// Ollama models typically have: details, ollama property, or model property without external flag
+		if (!model?.owned_by) {
+			const hasOllamaProperties = model?.details || model?.ollama || (model?.model && model?.external === false);
+			if (hasOllamaProperties) {
+				return true;
+			}
+		}
+		
+		let modelId = (model?.id || '').toLowerCase().trim();
+		let modelName = (model?.name || '').toLowerCase().trim();
 		
 		// Strip 'models/' prefix if present
 		if (modelId.startsWith('models/')) {
@@ -214,7 +227,25 @@ $: airlineCodeToName = new Map(
 	};
 
 	// Filtered models for dropdown
-	$: filteredModels = ($models || []).filter(model => isAllowedModel(model));
+	$: filteredModels = (() => {
+		const allModels = $models || [];
+		console.log('=== AUTO FLIGHT SEARCH MODEL FILTERING ===');
+		console.log('Total models:', allModels.length);
+		
+		const filtered = allModels.filter(model => {
+			const isAllowed = isAllowedModel(model);
+			if (model?.owned_by === 'ollama') {
+				console.log(`Ollama model: "${model?.id}" / "${model?.name}" - ${isAllowed ? '✅ ALLOWED' : '❌ FILTERED'}`);
+			}
+			return isAllowed;
+		});
+		
+		console.log('Filtered models count:', filtered.length);
+		console.log('Ollama models in filtered:', filtered.filter(m => m?.owned_by === 'ollama').length);
+		console.log('=== END FILTERING DEBUG ===');
+		
+		return filtered;
+	})();
 
 	// Handle adding a new search from the SearchForm component
 	const callAutoSearchApi = async (search) => {

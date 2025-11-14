@@ -85,8 +85,21 @@ const formatDateTimeInline = (label, dateValue, timeValue) => {
 
 	// Function to check if a model is allowed
 	const isAllowedModel = (model) => {
-		let modelId = (model.id || '').toLowerCase().trim();
-		let modelName = (model.name || '').toLowerCase().trim();
+		// Always allow Ollama models
+		if (model?.owned_by === 'ollama') {
+			return true;
+		}
+		// Fallback: if owned_by is missing/undefined, check for Ollama-specific properties
+		// Ollama models typically have: details, ollama property, or model property without external flag
+		if (!model?.owned_by) {
+			const hasOllamaProperties = model?.details || model?.ollama || (model?.model && model?.external === false);
+			if (hasOllamaProperties) {
+				return true;
+			}
+		}
+		
+		let modelId = (model?.id || '').toLowerCase().trim();
+		let modelName = (model?.name || '').toLowerCase().trim();
 		
 		// Strip 'models/' prefix if present
 		if (modelId.startsWith('models/')) {

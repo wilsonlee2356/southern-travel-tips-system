@@ -72,6 +72,8 @@
 	let overallSelectedDates = new Set(); // Separate selectedDates for Overall view (not used for list)
 	let selectedDatesMap = new Map(); // Store selectedDates per calendar instance
 	let previousCalendarKey = null;
+	let combinedSelectedDates = new Set(); // Combined selectedDates from both departure and return calendars
+	let isInitializing = false; // Flag to prevent update reactive block from running during initialization
 
 	// Create unique key for this calendar instance (airline + leg + route)
 	$: calendarKey = (() => {
@@ -85,9 +87,20 @@
 		return null;
 	})();
 
+	// Helper function to create date key with direction prefix
+	const createDateKey = (date, direction) => {
+		if (!(date instanceof Date)) return '';
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		// Prefix with direction to make keys unique per calendar
+		return `${direction || leg || 'unknown'}-${year}-${month}-${day}`;
+	};
+
 	// Load or initialize selectedDates when calendarKey changes (switching between airlines/legs)
 	$: {
 		if (calendarKey && calendarKey !== previousCalendarKey) {
+			isInitializing = true; // Set flag to prevent update reactive block from running
 			previousCalendarKey = calendarKey;
 			
 			// For "Overall" view, use separate selectedDates that doesn't affect individual airlines
@@ -97,10 +110,8 @@
 					const lowestDates = new Set();
 					allDataPoints.forEach((point) => {
 						if (point?.date instanceof Date && point?.isLowest === true) {
-							const year = point.date.getFullYear();
-							const month = String(point.date.getMonth() + 1).padStart(2, '0');
-							const day = String(point.date.getDate()).padStart(2, '0');
-							lowestDates.add(`${year}-${month}-${day}`);
+							// For Overall view, use leg as direction prefix
+							lowestDates.add(createDateKey(point.date, leg));
 						}
 					});
 					overallSelectedDates = new Set(lowestDates);
@@ -108,61 +119,61 @@
 				selectedDates = new Set(overallSelectedDates);
 			} else if (series) {
 				// For single airline view
+				// Create a new map to avoid mutating during reactive evaluation
+				const newMap = new Map(selectedDatesMap);
+				
 				// Initialize both departure and return calendars if they haven't been initialized yet
 				if (departureSeries) {
 					const depKey = `${departureSeries.airline_code || departureSeries.airline_name || departureSeries.airline_id || 'unknown'}-departure-${departureSeries.route_from || ''}-${departureSeries.route_to || ''}`;
-					if (!selectedDatesMap.has(depKey)) {
+					if (!newMap.has(depKey)) {
 						const depLowestDates = new Set();
 						const depChartData = createChartData(departureSeries);
 						depChartData.forEach((point) => {
 							if (point?.date instanceof Date && point?.isLowest === true) {
-								const year = point.date.getFullYear();
-								const month = String(point.date.getMonth() + 1).padStart(2, '0');
-								const day = String(point.date.getDate()).padStart(2, '0');
-								depLowestDates.add(`${year}-${month}-${day}`);
+								depLowestDates.add(createDateKey(point.date, 'departure'));
 							}
 						});
-						selectedDatesMap.set(depKey, depLowestDates);
+						newMap.set(depKey, depLowestDates);
 					}
 				}
 				
 				if (returnSeries) {
 					const retKey = `${returnSeries.airline_code || returnSeries.airline_name || returnSeries.airline_id || 'unknown'}-return-${returnSeries.route_from || ''}-${returnSeries.route_to || ''}`;
-					if (!selectedDatesMap.has(retKey)) {
+					if (!newMap.has(retKey)) {
 						const retLowestDates = new Set();
 						const retChartData = createChartData(returnSeries);
 						retChartData.forEach((point) => {
 							if (point?.date instanceof Date && point?.isLowest === true) {
-								const year = point.date.getFullYear();
-								const month = String(point.date.getMonth() + 1).padStart(2, '0');
-								const day = String(point.date.getDate()).padStart(2, '0');
-								retLowestDates.add(`${year}-${month}-${day}`);
+								retLowestDates.add(createDateKey(point.date, 'return'));
 							}
 						});
-						selectedDatesMap.set(retKey, retLowestDates);
+						newMap.set(retKey, retLowestDates);
 					}
 				}
 				
 				// Load or initialize current calendar
-				if (!selectedDatesMap.has(calendarKey)) {
+				if (!newMap.has(calendarKey)) {
 					// Initialize with isLowest dates for this specific calendar
 					const lowestDates = new Set();
 					const chartData = createChartData(series);
 					chartData.forEach((point) => {
 						if (point?.date instanceof Date && point?.isLowest === true) {
-							const year = point.date.getFullYear();
-							const month = String(point.date.getMonth() + 1).padStart(2, '0');
-							const day = String(point.date.getDate()).padStart(2, '0');
-							lowestDates.add(`${year}-${month}-${day}`);
+							lowestDates.add(createDateKey(point.date, leg));
 						}
 					});
-					selectedDatesMap.set(calendarKey, lowestDates);
+					newMap.set(calendarKey, lowestDates);
 					selectedDates = new Set(lowestDates);
 				} else {
 					// Load existing selection for this calendar
-					selectedDates = new Set(selectedDatesMap.get(calendarKey));
+					selectedDates = new Set(newMap.get(calendarKey));
 				}
+				
+				// Update the map only after setting selectedDates
+				selectedDatesMap = newMap;
 			}
+			
+			// Reset flag after initialization is complete
+			isInitializing = false;
 		} else if (!calendarKey) {
 			selectedDates = new Set();
 		}
@@ -170,64 +181,78 @@
 
 	// Update the map immediately when selectedDates changes (from user interaction in PriceCalendar)
 	// This ensures both calendars' selections are always saved and available for the combined list
+	// Only run if not initializing to avoid cyclical dependency
 	$: {
-		if (calendarKey && selectedDates) {
+		if (!isInitializing && calendarKey && selectedDates) {
 			// For Overall view, update overallSelectedDates (but it won't affect individual airlines)
 			if (allSeries && allSeries.length > 0) {
 				overallSelectedDates = new Set(selectedDates);
 			} else if (series) {
 				// For individual airline, always update the map immediately
-				selectedDatesMap.set(calendarKey, new Set(selectedDates));
+				// Create a new Map to trigger reactivity
+				const newMap = new Map(selectedDatesMap);
+				newMap.set(calendarKey, new Set(selectedDates));
+				selectedDatesMap = newMap;
 			}
 		}
 	}
 
 	// Create combined selectedDates from both departure and return for the list
 	// This combines selections from both calendars into one unified list
-	$: combinedSelectedDates = (() => {
-		const combined = new Set();
+	// Make it reactive to selectedDates, selectedDatesMap, calendarKey, departureSeries, and returnSeries
+	$: {
+		// Force reactivity by accessing these values
+		const _selectedDatesSize = selectedDates?.size ?? 0;
+		const _mapSize = selectedDatesMap?.size ?? 0;
+		const _calendarKey = calendarKey;
+		const _depSeries = departureSeries;
+		const _retSeries = returnSeries;
 		
-		// For "Overall" view, use the overall calendar's selectedDates
-		if (allSeries && allSeries.length > 0) {
-			if (selectedDates) {
+		combinedSelectedDates = (() => {
+			const combined = new Set();
+			
+			// For "Overall" view, use the overall calendar's selectedDates
+			if (allSeries && allSeries.length > 0) {
+				if (selectedDates) {
+					selectedDates.forEach(date => combined.add(date));
+				}
+				return combined;
+			}
+			
+			// Always get departure calendar selectedDates (from map or current if active)
+			if (departureSeries) {
+				const depKey = `${departureSeries.airline_code || departureSeries.airline_name || departureSeries.airline_id || 'unknown'}-departure-${departureSeries.route_from || ''}-${departureSeries.route_to || ''}`;
+				// Use current selectedDates if departure tab is active, otherwise get from map
+				let depDates = selectedDatesMap.get(depKey);
+				if (calendarKey === depKey && selectedDates) {
+					depDates = selectedDates; // Use current (most up-to-date) if this is the active calendar
+				}
+				if (depDates) {
+					depDates.forEach(date => combined.add(date));
+				}
+			}
+			
+			// Always get return calendar selectedDates (from map or current if active)
+			if (returnSeries) {
+				const retKey = `${returnSeries.airline_code || returnSeries.airline_name || returnSeries.airline_id || 'unknown'}-return-${returnSeries.route_from || ''}-${returnSeries.route_to || ''}`;
+				// Use current selectedDates if return tab is active, otherwise get from map
+				let retDates = selectedDatesMap.get(retKey);
+				if (calendarKey === retKey && selectedDates) {
+					retDates = selectedDates; // Use current (most up-to-date) if this is the active calendar
+				}
+				if (retDates) {
+					retDates.forEach(date => combined.add(date));
+				}
+			}
+			
+			// If no departure/return series, use current selectedDates
+			if (combined.size === 0 && selectedDates) {
 				selectedDates.forEach(date => combined.add(date));
 			}
+			
 			return combined;
-		}
-		
-		// Always get departure calendar selectedDates (from map or current if active)
-		if (departureSeries) {
-			const depKey = `${departureSeries.airline_code || departureSeries.airline_name || departureSeries.airline_id || 'unknown'}-departure-${departureSeries.route_from || ''}-${departureSeries.route_to || ''}`;
-			// Use current selectedDates if departure tab is active, otherwise get from map
-			let depDates = selectedDatesMap.get(depKey);
-			if (calendarKey === depKey && selectedDates) {
-				depDates = selectedDates; // Use current (most up-to-date) if this is the active calendar
-			}
-			if (depDates) {
-				depDates.forEach(date => combined.add(date));
-			}
-		}
-		
-		// Always get return calendar selectedDates (from map or current if active)
-		if (returnSeries) {
-			const retKey = `${returnSeries.airline_code || returnSeries.airline_name || returnSeries.airline_id || 'unknown'}-return-${returnSeries.route_from || ''}-${returnSeries.route_to || ''}`;
-			// Use current selectedDates if return tab is active, otherwise get from map
-			let retDates = selectedDatesMap.get(retKey);
-			if (calendarKey === retKey && selectedDates) {
-				retDates = selectedDates; // Use current (most up-to-date) if this is the active calendar
-			}
-			if (retDates) {
-				retDates.forEach(date => combined.add(date));
-			}
-		}
-		
-		// If no departure/return series, use current selectedDates
-		if (combined.size === 0 && selectedDates) {
-			selectedDates.forEach(date => combined.add(date));
-		}
-		
-		return combined;
-	})();
+		})();
+	}
 
 	// Process single series or multiple series
 	$: data = allSeries && allSeries.length > 0 ? [] : createChartData(series);
@@ -669,12 +694,14 @@ $: visibleMonthTicks = (() => {
 		<PriceCalendar 
 			calendarData={allDataPoints} 
 			bind:selectedDates={overallSelectedDates}
+			direction={leg}
 			disabled={true}
 		/>
 	{:else}
 		<PriceCalendar 
 			calendarData={data} 
 			bind:selectedDates
+			direction={leg}
 			disabled={false}
 		/>
 	{/if}

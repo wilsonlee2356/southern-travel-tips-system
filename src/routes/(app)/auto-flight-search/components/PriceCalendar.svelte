@@ -2,6 +2,7 @@
 export let calendarData = [];
 export let selectedDates = new Set();
 export let disabled = false; // Disable calendar interaction
+export let direction = 'departure'; // Direction prefix for date keys
 let priceByDate = new Map();
 let calendarMonths = [];
 let currentMonthIndex = 0;
@@ -9,10 +10,12 @@ let currentMonthIndex = 0;
 const toggleDateSelection = (dateKey) => {
 	if (disabled) return; // Don't allow selection when disabled
 	selectedDates = new Set(selectedDates);
-	if (selectedDates.has(dateKey)) {
-		selectedDates.delete(dateKey);
+	// Prefix dateKey with direction to make it unique per calendar
+	const prefixedKey = `${direction}-${dateKey}`;
+	if (selectedDates.has(prefixedKey)) {
+		selectedDates.delete(prefixedKey);
 	} else {
-		selectedDates.add(dateKey);
+		selectedDates.add(prefixedKey);
 	}
 };
 
@@ -164,7 +167,8 @@ const showNextMonth = () => {
 					<div class="calendar-day empty"></div>
 				{:else}
 					{@const dateKey = normalizeDateKey(cell.date)}
-					{@const isSelected = !disabled && selectedDates.has(dateKey)}
+					{@const prefixedKey = `${direction}-${dateKey}`}
+					{@const isSelected = !disabled && selectedDates.has(prefixedKey)}
 					<div
 						class="calendar-day {cell.hasPrice ? 'has-price' : 'no-price'} {isSelected ? 'selected' : ''} {disabled ? 'disabled' : ''}"
 						role={cell.hasPrice && !disabled ? 'button' : undefined}

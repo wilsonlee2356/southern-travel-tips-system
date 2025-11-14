@@ -17,6 +17,13 @@
 		return `${year}-${month}-${day}`;
 	};
 
+	// Helper to check if a date is selected (handles both prefixed and non-prefixed keys)
+	const isDateSelected = (date, direction) => {
+		const dateKey = normalizeDateKey(date);
+		// Check both prefixed and non-prefixed keys for backward compatibility
+		return selectedDates.has(`${direction}-${dateKey}`) || selectedDates.has(dateKey);
+	};
+
 	const formatPrice = (price) =>
 		Number.isFinite(price) ? `HK$${Math.round(price).toLocaleString('en-US')}` : '-';
 
@@ -48,7 +55,7 @@
 				(item) =>
 					item?.date instanceof Date &&
 					Number.isFinite(item?.price) &&
-					selectedDates.has(normalizeDateKey(item.date))
+					isDateSelected(item.date, item.direction || 'departure')
 			)
 			.sort((a, b) => {
 				// Sort by date first, then by direction (departure before return)
