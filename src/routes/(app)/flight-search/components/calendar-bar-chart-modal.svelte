@@ -140,7 +140,69 @@
 		}
 	};
 
+	// Detect if this is a one-way trip
+	$: isOneWay = (() => {
+		if (!calendarData) return false;
+		// Check if tripLengthDays is null/undefined (one-way trips don't have trip length)
+		if (tripLengthDays == null) return true;
+		// Check if calendar data has entries without return dates
+		if (Array.isArray(calendarData?.calendar)) {
+			return calendarData.calendar.every(item => !extractReturnDate(item));
+		}
+		return false;
+	})();
+
+	const buildOneWayBarData = (data) => {
+		if (!data || !Array.isArray(data?.calendar)) {
+			return [];
+		}
+
+		const entryMap = new Map();
+
+		for (const item of data.calendar) {
+			const departure = extractDepartureDate(item);
+			const price = extractPrice(item);
+
+			if (!departure || price == null) continue;
+
+			const departureKey = formatISODate(parseDate(departure));
+			if (!departureKey) continue;
+
+			// For one-way, use departure date as key
+			if (!entryMap.has(departureKey) || price < entryMap.get(departureKey).price) {
+				entryMap.set(departureKey, { price, raw: item });
+			}
+		}
+
+		const bars = Array.from(entryMap.entries())
+			.map(([departureKey, entry]) => {
+				const departureDate = parseDate(departureKey);
+				if (!departureDate) return null;
+				return {
+					departure: departureKey,
+					return: null,
+					price: entry.price,
+					raw: entry.raw,
+					label: formatShortDate(departureKey)
+				};
+			})
+			.filter(Boolean)
+			.sort((a, b) => {
+				const dateA = parseDate(a.departure);
+				const dateB = parseDate(b.departure);
+				if (!dateA || !dateB) return 0;
+				return dateA.getTime() - dateB.getTime();
+			});
+
+		return bars;
+	};
+
 	const buildBarData = (data, tripLength) => {
+		// If one-way trip, use one-way builder
+		if (isOneWay) {
+			return buildOneWayBarData(data);
+		}
+
 		if (!data || !Array.isArray(data?.calendar) || !Number.isFinite(tripLength) || tripLength <= 0) {
 			return [];
 		}
@@ -236,7 +298,9 @@ let sortedTicks = [];
 			const searchParams = calendarData?.search_parameters ?? {};
 			const searchDeparture = normalizeDateKey(extractSearchDeparture(searchParams));
 			const searchReturn = normalizeDateKey(extractSearchReturn(searchParams));
-			const searchKey = searchDeparture && searchReturn ? `${searchDeparture}|${searchReturn}` : null;
+			const searchKey = isOneWay 
+				? searchDeparture 
+				: (searchDeparture && searchReturn ? `${searchDeparture}|${searchReturn}` : null);
 
 			if (searchKey !== lastSearchKey) {
 				initialSelectionApplied = false;
@@ -338,7 +402,12 @@ const formatShortDateRange = (start, end) => {
 		return `${durationLabel}\n${formatRangeLabel(bar.departure, bar.return)}\n${formatCurrency(bar.price)}`;
 	};
 
-const getBarKey = (bar) => `${bar?.departure}|${bar?.return}`;
+const getBarKey = (bar) => {
+	if (isOneWay) {
+		return bar?.departure || '';
+	}
+	return `${bar?.departure}|${bar?.return}`;
+};
 
 let selectedBarKey = null;
 let hoveredBarKey = null;
@@ -422,7 +491,11 @@ const handleBarKeydown = (event, bar) => {
 					<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
 						Flight Price Trend
 					</h2>
-					{#if tripLengthDays != null}
+					{#if isOneWay}
+						<p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+							One-way flights based on Google Flights calendar data
+						</p>
+					{:else if tripLengthDays != null}
 						<p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
 							{tripLengthDays === 1 ? '1-day' : `${tripLengthDays}-day`} itineraries based on Google Flights calendar data
 						</p>
@@ -499,11 +572,14 @@ const handleBarKeydown = (event, bar) => {
 									</div>
 									<div
 										class="absolute inset-x-0 flex items-end gap-4"
+										class:gap-2={isOneWay}
+										class:gap-4={!isOneWay}
 										style={`top: ${TOP_GAP}px; height: ${CHART_HEIGHT}px`}
 									>
 										{#each bars as bar (getBarKey(bar))}
 											<div
-												class="flex w-[38px] flex-none flex-col items-center gap-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+												class="flex flex-none flex-col items-center gap-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+												style={`width: ${isOneWay ? '24px' : '38px'};`}
 												on:mouseenter={() => handleBarMouseEnter(bar)}
 												on:mouseleave={() => handleBarMouseLeave(bar)}
 												on:click={(event) => {
@@ -528,13 +604,21 @@ const handleBarKeydown = (event, bar) => {
 															style={`z-index: ${getTooltipZIndex(bar)}`}
 														>
 															<div class="rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700 flex flex-col gap-2 min-w-[180px]">
-																<div class="flex items-center justify-between text-[11px] tracking-wide opacity-80">
-																	<span class="font-semibold">行程時長</span>
-																	<span>{tripLengthDays === 1 ? '1 天' : `${tripLengthDays} 天`}</span>
-																</div>
+																{#if !isOneWay}
+																	<div class="flex items-center justify-between text-[11px] tracking-wide opacity-80">
+																		<span class="font-semibold">行程時長</span>
+																		<span>{tripLengthDays === 1 ? '1 天' : `${tripLengthDays} 天`}</span>
+																	</div>
+																{/if}
 																<div class="flex items-center justify-between gap-3">
 																	<div class="font-semibold whitespace-nowrap">{formatCurrency(bar.price)} 起</div>
-																	<div class="opacity-80 whitespace-nowrap">{formatShortDateRange(bar.departure, bar.return)}</div>
+																	<div class="opacity-80 whitespace-nowrap">
+																		{#if isOneWay}
+																			{formatShortDate(bar.departure)}
+																		{:else}
+																			{formatShortDateRange(bar.departure, bar.return)}
+																		{/if}
+																	</div>
 																</div>
 															</div>
 															<div class="h-2 w-2 rotate-45 bg-gray-900 dark:bg-gray-700"></div>

@@ -70,10 +70,9 @@ const openBarChartModal = () => {
 		hasCalendarData: Boolean(calendarDataFull),
 		tripLengthDays
 	});
-	if (!calendarDataFull || !tripLengthDays) {
-		console.warn('Price trend chart unavailable: missing calendar data or trip length.', {
-			calendarDataFull,
-			tripLengthDays
+	if (!calendarDataFull || !calendarDataFull?.calendar?.length) {
+		console.warn('Price trend chart unavailable: missing calendar data.', {
+			calendarDataFull
 		});
 		return;
 	}
@@ -1433,7 +1432,7 @@ $: if (!isSearching && allSearchResults.length > 0) {
 				bind:selectedModel
 				showCalendarButton={Boolean(calendarData)}
 				onOpenCalendar={openCalendarModal}
-				showBarChartButton={Boolean(calendarDataFull?.calendar?.length && tripLengthDays)}
+				showBarChartButton={Boolean(calendarDataFull?.calendar?.length)}
 				onOpenBarChart={openBarChartModal}
 				otherFlights={otherFlightResults}
 			/>
