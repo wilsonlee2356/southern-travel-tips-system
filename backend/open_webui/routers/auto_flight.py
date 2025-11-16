@@ -1,8 +1,9 @@
 import logging
 import re
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from typing import Any, Dict, List, Optional, Tuple
+import threading
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, validator
@@ -37,6 +38,107 @@ TRAVEL_CLASS_LABELS = {
     2: "business",
     3: "first",
 }
+
+# --- Auto search daily refresh scheduler (in‑process) ---
+
+# Default daily refresh time (local server time)
+_AUTO_SEARCH_REFRESH_TIME: time = time(hour=3, minute=0)
+_refresh_scheduler_lock = threading.Lock()
+_refresh_scheduler_timer: Optional[threading.Timer] = None
+
+
+class AutoSearchScheduleModel(BaseModel):
+    """Simple model to represent the daily auto-search refresh time (HH:MM, 24h)."""
+
+    time: str = Field(
+        ...,
+        description="Daily refresh time in HH:MM 24-hour format, e.g. '03:00' or '18:30'",
+        examples=["03:00", "18:30"],
+    )
+
+
+def _parse_time_string(value: str) -> time:
+    """Parse 'HH:MM' into a time object, raising HTTPException on error."""
+    try:
+        parts = value.split(":", 1)
+        if len(parts) != 2:
+            raise ValueError
+        hour = int(parts[0])
+        minute = int(parts[1])
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            raise ValueError
+        return time(hour=hour, minute=minute)
+    except Exception as exc:  # pragma: no cover - defensive
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Time must be in 'HH:MM' 24-hour format.",
+        ) from exc
+
+
+def _run_all_auto_search_refresh_sync() -> None:
+    """
+    Refresh all existing auto searches synchronously.
+
+    This uses the same internal logic as the /auto-search/{id}/refresh endpoint,
+    but runs without HTTP context so it can be called from a background timer.
+    """
+    auto_search_table = AutoSearchTable()
+    searches = auto_search_table.list_all()
+    if not searches:
+        log.info("Scheduled auto-search refresh: no auto searches to refresh.")
+        return
+
+    log.info("Scheduled auto-search refresh started for %d auto searches", len(searches))
+
+    for search in searches:
+        try:
+            # Reuse the same sync logic as the HTTP refresh endpoint
+            _refresh_auto_flight_search_sync(search.auto_search_id)
+        except Exception:  # pragma: no cover - defensive logging
+            log.exception(
+                "Scheduled auto-search refresh failed for auto_search_id=%s",
+                search.auto_search_id,
+            )
+
+    log.info("Scheduled auto-search refresh completed.")
+
+
+def _schedule_next_auto_search_refresh() -> None:
+    """Schedule the next daily refresh based on _AUTO_SEARCH_REFRESH_TIME."""
+    global _refresh_scheduler_timer
+    with _refresh_scheduler_lock:
+        if _refresh_scheduler_timer is not None:
+            _refresh_scheduler_timer.cancel()
+
+        now = datetime.now()
+        target = datetime.combine(now.date(), _AUTO_SEARCH_REFRESH_TIME)
+        if target <= now:
+            target += timedelta(days=1)
+        delay = (target - now).total_seconds()
+
+        def _timer_callback() -> None:
+            try:
+                _run_all_auto_search_refresh_sync()
+            finally:
+                # Always schedule the next run
+                _schedule_next_auto_search_refresh()
+
+        _refresh_scheduler_timer = threading.Timer(delay, _timer_callback)
+        _refresh_scheduler_timer.daemon = True
+        _refresh_scheduler_timer.start()
+
+        log.info(
+            "Scheduled daily auto-search refresh at %s (in %.0f seconds)",
+            _AUTO_SEARCH_REFRESH_TIME.strftime("%H:%M"),
+            delay,
+        )
+
+# Start the scheduler with the default time when this module is first imported
+try:  # pragma: no cover - defensive
+    _schedule_next_auto_search_refresh()
+except Exception:
+    # If scheduling fails at import time, log but do not prevent app startup
+    log.exception("Failed to start auto-search refresh scheduler on import")
 
 
 class AutoFlightSearchRequest(BaseModel):
@@ -744,13 +846,87 @@ async def list_auto_flight_searches(user=Depends(get_verified_user)):
 
 
 @router.post(
-    "/auto-search/{auto_search_id}/refresh",
-    response_model=AutoFlightSearchResponse,
+    "/auto-search/refresh-all",
+    response_model=List[AutoFlightSearchResponse],
     status_code=status.HTTP_200_OK,
 )
-async def refresh_auto_flight_search(
-    auto_search_id: str, user=Depends(get_verified_user)
+async def refresh_all_auto_flight_searches(user=Depends(get_verified_user)):
+    """
+    Manually trigger a refresh for all saved auto searches.
+
+    This mirrors the effect of pressing the refresh button on every saved search
+    card in the frontend.
+    """
+    auto_search_table = AutoSearchTable()
+    auto_search_models = auto_search_table.list_all()
+
+    responses: List[AutoFlightSearchResponse] = []
+    for auto_search_model in auto_search_models:
+        try:
+            responses.append(
+                _refresh_auto_flight_search_sync(auto_search_model.auto_search_id)
+            )
+        except HTTPException as exc:
+            log.warning(
+                "Failed to refresh auto search %s via /refresh-all: %s",
+                auto_search_model.auto_search_id,
+                exc.detail if isinstance(exc.detail, str) else exc.detail,
+            )
+        except Exception:
+            log.exception(
+                "Unexpected error refreshing auto search %s via /refresh-all",
+                auto_search_model.auto_search_id,
+            )
+
+    log.info(
+        "Manual /auto-search/refresh-all completed: %d of %d auto searches refreshed",
+        len(responses),
+        len(auto_search_models),
+    )
+    return responses
+
+
+@router.get(
+    "/auto-search/schedule",
+    response_model=AutoSearchScheduleModel,
+    status_code=status.HTTP_200_OK,
+)
+async def get_auto_search_schedule(user=Depends(get_verified_user)):
+    """
+    Return the current daily auto-search refresh time.
+    """
+    return AutoSearchScheduleModel(time=_AUTO_SEARCH_REFRESH_TIME.strftime("%H:%M"))
+
+
+@router.post(
+    "/auto-search/schedule",
+    response_model=AutoSearchScheduleModel,
+    status_code=status.HTTP_200_OK,
+)
+async def set_auto_search_schedule(
+    payload: AutoSearchScheduleModel, user=Depends(get_verified_user)
 ):
+    """
+    Update the daily auto-search refresh time (HH:MM 24-hour format).
+
+    This immediately reschedules the in-process timer.
+    """
+    global _AUTO_SEARCH_REFRESH_TIME
+
+    new_time = _parse_time_string(payload.time)
+    _AUTO_SEARCH_REFRESH_TIME = new_time
+    _schedule_next_auto_search_refresh()
+
+    log.info(
+        "Updated auto-search refresh schedule to %s by user %s",
+        payload.time,
+        getattr(user, "id", "unknown"),
+    )
+
+    return AutoSearchScheduleModel(time=_AUTO_SEARCH_REFRESH_TIME.strftime("%H:%M"))
+
+
+def _refresh_auto_flight_search_sync(auto_search_id: str) -> AutoFlightSearchResponse:
     auto_search_table = AutoSearchTable()
     routes_table = FlightRoutesTable()
     airlines_table = AirlinesTable()
@@ -914,6 +1090,22 @@ async def refresh_auto_flight_search(
         direct_flight=auto_search_model.direct_flight,
         message="Auto flight search refreshed.",
     )
+
+    return response_payload
+
+
+@router.post(
+    "/auto-search/{auto_search_id}/refresh",
+    response_model=AutoFlightSearchResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def refresh_auto_flight_search(
+    auto_search_id: str, user=Depends(get_verified_user)
+):
+    """
+    HTTP endpoint wrapper that delegates to the synchronous core logic.
+    """
+    response_payload = _refresh_auto_flight_search_sync(auto_search_id)
 
     log.debug(
         "Auto flight search refresh response for user %s: %s",

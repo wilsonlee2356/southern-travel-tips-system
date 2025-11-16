@@ -12,6 +12,7 @@
 	export let filteredModels = [];
 	export let selectedModel = null;
 	export let loadingSearches = new Set();
+export let isPosting = false;
 
 // Airline tabs (group results by airline)
 let selectedAirline = null;
@@ -725,6 +726,7 @@ $: selectedSeriesLabel = selectedSeries
 									leg={selectedPriceLeg}
 									{filteredModels}
 									bind:selectedModel
+									isPosting={isPosting}
 									on:post={(e) => dispatch('post', e.detail)}
 								/>
 							{:else}

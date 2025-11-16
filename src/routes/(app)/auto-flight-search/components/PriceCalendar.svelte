@@ -163,7 +163,7 @@ const showNextMonth = () => {
 		<div class="horizontal-calendar-container">
 			<div class="horizontal-calendar-wrapper">
 				<div class="horizontal-dates-row">
-					{#each calendarData as item (item.timestamp || (item.date?.getTime ? item.date.getTime() : null) || Math.random())}
+					{#each calendarData as item, index (`${item.timestamp ?? (item.date?.getTime ? item.date.getTime() : '')}-${index}`)}
 						{@const date = extractDate(item)}
 						{#if date instanceof Date}
 							{@const dateKey = normalizeDateKey(date)}

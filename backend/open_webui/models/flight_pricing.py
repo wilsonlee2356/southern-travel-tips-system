@@ -570,6 +570,15 @@ class AutoSearchTable:
             )
             return [AutoSearchModel.model_validate(record) for record in records]
 
+    def list_all(self) -> List[AutoSearchModel]:
+        """
+        Return all auto search configurations ordered by creation time.
+        Used by background jobs (e.g. daily refresh) and admin APIs.
+        """
+        with get_db() as db:
+            records = db.query(AutoSearch).order_by(AutoSearch.created_at.asc()).all()
+            return [AutoSearchModel.model_validate(record) for record in records]
+
     def delete(self, auto_search_id: str) -> bool:
         with get_db() as db:
             result = (

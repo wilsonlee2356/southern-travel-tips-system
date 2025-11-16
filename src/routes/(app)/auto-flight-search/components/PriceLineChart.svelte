@@ -6,10 +6,11 @@
 	export let series = null;
 	export let allSeries = null; // Array of series for "Overall" view
 	export let departureSeries = null; // Departure series for combining with return
-	export let returnSeries = null; // Return series for combining with return
+export let returnSeries = null; // Return series for combining with return
 	export let leg = 'departure';
 	export let filteredModels = [];
 	export let selectedModel = null;
+export let isPosting = false;
 
 	const dispatch = createEventDispatcher();
 
@@ -316,14 +317,36 @@ const MIN_TICK_SPACING = 60;
 	const snapDown = (value, step) => Math.floor(value / step) * step;
 	const snapUp = (value, step) => Math.ceil(value / step) * step;
 
+	// Y-axis bounds (will be recomputed reactively below)
+	let minY = 0;
+	let maxY = Y_STEP;
+
 	$: minYRaw = prices.length > 0 ? Math.min(...prices) : 0;
 	$: maxYRaw = prices.length > 0 ? Math.max(...prices) : Y_STEP;
-	$: minY = Number.isFinite(minYRaw) ? snapDown(minYRaw, Y_STEP) : 0;
-	$: maxY = Number.isFinite(maxYRaw) ? snapUp(maxYRaw, Y_STEP) : Y_STEP;
+
+	// Compute minY and maxY so that:
+	// - minY is 0
+	// - maxY is a multiple of 1000
+	// - There are at most 5 y-axis levels from 0 to maxY, equally spaced
 	$: {
-		if (maxY <= minY) {
-			maxY = minY + Y_STEP;
+		const safeMaxRaw = Number.isFinite(maxYRaw) ? maxYRaw : Y_STEP;
+		const snappedMax = snapUp(safeMaxRaw, Y_STEP); // at least one 1000-step above data max
+
+		// Determine how many ticks (levels) we can have, up to 5
+		// Each level must be a multiple of 1000, starting at 0 and ending at maxY.
+		let numLevels = 5;
+		// If max is very small (e.g. <= 4000), we can have more dense levels but still max 5.
+		if (snappedMax <= Y_STEP) {
+			numLevels = 2; // 0 and 1000
 		}
+
+		// Compute step so that (numLevels - 1) * step >= snappedMax and step is multiple of 1000
+		const approxStep = snappedMax / Math.max(numLevels - 1, 1);
+		const stepMultiplier = Math.max(1, Math.ceil(approxStep / Y_STEP));
+		const step = stepMultiplier * Y_STEP;
+
+		minY = 0;
+		maxY = step * Math.max(numLevels - 1, 1);
 	}
 	$: xRange = maxX - minX || 1;
 	$: yRange = maxY - minY || Y_STEP;
@@ -433,14 +456,27 @@ $: visibleMonthTicks = (() => {
 	$: yTicks = (() => {
 		// Use allDataPoints to determine if we have data (works for both single and multi-series)
 		if (allDataPoints.length === 0) return [];
+
 		const ticks = [];
-		for (let value = minY; value <= maxY; value += Y_STEP) {
-			ticks.push(value);
+		const range = maxY - minY;
+		if (range <= 0) {
+			return [0];
 		}
-		if (!ticks.includes(maxY)) {
-			ticks.push(maxY);
+
+		// We want at most 5 levels between minY (0) and maxY, equally spaced.
+		const numLevels = 5;
+		const levelStep = range / (numLevels - 1);
+
+		for (let i = 0; i < numLevels; i += 1) {
+			const rawValue = minY + levelStep * i;
+			// Snap to nearest 1000 to keep labels as multiples of 1000
+			const snapped = Math.round(rawValue / Y_STEP) * Y_STEP;
+			if (!ticks.includes(snapped)) {
+				ticks.push(snapped);
+			}
 		}
-		return ticks;
+
+		return ticks.sort((a, b) => a - b);
 	})();
 
 	const formatPrice = (price) => `HK$${Math.round(price).toLocaleString('en-US')}`;
@@ -713,13 +749,7 @@ $: visibleMonthTicks = (() => {
 	{/if}
 
 	{#if allSeries && allSeries.length > 0}
-		<PriceCalendar 
-			calendarData={allDataPoints} 
-			bind:selectedDates={overallSelectedDates}
-			direction={leg}
-			disabled={true}
-			layout="horizontal"
-		/>
+		<!-- Overall tab: show only the multi-airline line chart and legend (no calendar or list) -->
 	{:else if data && data.length > 0}
 		{@const hasDeparture = !!departureSeries}
 		{@const hasReturn = !!returnSeries}
@@ -753,6 +783,7 @@ $: visibleMonthTicks = (() => {
 			selectedDates={combinedSelectedDates}
 			{filteredModels}
 			bind:selectedModel
+			isPosting={isPosting}
 			on:post={handlePost}
 		/>
 	{/if}

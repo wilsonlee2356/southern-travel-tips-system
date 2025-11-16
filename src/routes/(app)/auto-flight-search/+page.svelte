@@ -29,6 +29,10 @@ import { generateAIFlightAnalysisForAutoSearch } from '$lib/utils/flightPostHand
 	// Track selected flights (multiple selection allowed)
 	let selectedFlights = [];
 
+	// Global auto-search refresh schedule (HH:MM, 24-hour)
+	let autoSearchRefreshTime = '03:00';
+	let isUpdatingSchedule = false;
+
 	// Placeholder event handlers (page in development)
 	const toggleFlight = () => {};
 	const selectFlight = () => {};
@@ -68,6 +72,65 @@ const persistSavedSearches = () => {
 		localStorage.setItem('autoFlightSearches', JSON.stringify(savedSearches));
 	} catch (error) {
 		console.warn('Failed to persist auto flight searches to localStorage:', error);
+	}
+};
+
+// --- Auto-search refresh schedule API helpers ---
+
+const loadAutoSearchSchedule = async () => {
+	try {
+		const response = await fetch(`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search/schedule`, {
+			method: 'GET',
+			credentials: 'include'
+		});
+		if (!response.ok) {
+			console.warn('Failed to load auto-search schedule', await response.text());
+			return;
+		}
+		const data = await response.json();
+		if (data?.time && typeof data.time === 'string') {
+			autoSearchRefreshTime = data.time;
+		}
+	} catch (err) {
+		console.warn('Error loading auto-search schedule', err);
+	}
+};
+
+const updateAutoSearchSchedule = async () => {
+	const trimmed = (autoSearchRefreshTime || '').trim();
+	// Very basic HH:MM validation on the client side
+	if (!/^\d{2}:\d{2}$/.test(trimmed)) {
+		alert('Please enter a valid time in HH:MM format (e.g. 03:00 or 18:30).');
+		return;
+	}
+
+	isUpdatingSchedule = true;
+	try {
+		const response = await fetch(`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search/schedule`, {
+			method: 'POST',
+			credentials: 'include',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ time: trimmed })
+		});
+
+		if (!response.ok) {
+			const text = await response.text();
+			console.error('Failed to update auto-search schedule', text);
+			alert('Failed to update auto-search refresh time.');
+			return;
+		}
+
+		const data = await response.json();
+		if (data?.time) {
+			autoSearchRefreshTime = data.time;
+		}
+	} catch (err) {
+		console.error('Error updating auto-search schedule', err);
+		alert('Error updating auto-search refresh time.');
+	} finally {
+		isUpdatingSchedule = false;
 	}
 };
 
@@ -174,6 +237,7 @@ onMount(async () => {
 	}
 
 	await loadSavedSearches();
+	await loadAutoSearchSchedule();
 });
 
 $: airlineCodeToName = new Map(
@@ -282,8 +346,18 @@ $: airlineCodeToName = new Map(
 
 	const handleAddSearch = async (event) => {
 		const newSearch = event.detail;
+		let backendId = null;
+
+		// Add a loading state for this new search so the right-side panel shows the same
+		// loading cover as when the user presses the refresh button on a saved search.
+		{
+			const loadingCopy = new Set(loadingSearches);
+			loadingCopy.add(newSearch.id);
+			loadingSearches = loadingCopy;
+		}
 
 		try {
+			// Optimistically add the new search so it appears immediately in the list
 			savedSearches = [...savedSearches, newSearch];
 			selectedSearchId = newSearch.id;
 
@@ -292,7 +366,7 @@ $: airlineCodeToName = new Map(
 
 			console.debug('Auto search response (add):', data);
 
-			const backendId = data?.auto_search?.auto_search_id ?? newSearch.id;
+			backendId = data?.auto_search?.auto_search_id ?? newSearch.id;
 			const backendAirlineModels = Array.isArray(data?.airlines) ? data.airlines : [];
 			const backendAirlineCodes = backendAirlineModels
 				.map((airline) => airline?.code)
@@ -328,6 +402,14 @@ $: airlineCodeToName = new Map(
 				savedSearches = [...savedSearches];
 				persistSavedSearches();
 			}
+		} finally {
+			// Remove both the temporary ID and the backend ID (if set) from the loading set
+			const loadingCopy = new Set(loadingSearches);
+			loadingCopy.delete(newSearch.id);
+			if (backendId) {
+				loadingCopy.delete(backendId);
+			}
+			loadingSearches = loadingCopy;
 		}
 	};
 
@@ -639,6 +721,9 @@ $: airlineCodeToName = new Map(
 		selectedFlights = selectedFlights.filter(f => f.key !== flightKey);
 	};
 
+	// Posting state for auto-search post button
+	let isPostingAuto = false;
+
 	// Handle post from CheapestPricesList
 	const handleAutoSearchPost = async (event) => {
 		const { selectedDates, model, airlineCode, airlineName } = event.detail;
@@ -660,6 +745,7 @@ $: airlineCodeToName = new Map(
 		}
 
 		try {
+			isPostingAuto = true;
 			// Get route information from the selected search
 			const route = selectedSearch.autoSearchResponse?.route;
 			const departurePlace = route?.from_place || '';
@@ -730,6 +816,9 @@ $: airlineCodeToName = new Map(
 		} catch (error) {
 			console.error('Error posting auto-search:', error);
 			alert('Failed to generate post. Please try again.');
+		} finally {
+			// In practice, navigation to /post will unmount this page; this is just a safety.
+			isPostingAuto = false;
 		}
 	};
 </script>
@@ -832,13 +921,40 @@ $: airlineCodeToName = new Map(
 				</div>
 
 				<!-- Add New Search Form -->
-				<div class="mb-8">
+				<div class="mb-8 space-y-6">
 					<SearchForm
 						on:addSearch={handleAddSearch}
 						availableAirlines={availableAirlines}
 						airlinesLoading={airlinesLoading}
 						airlinesError={airlinesError}
 					/>
+
+					<!-- Auto-search daily refresh time configuration -->
+					<div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+						<div>
+							<div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+								Auto-refresh time
+							</div>
+							<div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+								Select a time of day to automatically refresh all saved auto searches.
+							</div>
+						</div>
+						<div class="flex items-center gap-3">
+							<input
+								type="time"
+								bind:value={autoSearchRefreshTime}
+								class="border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+							/>
+							<button
+								class="inline-flex items-center justify-center px-3 py-1.5 rounded-md text-sm font-medium bg-black text-white dark:bg-white dark:text-black disabled:opacity-60"
+								type="button"
+								on:click={updateAutoSearchSchedule}
+								disabled={isUpdatingSchedule}
+							>
+								{isUpdatingSchedule ? 'Updating…' : 'Update Timer'}
+							</button>
+						</div>
+					</div>
 				</div>
 
 				<!-- 2-Column Layout: Searches List + Results -->
@@ -878,6 +994,7 @@ $: airlineCodeToName = new Map(
 								{hoveredBar}
 								{filteredModels}
 								{selectedModel}
+								isPosting={isPostingAuto}
 								{loadingSearches}
 								on:toggleSearch={(e) => toggleSearch(e.detail)}
 								on:toggleFlight={(e) => toggleFlight(e.detail)}
