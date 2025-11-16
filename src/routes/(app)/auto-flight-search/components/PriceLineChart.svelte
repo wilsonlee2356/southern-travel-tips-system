@@ -1,5 +1,5 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount, onDestroy } from 'svelte';
 	import PriceCalendar from './PriceCalendar.svelte';
 	import CheapestPricesList from './CheapestPricesList.svelte';
 
@@ -45,9 +45,65 @@ export let isPosting = false;
 		year: 'numeric'
 	});
 
-	const WIDTH = 1600; // Increased for zoomed view
+	const WIDTH_OVERALL = 1600; // Fixed width for "Overall" view (scrollable)
 	const HEIGHT = 400; // Increased proportionally
 	const PADDING = { top: 24, right: 32, bottom: 48, left: 85 }; // Increased left padding for y-axis labels
+	
+	// Determine if we're in "Overall" view
+	$: isOverallView = allSeries && allSeries.length > 0;
+	
+	// Container ref for measuring width in individual airline view
+	let chartContainer;
+	let containerWidth = 800; // Default width
+	let resizeObserver = null;
+	
+	// Reactive chart width: fixed for "Overall", responsive for individual airlines
+	$: chartWidth = isOverallView ? WIDTH_OVERALL : containerWidth;
+	
+	// Update container width when not in Overall view
+	function updateContainerWidth() {
+		if (chartContainer && !isOverallView) {
+			containerWidth = chartContainer.clientWidth || 800;
+		}
+	}
+	
+	onMount(() => {
+		// Set up ResizeObserver after mount when container is available (only for individual airline view)
+		if (chartContainer && !isOverallView && typeof ResizeObserver !== 'undefined') {
+			resizeObserver = new ResizeObserver(() => {
+				updateContainerWidth();
+			});
+			resizeObserver.observe(chartContainer);
+		}
+		updateContainerWidth();
+	});
+	
+	onDestroy(() => {
+		if (resizeObserver) {
+			resizeObserver.disconnect();
+			resizeObserver = null;
+		}
+	});
+	
+	// Also update when container becomes available or view changes
+	$: if (chartContainer) {
+		if (isOverallView) {
+			// Disconnect observer when switching to Overall view
+			if (resizeObserver) {
+				resizeObserver.disconnect();
+				resizeObserver = null;
+			}
+		} else {
+			// Update width and set up observer for individual airline view
+			updateContainerWidth();
+			if (!resizeObserver && typeof ResizeObserver !== 'undefined') {
+				resizeObserver = new ResizeObserver(() => {
+					updateContainerWidth();
+				});
+				resizeObserver.observe(chartContainer);
+			}
+		}
+	}
 
 	const createChartData = (input) => {
 		// Handle case where input is already an array (like Google calendar format)
@@ -326,11 +382,15 @@ const MIN_TICK_SPACING = 60;
 
 	// Compute minY and maxY so that:
 	// - minY is 0
+	// - maxY is at least 20% more than the maximum price
 	// - maxY is a multiple of 1000
 	// - There are at most 5 y-axis levels from 0 to maxY, equally spaced
 	$: {
 		const safeMaxRaw = Number.isFinite(maxYRaw) ? maxYRaw : Y_STEP;
-		const snappedMax = snapUp(safeMaxRaw, Y_STEP); // at least one 1000-step above data max
+		// Calculate 20% more than the maximum price
+		const maxWithMargin = safeMaxRaw * 1.2;
+		// Snap up to the nearest multiple of 1000
+		const snappedMax = snapUp(maxWithMargin, Y_STEP);
 
 		// Determine how many ticks (levels) we can have, up to 5
 		// Each level must be a multiple of 1000, starting at 0 and ending at maxY.
@@ -351,7 +411,7 @@ const MIN_TICK_SPACING = 60;
 	$: xRange = maxX - minX || 1;
 	$: yRange = maxY - minY || Y_STEP;
 
-	const innerWidth = WIDTH - PADDING.left - PADDING.right;
+	$: innerWidth = chartWidth - PADDING.left - PADDING.right;
 	const innerHeight = HEIGHT - PADDING.top - PADDING.bottom;
 
 	const scaleX = (timestamp) => {
@@ -436,7 +496,7 @@ $: visibleMonthTicks = (() => {
 	for (let i = 0; i < ticks.length; i += 1) {
 		const tick = ticks[i];
 		const next = ticks[i + 1];
-		const nextX = next ? next.x : WIDTH - PADDING.right;
+		const nextX = next ? next.x : chartWidth - PADDING.right;
 		const gap = nextX - tick.x;
 		if (gap >= MIN_TICK_SPACING) {
 			visible.push(tick);
@@ -572,13 +632,13 @@ $: visibleMonthTicks = (() => {
 		const rect = event.currentTarget.getBoundingClientRect();
 		const containerRect = event.currentTarget.closest('.chart-container')?.getBoundingClientRect();
 		const relativeX = (event.clientX - rect.left) / rect.width;
-		const svgXRaw = relativeX * WIDTH;
-		const clampedX = Math.max(PADDING.left, Math.min(WIDTH - PADDING.right, svgXRaw));
+		const svgXRaw = relativeX * chartWidth;
+		const clampedX = Math.max(PADDING.left, Math.min(chartWidth - PADDING.right, svgXRaw));
 		
 		// Calculate container-relative position for tooltip
 		const containerX = containerRect 
-			? ((clampedX / WIDTH) * rect.width) + (rect.left - containerRect.left)
-			: (clampedX / WIDTH) * rect.width;
+			? ((clampedX / chartWidth) * rect.width) + (rect.left - containerRect.left)
+			: (clampedX / chartWidth) * rect.width;
 		const containerY = containerRect
 			? rect.top - containerRect.top
 			: 0;
@@ -648,11 +708,11 @@ $: visibleMonthTicks = (() => {
 	};
 </script>
 
-<div class="chart-container">
+<div class="chart-container" bind:this={chartContainer} class:overall-view={isOverallView}>
 		<svg
 			class="chart"
-			viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-			preserveAspectRatio="none"
+			viewBox={`0 0 ${chartWidth} ${HEIGHT}`}
+			preserveAspectRatio={isOverallView ? "none" : "xMidYMid meet"}
 			role="img"
 			on:mousemove={handleMouseMove}
 			on:mouseleave={handleMouseLeave}
@@ -670,7 +730,7 @@ $: visibleMonthTicks = (() => {
 				<line
 					x1={PADDING.left}
 					y1={y}
-					x2={WIDTH - PADDING.right}
+					x2={chartWidth - PADDING.right}
 					y2={y}
 					class="grid-line"
 				/>
@@ -683,7 +743,7 @@ $: visibleMonthTicks = (() => {
 			<line
 				x1={PADDING.left}
 				y1={HEIGHT - PADDING.bottom}
-				x2={WIDTH - PADDING.right}
+				x2={chartWidth - PADDING.right}
 				y2={HEIGHT - PADDING.bottom}
 				class="axis"
 			/>
@@ -791,51 +851,70 @@ $: visibleMonthTicks = (() => {
 <style>
 	.chart-container {
 		width: 100%;
-		overflow-x: auto;
 		overflow-y: visible; /* Changed to visible to allow tooltip to show above */
 		margin: 0 auto;
 		position: relative;
+		z-index: 1; /* Ensure container is above other elements */
+	}
+	
+	/* Only enable horizontal scrolling for "Overall" view */
+	.chart-container.overall-view {
+		overflow-x: auto;
 		-webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 		scrollbar-width: thin; /* Firefox */
 		scrollbar-color: rgba(148, 163, 184, 0.5) transparent; /* Firefox */
-		z-index: 1; /* Ensure container is above other elements */
+	}
+	
+	/* Individual airline view: no scrolling, fit container */
+	.chart-container:not(.overall-view) {
+		overflow-x: hidden;
 	}
 
-	.chart-container::-webkit-scrollbar {
+	.chart-container.overall-view::-webkit-scrollbar {
 		height: 8px; /* Chrome, Safari, Edge */
 	}
 
-	.chart-container::-webkit-scrollbar-track {
+	.chart-container.overall-view::-webkit-scrollbar-track {
 		background: rgba(148, 163, 184, 0.1);
 		border-radius: 4px;
 	}
 
-	.chart-container::-webkit-scrollbar-thumb {
+	.chart-container.overall-view::-webkit-scrollbar-thumb {
 		background: rgba(148, 163, 184, 0.5);
 		border-radius: 4px;
 	}
 
-	.chart-container::-webkit-scrollbar-thumb:hover {
+	.chart-container.overall-view::-webkit-scrollbar-thumb:hover {
 		background: rgba(148, 163, 184, 0.7);
 	}
 
-	:global(.dark) .chart-container::-webkit-scrollbar-track {
+	:global(.dark) .chart-container.overall-view::-webkit-scrollbar-track {
 		background: rgba(148, 163, 184, 0.15);
 	}
 
-	:global(.dark) .chart-container::-webkit-scrollbar-thumb {
+	:global(.dark) .chart-container.overall-view::-webkit-scrollbar-thumb {
 		background: rgba(148, 163, 184, 0.6);
 	}
 
-	:global(.dark) .chart-container::-webkit-scrollbar-thumb:hover {
+	:global(.dark) .chart-container.overall-view::-webkit-scrollbar-thumb:hover {
 		background: rgba(148, 163, 184, 0.8);
 	}
 
 	.chart {
-		width: 1600px; /* Match WIDTH constant */
 		height: 400px; /* Match HEIGHT constant */
 		overflow: visible;
+	}
+	
+	/* Fixed width for "Overall" view */
+	.chart-container.overall-view .chart {
+		width: 1600px; /* Match WIDTH_OVERALL constant */
 		min-width: 100%; /* Ensure it's at least full width */
+	}
+	
+	/* Responsive width for individual airline view */
+	.chart-container:not(.overall-view) .chart {
+		width: 100%;
+		max-width: 100%;
 	}
 
 	/* Calendar styles moved to PriceCalendar */
