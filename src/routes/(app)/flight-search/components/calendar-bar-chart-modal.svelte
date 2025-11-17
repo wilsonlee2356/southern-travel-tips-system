@@ -571,15 +571,15 @@ const handleBarKeydown = (event, bar) => {
 										{/each}
 									</div>
 									<div
-										class="absolute inset-x-0 flex items-end gap-4"
-										class:gap-2={isOneWay}
-										class:gap-4={!isOneWay}
+										class="absolute inset-x-0 flex items-end gap-2"
+										class:gap-1={isOneWay}
+										class:gap-2={!isOneWay}
 										style={`top: ${TOP_GAP}px; height: ${CHART_HEIGHT}px`}
 									>
 										{#each bars as bar (getBarKey(bar))}
 											<div
 												class="flex flex-none flex-col items-center gap-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
-												style={`width: ${isOneWay ? '24px' : '38px'};`}
+												style={`width: ${isOneWay ? '24px' : '28px'};`}
 												on:mouseenter={() => handleBarMouseEnter(bar)}
 												on:mouseleave={() => handleBarMouseLeave(bar)}
 												on:click={(event) => {

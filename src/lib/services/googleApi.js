@@ -240,10 +240,11 @@ class GoogleFlightsApiService {
 				return null;
 			}
 
-			const calendarParams = new URLSearchParams();
+			const CALENDAR_DAYS_BEFORE = 6;
+			const CALENDAR_DAYS_AFTER = 7;
 			const calendarSearchParams = {
 				...searchParams,
-				engine: 'google_flights_calendar',
+				engine: 'google_flights_calendar'
 			};
 
 			const msPerDay = 24 * 60 * 60 * 1000;
@@ -273,9 +274,7 @@ class GoogleFlightsApiService {
 			};
 
 			const buildWindow = (baseDate) => {
-				const daysBefore = 6;
-				const daysAfter = 7;
-				const candidateStart = shiftDate(baseDate, -daysBefore);
+				const candidateStart = shiftDate(baseDate, -CALENDAR_DAYS_BEFORE);
 				let trimmedDays = 0;
 				let startDate = candidateStart;
 
@@ -284,7 +283,7 @@ class GoogleFlightsApiService {
 					startDate = new Date(today);
 				}
 
-				const endDate = shiftDate(baseDate, daysAfter + trimmedDays);
+				const endDate = shiftDate(baseDate, CALENDAR_DAYS_AFTER + trimmedDays);
 
 				return {
 					start: startDate,
@@ -293,59 +292,180 @@ class GoogleFlightsApiService {
 				};
 			};
 
+			const buildRequestPayload = (paramsObject) => {
+				const params = new URLSearchParams();
+				Object.entries(paramsObject).forEach(([key, value]) => {
+					if (value !== null && value !== undefined && value !== '') {
+						params.append(key, value.toString());
+					}
+				});
+				return Object.fromEntries(params.entries());
+			};
+
 			const outboundDateObj = parseDate(outboundDate);
 			if (!outboundDateObj) {
 				return null;
 			}
 
 			const outboundWindow = buildWindow(outboundDateObj);
-			calendarSearchParams.outbound_date_start = formatDate(outboundWindow.start);
-			calendarSearchParams.outbound_date_end = formatDate(outboundWindow.end);
+			const calendarParamsWithWindows = {
+				...calendarSearchParams,
+				outbound_date_start: formatDate(outboundWindow.start),
+				outbound_date_end: formatDate(outboundWindow.end)
+			};
 
 			let returnWindow = null;
 			if (searchParams.return_date) {
 				const returnDateObj = parseDate(searchParams.return_date);
 				if (returnDateObj) {
 					returnWindow = buildWindow(returnDateObj);
-					calendarSearchParams.return_date_start = formatDate(returnWindow.start);
-					calendarSearchParams.return_date_end = formatDate(returnWindow.end);
+					calendarParamsWithWindows.return_date_start = formatDate(returnWindow.start);
+					calendarParamsWithWindows.return_date_end = formatDate(returnWindow.end);
 				}
 			}
 
-			Object.keys(calendarSearchParams).forEach((key) => {
-				const value = calendarSearchParams[key];
-				if (value !== null && value !== undefined && value !== '') {
-					calendarParams.append(key, value.toString());
-				}
-			});
-
-			const finalCalendarParams = Object.fromEntries(calendarParams.entries());
+			const finalCalendarParams = buildRequestPayload(calendarParamsWithWindows);
 			console.log('Google Flights Calendar Request Params:', finalCalendarParams, {
 				outbound_window: {
 					anchor: outboundDate,
-					start: calendarSearchParams.outbound_date_start,
-					end: calendarSearchParams.outbound_date_end,
+					start: calendarParamsWithWindows.outbound_date_start,
+					end: calendarParamsWithWindows.outbound_date_end,
 					trimmed_days: outboundWindow.trimmedDays,
-					allocated_days_after: 7 + outboundWindow.trimmedDays
+					allocated_days_after: CALENDAR_DAYS_AFTER + outboundWindow.trimmedDays
 				},
 				return_window: returnWindow
 					? {
 							anchor: searchParams.return_date,
-							start: calendarSearchParams.return_date_start,
-							end: calendarSearchParams.return_date_end,
+							start: calendarParamsWithWindows.return_date_start,
+							end: calendarParamsWithWindows.return_date_end,
 							trimmed_days: returnWindow.trimmedDays,
-							allocated_days_after: 7 + returnWindow.trimmedDays
+							allocated_days_after: CALENDAR_DAYS_AFTER + returnWindow.trimmedDays
 					  }
 					: null
 			});
 
-			const calendarData = await this.searchFlightCalender(finalCalendarParams);
+			let calendarData = await this.searchFlightCalender(finalCalendarParams);
 			console.log('Google Flights Calendar Data:', calendarData);
+
+			const shouldFetchExtendedWindow =
+				searchParams.flight_type !== 'one_way' &&
+				Boolean(searchParams.return_date) &&
+				Boolean(outboundWindow) &&
+				Boolean(returnWindow) &&
+				Boolean(calendarData);
+
+			if (shouldFetchExtendedWindow) {
+				const nextOutboundAnchorDate = shiftDate(outboundWindow.end, CALENDAR_DAYS_BEFORE + 1);
+				const nextOutboundWindow = buildWindow(nextOutboundAnchorDate);
+				const nextReturnAnchorDate = shiftDate(returnWindow.end, CALENDAR_DAYS_BEFORE + 1);
+				const nextReturnWindow = buildWindow(nextReturnAnchorDate);
+
+				const extendedOverrides = {
+					outbound_date: formatDate(nextOutboundAnchorDate),
+					outbound_date_start: formatDate(nextOutboundWindow.start),
+					outbound_date_end: formatDate(nextOutboundWindow.end),
+					return_date: formatDate(nextReturnAnchorDate),
+					return_date_start: formatDate(nextReturnWindow.start),
+					return_date_end: formatDate(nextReturnWindow.end)
+				};
+
+				const extendedRequestParams = buildRequestPayload({
+					...calendarSearchParams,
+					...extendedOverrides
+				});
+
+				console.log('Google Flights Calendar Extended Request Params:', extendedRequestParams);
+
+				try {
+					const extendedCalendarData = await this.searchFlightCalender(extendedRequestParams);
+					calendarData = this.mergeCalendarResponses(calendarData, extendedCalendarData);
+				} catch (extendedError) {
+					console.warn('Failed to fetch extended calendar window:', extendedError);
+				}
+			}
+
 			return calendarData;
 		} catch (error) {
 			console.warn('Failed to fetch Google Flights calendar data:', error);
 			return null;
 		}
+	}
+
+	getCalendarDepartureValue(entry) {
+		return (
+			entry?.departure_date ??
+			entry?.departure ??
+			entry?.outbound_date ??
+			entry?.outboundDate ??
+			entry?.departureDate ??
+			entry?.date ??
+			null
+		);
+	}
+
+	getCalendarReturnValue(entry) {
+		return (
+			entry?.return_date ??
+			entry?.return ??
+			entry?.inbound_date ??
+			entry?.returnDate ??
+			entry?.inboundDate ??
+			null
+		);
+	}
+
+	getCalendarEntryKey(entry) {
+		const departure = this.getCalendarDepartureValue(entry);
+		if (!departure) {
+			return null;
+		}
+		const returnDate = this.getCalendarReturnValue(entry) ?? 'ONE_WAY';
+		return `${departure}|${returnDate}`;
+	}
+
+	mergeCalendarResponses(primary, secondary) {
+		if (!primary) return secondary;
+		if (!secondary) return primary;
+
+		const combined = [];
+		const seenKeys = new Set();
+
+		const addEntries = (entries) => {
+			if (!Array.isArray(entries)) return;
+			entries.forEach((entry) => {
+				const key = this.getCalendarEntryKey(entry);
+				if (!key || seenKeys.has(key)) {
+					return;
+				}
+				seenKeys.add(key);
+				combined.push(entry);
+			});
+		};
+
+		addEntries(primary?.calendar);
+		addEntries(secondary?.calendar);
+
+		const toTimestamp = (value) => {
+			if (!value) {
+				return Number.MAX_SAFE_INTEGER;
+			}
+			const parsed = Date.parse(value);
+			return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
+		};
+
+		combined.sort((a, b) => {
+			const depDiff =
+				toTimestamp(this.getCalendarDepartureValue(a)) - toTimestamp(this.getCalendarDepartureValue(b));
+			if (depDiff !== 0) {
+				return depDiff;
+			}
+			return toTimestamp(this.getCalendarReturnValue(a)) - toTimestamp(this.getCalendarReturnValue(b));
+		});
+
+		return {
+			...primary,
+			calendar: combined
+		};
 	}
 
 	adjustDate(dateString, offsetDays) {
