@@ -3,6 +3,8 @@ import { mobile, showSidebar, user, showArchivedChats, models } from '$lib/store
 import { getContext, onMount } from 'svelte';
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 import { goto } from '$app/navigation';
+import { generateScenicImage } from '$lib/apis/pollinations/index.js';
+import { cityList } from '$lib/utils/cityCodes';
 import { generateAIFlightAnalysisForAutoSearch } from '$lib/utils/flightPostHandler.js';
 	const i18n = getContext('i18n');
 
@@ -62,6 +64,43 @@ const travelClassReverseMap = {
 	1: 'PREMIUM_ECONOMY',
 	2: 'BUSINESS',
 	3: 'FIRST'
+};
+
+const formatDateForApi = (value) => {
+	if (!value) return null;
+	const date =
+		value instanceof Date
+			? value
+			: typeof value === 'string'
+				? new Date(value)
+				: new Date(Number(value));
+	if (Number.isNaN(date.getTime())) {
+		return null;
+	}
+	const year = date.getFullYear();
+	const month = `${date.getMonth() + 1}`.padStart(2, '0');
+	const day = `${date.getDate()}`.padStart(2, '0');
+	return `${year}-${month}-${day}`;
+};
+
+const getNextDateString = (isoDate, offsetDays = 1) => {
+	if (!isoDate) return null;
+	const date = new Date(isoDate);
+	if (Number.isNaN(date.getTime())) return null;
+	date.setDate(date.getDate() + offsetDays);
+	return formatDateForApi(date);
+};
+
+const translateDestinationToChinese = (destination) => {
+	if (!destination || typeof destination !== 'string') return destination;
+	const normalized = destination.trim().toLowerCase();
+	const match = cityList.find(
+		(city) =>
+			city.name.toLowerCase() === normalized ||
+			city.chinese.toLowerCase() === normalized ||
+			city.code.toLowerCase() === normalized
+	);
+	return match?.chinese || destination;
 };
 
 const persistSavedSearches = () => {
@@ -767,8 +806,25 @@ $: airlineCodeToName = new Map(
 				});
 			}
 			
+			if (!filteredSelectedDates.length) {
+				alert('Please select at least one valid date for this airline.');
+				return;
+			}
+
+			// Determine the first cheapest price entry
+			const [firstCheapest] = [...filteredSelectedDates].sort((a, b) => (a?.price ?? Infinity) - (b?.price ?? Infinity));
+			if (!firstCheapest || !Number.isFinite(firstCheapest.price)) {
+				alert('Unable to determine the cheapest price for the selected dates.');
+				return;
+			}
+			const firstCheapestDateISO = formatDateForApi(firstCheapest.date || firstCheapest.timestamp || firstCheapest.formattedDate);
+			if (!firstCheapestDateISO) {
+				alert('Unable to determine the date for the cheapest price.');
+				return;
+			}
+
 			// Find the lowest price from filtered selected dates
-			const lowestPrice = Math.min(...filteredSelectedDates.map(d => d.price));
+			const lowestPrice = firstCheapest.price;
 
 			// Separate departure and return dates (using filtered dates)
 			const departureDates = filteredSelectedDates
@@ -777,6 +833,23 @@ $: airlineCodeToName = new Map(
 			const returnDates = filteredSelectedDates
 				.filter(d => d.direction === 'return')
 				.map(d => d.formattedDate);
+
+			const firstDepartureSelection =
+				filteredSelectedDates.find((d) => d.direction === 'departure') || filteredSelectedDates[0];
+
+			// Determine outbound/return dates for API (ensure return is after outbound)
+			const outboundDateForApi = firstCheapestDateISO;
+			const firstReturnSelection = filteredSelectedDates.find((d) => d.direction === 'return');
+			let returnDateForApi =
+				formatDateForApi(firstReturnSelection?.date || firstReturnSelection?.formattedDate) ||
+				getNextDateString(outboundDateForApi);
+			if (
+				!returnDateForApi ||
+				!outboundDateForApi ||
+				new Date(returnDateForApi) <= new Date(outboundDateForApi)
+			) {
+				returnDateForApi = getNextDateString(outboundDateForApi);
+			}
 
 			// Format flight data for auto-search
 			const flightData = {
@@ -790,24 +863,82 @@ $: airlineCodeToName = new Map(
 			// Generate AI analysis with modified prompt
 			const aiAnalysis = await generateAIFlightAnalysisForAutoSearch(flightData, model);
 
+			// Generate scenic & flight info images
+			let scenicImage = null;
+			let originalScenicImage = null;
+			let flightInfoImage = null;
+			try {
+				const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') || '' : '';
+				const flightDataForBackend = {
+					flights: [
+						{
+							airline: airlineName || airlineCode || 'Multiple Airlines',
+							startingPlace: departurePlace,
+							destination: returnPlace,
+							departureDate: outboundDateForApi,
+							returnDate: returnDateForApi,
+							departureTime: '00:00',
+							arrivalTime: '',
+							cost: lowestPrice,
+							seatClass: travelClassReverseMap[selectedSearch.autoSearchResponse?.travel_class] || 'ECONOMY'
+						}
+					]
+				};
+
+				const imagePayload = {
+					destination: translateDestinationToChinese(returnPlace),
+					tourist_spot: '',
+					style: 'realistic',
+					width: 1024,
+					height: 1024,
+					flight_data: flightDataForBackend,
+					ai_analysis: aiAnalysis
+				};
+
+				const imageResponse = await generateScenicImage(token, imagePayload);
+				if (imageResponse?.success) {
+					scenicImage = imageResponse.image_base64 || imageResponse.image_url || null;
+					originalScenicImage = imageResponse.original_image_base64 || null;
+					flightInfoImage = imageResponse.flight_info_image_base64 || null;
+				}
+			} catch (imageError) {
+				console.error('Error generating images for auto-search post:', imageError);
+			}
+
+			const primaryDepartureDateISO =
+				formatDateForApi(firstDepartureSelection?.date || firstDepartureSelection?.formattedDate) ||
+				outboundDateForApi;
+			const primaryReturnDateISO =
+				formatDateForApi(firstReturnSelection?.date || firstReturnSelection?.formattedDate) ||
+				returnDateForApi;
+
 			// Format post data
+			const flightTimeValue = '0:00';
+
 			const postData = {
 				airline: airlineName || airlineCode || 'Multiple Airlines',
 				returnPrice: lowestPrice,
-				departureDate: departureDates.join(', '),
-				returnDate: returnDates.join(', '),
+				departureDate: primaryDepartureDateISO,
+				returnDate: primaryReturnDateISO,
 				startingPlace: departurePlace,
 				destination: returnPlace,
 				seatClass: travelClassReverseMap[selectedSearch.autoSearchResponse?.travel_class] || 'ECONOMY',
 				departureDates: departureDates,
-				returnDates: returnDates
+				returnDates: returnDates,
+				departureTime: '00:00',
+				arrivalTime: '',
+				flightTime: flightTimeValue
 			};
 
 			// Combine with AI analysis
 			const completePostData = {
 				...postData,
 				aiAnalysis: aiAnalysis,
-				modelInfo: model
+				modelInfo: model,
+				scenicImage,
+				originalScenicImage,
+				flightInfoImage,
+				promoteText: aiAnalysis?.promote_text || ''
 			};
 
 			// Store in sessionStorage and navigate to post page

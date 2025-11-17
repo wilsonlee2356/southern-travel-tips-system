@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { getFlightDataFromStorage, createFlightPostContent } from '$lib/utils/flightPostHandler.js';
+	import { cityList } from '$lib/utils/cityCodes';
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
 	import { createNewPost, getPostList, getPostById } from '$lib/apis/posts';
 
@@ -14,7 +15,7 @@
 	import Sidebar from '$lib/components/icons/Sidebar.svelte';
 
 	// Tab state
-	let activeTab = 'website-blog';
+let activeTab = 'website-blog';
 	
 	// Form content state
 	let postContent = '';
@@ -47,6 +48,28 @@
 	let postSaved = false;
 	let currentFlightData = null;
 	
+const translateDestinationToChinese = (destination) => {
+	if (!destination || typeof destination !== 'string') return destination;
+	const normalized = destination.trim().toLowerCase();
+	const match = cityList.find(
+		(city) =>
+			city.name.toLowerCase() === normalized ||
+			city.chinese.toLowerCase() === normalized ||
+			city.code.toLowerCase() === normalized
+	);
+	return match?.chinese || destination;
+};
+
+const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight Deal') => {
+	const translatedDestination = translateDestinationToChinese(destination);
+	const destinationTag = translatedDestination ? `【${translatedDestination}】` : '';
+	let baseHeader = headerText && headerText.trim() ? headerText.trim() : fallback;
+	if (destinationTag && !baseHeader.includes(destinationTag)) {
+		baseHeader = `${destinationTag} ${baseHeader}`.trim();
+	}
+	return baseHeader;
+};
+
 	// Function to save post to database
 	async function savePostToDatabase() {
 		if (!currentFlightData || postSaved) return;
@@ -92,7 +115,11 @@
 				console.log('Loading saved post:', savedPost);
 				
 				// Populate all fields from saved post
-				header = savedPost.ai_analysis?.header || savedPost.title || '';
+				header = formatHeaderWithDestination(
+					savedPost.ai_analysis?.header || savedPost.title || '',
+					flightData?.destination || '',
+					savedPost.title || 'Flight Deal'
+				);
 				firstComment = savedPost.ai_analysis?.content || '';
 				summary = savedPost.ai_analysis?.summary || '';
 				postContent = savedPost.post_content || '';
@@ -182,12 +209,20 @@
 			
 			// Use AI analysis if available, otherwise fallback to defaults
 			if (flightData.aiAnalysis) {
-				header = flightData.aiAnalysis.header;
+				header = formatHeaderWithDestination(
+					flightData.aiAnalysis.header,
+					flightData.destination || '',
+					`Flight Deal: ${flightData.airline || ''}`
+				);
 				firstComment = flightData.aiAnalysis.content;
 				summary = flightData.aiAnalysis.summary;
 			} else {
 				// Fallback to default values
-				header = `Flight Deal: ${flightData.airline}`;
+				header = formatHeaderWithDestination(
+					'',
+					flightData.destination || '',
+					`Flight Deal: ${flightData.airline || ''}`
+				);
 				firstComment = `Great flight deal found! ${flightData.airline} from ${flightData.startingPlace} to ${flightData.destination}`;
 				summary = flightData.multipleFlights 
 					? `Found ${flightData.flightCount} great flight deals!\n\nTotal Price: $${flightData.returnPrice}\nRoutes: ${flightData.allRoutes}\n\nPerfect for multi-city travel or group bookings.`
