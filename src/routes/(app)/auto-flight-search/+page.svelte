@@ -185,9 +185,14 @@ const buildSavedSearchFromResponse = (data) => {
 	const airlineCodes = airlineModels
 		.map((airline) => airline?.code)
 		.filter((code) => typeof code === 'string' && code.trim().length > 0);
-	const airlineNames = airlineModels.map(
-		(airline) => airline?.name ?? airline?.code ?? airline?.airline_id ?? 'Unknown Airline'
-	);
+	// Remove duplicate codes
+	const uniqueAirlineCodes = [...new Set(airlineCodes)];
+	const airlineNames = airlineModels
+		.map((airline) => airline?.name ?? airline?.code ?? airline?.airline_id ?? 'Unknown Airline')
+		.filter((name, index, self) => {
+			// Remove duplicates by name
+			return self.indexOf(name) === index;
+		});
 
 	return {
 		id: autoSearchId,
@@ -198,7 +203,7 @@ const buildSavedSearchFromResponse = (data) => {
 		travelClass: travelClassReverseMap[data?.travel_class] ?? 'ECONOMY',
 		nonStop: Boolean(data?.direct_flight),
 		enabled: true,
-		airlines: airlineCodes,
+		airlines: uniqueAirlineCodes,
 		airlineNames,
 		lastSearched: data?.auto_search?.updated_at ?? data?.auto_search?.created_at ?? null,
 		autoSearchResponse: data,

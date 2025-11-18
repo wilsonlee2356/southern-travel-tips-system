@@ -22,8 +22,10 @@
 const formatAirlineSummary = (search) => {
 	const names = search?.airlineNames ?? search?.airlines ?? [];
 	if (!names || names.length === 0) return 'No airlines selected';
-	if (names.length <= 3) return names.join(', ');
-	return `${names.slice(0, 3).join(', ')} +${names.length - 3} more`;
+	// Remove duplicates by converting to Set and back to array
+	const uniqueNames = [...new Set(names)];
+	if (uniqueNames.length <= 3) return uniqueNames.join(', ');
+	return `${uniqueNames.slice(0, 3).join(', ')} +${uniqueNames.length - 3} more`;
 };
 </script>
 
@@ -54,14 +56,8 @@ const formatAirlineSummary = (search) => {
 					✈️ Airlines: {formatAirlineSummary(search)}
 				</div>
 				
-				<!-- Status -->
-				<div class="flex items-center justify-between">
-					<span class="text-xs {
-						search.enabled ? 'text-green-600 dark:text-green-400' : 'text-gray-500'
-					}">
-						{search.enabled ? '✓ Enabled' : '✗ Disabled'}
-					</span>
-					
+				<!-- Actions -->
+				<div class="flex items-center justify-end">
 					<div class="flex gap-1">
 						<!-- Refresh Mini Button -->
 						<button

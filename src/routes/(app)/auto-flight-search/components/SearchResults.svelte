@@ -116,10 +116,6 @@ function colorForIndex(index) {
 		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 	};
 
-	const toggleSearch = () => {
-		dispatch('toggleSearch', selectedSearch.id);
-	};
-
 	const handleCellClick = (depDate, retDate, cell) => {
 		dispatch('cellClick', { depDate, retDate, cell });
 	};
@@ -289,33 +285,11 @@ $: selectedSeriesLabel = selectedSeries
 				<h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
 					{selectedSearch.departureDisplay} → {selectedSearch.destinationDisplay}
 				</h3>
-				<div class="flex gap-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
-					<span>🕐 Daily at {selectedSearch.autoSearchTime}</span>
-					{#if selectedSearch.lastSearched}
+				{#if selectedSearch.lastSearched}
+					<div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
 						<span>Last updated: {new Date(selectedSearch.lastSearched).toLocaleString()}</span>
-					{/if}
-				</div>
-			</div>
-			<!-- iOS-style Toggle Switch with Label -->
-			<div class="flex items-center gap-2">
-				<span class="text-sm text-gray-700 dark:text-gray-300">Enable</span>
-				<button
-					on:click={toggleSearch}
-					class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none {
-						selectedSearch.enabled 
-							? 'bg-green-500' 
-							: 'bg-gray-300 dark:bg-gray-600'
-					}"
-					role="switch"
-					aria-checked={selectedSearch.enabled}
-					title={selectedSearch.enabled ? 'Disable auto search' : 'Enable auto search'}
-				>
-					<span
-						class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform {
-							selectedSearch.enabled ? 'translate-x-6' : 'translate-x-1'
-						}"
-					/>
-				</button>
+					</div>
+				{/if}
 			</div>
 		</div>
 
