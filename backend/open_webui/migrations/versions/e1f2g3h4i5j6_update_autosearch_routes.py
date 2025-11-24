@@ -45,12 +45,6 @@ def upgrade():
             ["return_route_id"],
             unique=False,
         )
-        if "ix_auto_search_airline_id" not in index_names:
-            batch_op.create_index(
-                "ix_auto_search_airline_id",
-                ["airline_id"],
-                unique=False,
-            )
         batch_op.create_foreign_key(
             "auto_search_departure_route_id_fkey",
             "flight_route",
@@ -89,8 +83,6 @@ def downgrade():
             batch_op.drop_index("ix_auto_search_return_route_id")
         if "ix_auto_search_departure_route_id" in index_names:
             batch_op.drop_index("ix_auto_search_departure_route_id")
-        if "ix_auto_search_airline_id" in index_names:
-            batch_op.drop_index("ix_auto_search_airline_id")
         if "return_route_id" in column_names:
             batch_op.drop_column("return_route_id")
         if "departure_route_id" in column_names:

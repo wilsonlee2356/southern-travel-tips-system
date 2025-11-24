@@ -1,359 +1,460 @@
-2025-11-13 21:02:36.681 | INFO     | uvicorn.protocols.http.httptools_impl:send:476 - 127.0.0.1:59630 - "POST /api/v1/auto-flight-search/auto-search/7e7bf76d-e76f-4d86-8795-de5747037ac2/refresh HTTP/1.1" 500
+2025-11-19 08:02:56.113 | INFO     | uvicorn.protocols.http.httptools_impl:send:476 - 192.168.0.2:54898 - "GET /api/v1/auto-flight-search/auto-search HTTP/1.1" 500
 Exception in ASGI application
-  + Exception Group Traceback (most recent call last):
-  |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 76, in collapse_excgroups
-  |     yield
-  |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 178, in __call__
-  |     async with anyio.create_task_group() as task_group:
-  |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
-  |     raise BaseExceptionGroup(
-  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
-  +-+---------------- 1 ----------------
-    | Traceback (most recent call last):
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
-    |     result = await app(  # type: ignore[func-returns-value]
-    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-    |     return await self.app(scope, receive, send)
-    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/applications.py", line 1054, in __call__
-    |     await super().__call__(scope, receive, send)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/applications.py", line 112, in __call__
-    |     await self.middleware_stack(scope, receive, send)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/errors.py", line 187, in __call__
-    |     raise exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/errors.py", line 165, in __call__
-    |     await self.app(scope, receive, _send)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/cors.py", line 93, in __call__
-    |     await self.simple_response(scope, receive, send, request_headers=headers)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/cors.py", line 144, in simple_response
-    |     await self.app(scope, receive, send)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
-    |     with recv_stream, send_stream, collapse_excgroups():
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
-    |     self.gen.throw(typ, value, traceback)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
-    |     raise exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
-    |     response = await self.dispatch_func(request, call_next)
-    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/main.py", line 1220, in inspect_websocket
-    |     return await call_next(request)
-    |            ^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    |     raise app_exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
-    |     await self.app(scope, receive_or_disconnect, send_no_error)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
-    |     with recv_stream, send_stream, collapse_excgroups():
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
-    |     self.gen.throw(typ, value, traceback)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
-    |     raise exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
-    |     response = await self.dispatch_func(request, call_next)
-    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/main.py", line 1199, in check_url
-    |     response = await call_next(request)
-    |                ^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    |     raise app_exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
-    |     await self.app(scope, receive_or_disconnect, send_no_error)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
-    |     with recv_stream, send_stream, collapse_excgroups():
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
-    |     self.gen.throw(typ, value, traceback)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
-    |     raise exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
-    |     response = await self.dispatch_func(request, call_next)
-    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/main.py", line 1185, in commit_session_after_request
-    |     response = await call_next(request)
-    |                ^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    |     raise app_exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
-    |     await self.app(scope, receive_or_disconnect, send_no_error)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
-    |     with recv_stream, send_stream, collapse_excgroups():
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
-    |     self.gen.throw(typ, value, traceback)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
-    |     raise exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
-    |     response = await self.dispatch_func(request, call_next)
-    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/main.py", line 1177, in add_ngrok_header
-    |     response = await call_next(request)
-    |                ^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    |     raise app_exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
-    |     await self.app(scope, receive_or_disconnect, send_no_error)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
-    |     with recv_stream, send_stream, collapse_excgroups():
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
-    |     self.gen.throw(typ, value, traceback)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
-    |     raise exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
-    |     response = await self.dispatch_func(request, call_next)
-    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/utils/adapter_middleware.py", line 72, in dispatch
-    |     response = await call_next(request)
-    |                ^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    |     raise app_exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
-    |     await self.app(scope, receive_or_disconnect, send_no_error)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
-    |     with recv_stream, send_stream, collapse_excgroups():
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
-    |     self.gen.throw(typ, value, traceback)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
-    |     raise exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
-    |     response = await self.dispatch_func(request, call_next)
-    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/utils/security_headers.py", line 11, in dispatch
-    |     response = await call_next(request)
-    |                ^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    |     raise app_exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
-    |     await self.app(scope, receive_or_disconnect, send_no_error)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
-    |     with recv_stream, send_stream, collapse_excgroups():
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
-    |     self.gen.throw(typ, value, traceback)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
-    |     raise exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
-    |     response = await self.dispatch_func(request, call_next)
-    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/main.py", line 1158, in dispatch
-    |     response = await call_next(request)
-    |                ^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    |     raise app_exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
-    |     await self.app(scope, receive_or_disconnect, send_no_error)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette_compress/__init__.py", line 92, in __call__
-    |     return await self._zstd(scope, receive, send)
-    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette_compress/_zstd_legacy.py", line 100, in __call__
-    |     await self.app(scope, receive, wrapper)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
-    |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    |     raise exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    |     await app(scope, receive, sender)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
-    |     await self.middleware_stack(scope, receive, send)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
-    |     await route.handle(scope, receive, send)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
-    |     await self.app(scope, receive, send)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
-    |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    |     raise exc
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    |     await app(scope, receive, sender)
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
-    |     response = await f(request)
-    |                ^^^^^^^^^^^^^^^^
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/routing.py", line 301, in app
-    |     raw_response = await run_endpoint_function(
-    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/routing.py", line 212, in run_endpoint_function
-    |     return await dependant.call(**values)
-    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/routers/auto_flight.py", line 825, in refresh_auto_flight_search
-    |     response_payload = _compose_auto_search_response(
-    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/routers/auto_flight.py", line 437, in _compose_auto_search_response
-    |     if link and link.airline:
-    |                 ^^^^^^^^^^^^
-    |   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/pydantic/main.py", line 991, in __getattr__
-    |     raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
-    | AttributeError: 'AutoSearchAirlineModel' object has no attribute 'airline'
-    +------------------------------------
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: no such column: auto_search.departure_route_id
 
-During handling of the above exception, another exception occurred:
+The above exception was the direct cause of the following exception:
 
 Traceback (most recent call last):
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
     result = await app(  # type: ignore[func-returns-value]
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
     return await self.app(scope, receive, send)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/applications.py", line 1054, in __call__
+  File "/usr/local/lib/python3.11/site-packages/fastapi/applications.py", line 1134, in __call__
     await super().__call__(scope, receive, send)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/applications.py", line 112, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
     await self.middleware_stack(scope, receive, send)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/errors.py", line 187, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 186, in __call__
     raise exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/errors.py", line 165, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
     await self.app(scope, receive, _send)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/cors.py", line 93, in __call__
-    await self.simple_response(scope, receive, send, request_headers=headers)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/cors.py", line 144, in simple_response
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 85, in __call__
     await self.app(scope, receive, send)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
     with recv_stream, send_stream, collapse_excgroups():
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
     self.gen.throw(typ, value, traceback)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
     raise exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
     response = await self.dispatch_func(request, call_next)
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/main.py", line 1220, in inspect_websocket
+  File "/app/backend/open_webui/main.py", line 1220, in inspect_websocket
     return await call_next(request)
            ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    raise app_exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
     await self.app(scope, receive_or_disconnect, send_no_error)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
     with recv_stream, send_stream, collapse_excgroups():
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
     self.gen.throw(typ, value, traceback)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
     raise exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
     response = await self.dispatch_func(request, call_next)
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/main.py", line 1199, in check_url
+  File "/app/backend/open_webui/main.py", line 1199, in check_url
     response = await call_next(request)
                ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    raise app_exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
     await self.app(scope, receive_or_disconnect, send_no_error)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
     with recv_stream, send_stream, collapse_excgroups():
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
     self.gen.throw(typ, value, traceback)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
     raise exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
     response = await self.dispatch_func(request, call_next)
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/main.py", line 1185, in commit_session_after_request
+  File "/app/backend/open_webui/main.py", line 1185, in commit_session_after_request
     response = await call_next(request)
                ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    raise app_exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
     await self.app(scope, receive_or_disconnect, send_no_error)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
     with recv_stream, send_stream, collapse_excgroups():
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
     self.gen.throw(typ, value, traceback)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
     raise exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
     response = await self.dispatch_func(request, call_next)
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/main.py", line 1177, in add_ngrok_header
+  File "/app/backend/open_webui/main.py", line 1177, in add_ngrok_header
     response = await call_next(request)
                ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    raise app_exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
     await self.app(scope, receive_or_disconnect, send_no_error)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
     with recv_stream, send_stream, collapse_excgroups():
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
     self.gen.throw(typ, value, traceback)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
     raise exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
     response = await self.dispatch_func(request, call_next)
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/utils/adapter_middleware.py", line 72, in dispatch
+  File "/app/backend/open_webui/utils/adapter_middleware.py", line 72, in dispatch
     response = await call_next(request)
                ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    raise app_exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
     await self.app(scope, receive_or_disconnect, send_no_error)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
     with recv_stream, send_stream, collapse_excgroups():
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
     self.gen.throw(typ, value, traceback)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
     raise exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
     response = await self.dispatch_func(request, call_next)
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/utils/security_headers.py", line 11, in dispatch
+  File "/app/backend/open_webui/utils/security_headers.py", line 11, in dispatch
     response = await call_next(request)
                ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    raise app_exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
     await self.app(scope, receive_or_disconnect, send_no_error)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 177, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
     with recv_stream, send_stream, collapse_excgroups():
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/contextlib.py", line 158, in __exit__
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
     self.gen.throw(typ, value, traceback)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
     raise exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 179, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
     response = await self.dispatch_func(request, call_next)
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/main.py", line 1158, in dispatch
+  File "/app/backend/open_webui/main.py", line 1158, in dispatch
     response = await call_next(request)
                ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 154, in call_next
-    raise app_exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
     await self.app(scope, receive_or_disconnect, send_no_error)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette_compress/__init__.py", line 92, in __call__
-    return await self._zstd(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette_compress/__init__.py", line 96, in __call__
+    return await self._gzip(scope, receive, send)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette_compress/_zstd_legacy.py", line 100, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette_compress/_gzip.py", line 110, in __call__
     await self.app(scope, receive, wrapper)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
     raise exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
     await app(scope, receive, sender)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
-    await route.handle(scope, receive, send)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
+  File "/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
     await self.app(scope, receive, send)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 125, in app
     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
     raise exc
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
     await app(scope, receive, sender)
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 111, in app
     response = await f(request)
                ^^^^^^^^^^^^^^^^
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/routing.py", line 301, in app
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 391, in app
     raw_response = await run_endpoint_function(
                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/routing.py", line 212, in run_endpoint_function
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 290, in run_endpoint_function
     return await dependant.call(**values)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/routers/auto_flight.py", line 825, in refresh_auto_flight_search
-    response_payload = _compose_auto_search_response(
-                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/routers/auto_flight.py", line 437, in _compose_auto_search_response
-    if link and link.airline:
-                ^^^^^^^^^^^^
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/pydantic/main.py", line 991, in __getattr__
-    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
-AttributeError: 'AutoSearchAirlineModel' object has no attribute 'airline'
+  File "/app/backend/open_webui/routers/auto_flight.py", line 786, in list_auto_flight_searches
+    auto_search_models = auto_search_table.list_all()
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/open_webui/models/flight_pricing.py", line 670, in list_all
+    .all()
+     ^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 2704, in all
+    return self._iter().all()  # type: ignore
+           ^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2249, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
+    return meth(
+           ^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: auto_search.departure_route_id
+[SQL: SELECT auto_search.auto_search_id AS auto_search_auto_search_id, auto_search.departure_route_id AS auto_search_departure_route_id, auto_search.return_route_id AS auto_search_return_route_id, auto_search.travel_class AS auto_search_travel_class, auto_search.direct_flight AS auto_search_direct_flight, auto_search.created_at AS auto_search_created_at, auto_search.updated_at AS auto_search_updated_at
+FROM auto_search ORDER BY auto_search.created_at DESC]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-11-19 08:02:56.160 | INFO     | uvicorn.protocols.http.httptools_impl:send:476 - 192.168.0.2:54878 - "GET /api/v1/auto-flight-search/auto-search/schedule HTTP/1.1" 200
+2025-11-19 08:03:24.127 | INFO     | uvicorn.protocols.http.httptools_impl:send:476 - 192.168.0.2:57006 - "GET /_app/version.json HTTP/1.1" 200
+2025-11-19 08:03:42.493 | INFO     | uvicorn.protocols.http.httptools_impl:send:476 - 192.168.0.2:35018 - "POST /api/v1/auto-flight-search/auto-search HTTP/1.1" 500
+Exception in ASGI application
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: table auto_search has no column named departure_route_id
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/fastapi/applications.py", line 1134, in __call__
+    await super().__call__(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/open_webui/main.py", line 1220, in inspect_websocket
+    return await call_next(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/open_webui/main.py", line 1199, in check_url
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/open_webui/main.py", line 1185, in commit_session_after_request
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/open_webui/main.py", line 1177, in add_ngrok_header
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/open_webui/utils/adapter_middleware.py", line 72, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/open_webui/utils/security_headers.py", line 11, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/open_webui/main.py", line 1158, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/usr/local/lib/python3.11/site-packages/starlette_compress/__init__.py", line 96, in __call__
+    return await self._gzip(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/starlette_compress/_gzip.py", line 110, in __call__
+    await self.app(scope, receive, wrapper)
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 125, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 111, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 391, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 290, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/open_webui/routers/auto_flight.py", line 687, in create_auto_flight_search
+    ) = auto_search_table.create_configuration(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/backend/open_webui/models/flight_pricing.py", line 611, in create_configuration
+    auto_search = self.create(
+                  ^^^^^^^^^^^^
+  File "/app/backend/open_webui/models/flight_pricing.py", line 538, in create
+    db.commit()
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2030, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1311, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1286, in _prepare_impl
+    self.session.flush()
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4331, in flush
+    self._flush(objects)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4466, in _flush
+    with util.safe_reraise():
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4427, in _flush
+    flush_context.execute()
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/persistence.py", line 93, in save_obj
+    _emit_insert_statements(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/orm/persistence.py", line 1233, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
+    return meth(
+           ^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1641, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 951, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) table auto_search has no column named departure_route_id
+[SQL: INSERT INTO auto_search (auto_search_id, departure_route_id, return_route_id, travel_class, direct_flight, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)]
+[parameters: ('65151775-cfdb-454e-ae39-44dd07234e41', 'c30f75e6-4bbf-4d5f-acb0-e90f15bb0c56', 'cde4d7a3-0adf-4b7b-b045-bcac40b9db67', 0, 0, '2025-11-19 08:03:42.492558', '2025-11-19 08:03:42.492559')]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)

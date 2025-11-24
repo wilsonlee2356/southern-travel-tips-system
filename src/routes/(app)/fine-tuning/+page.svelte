@@ -2,8 +2,6 @@
 	import { mobile, showSidebar, user, showArchivedChats } from '$lib/stores';
 	import { getContext } from 'svelte';
 	import { onMount } from 'svelte';
-	import { FineTuningClient, FineTuningUtils } from '$lib/utils/fineTuning.js';
-
 	const i18n = getContext('i18n');
 
 	import UserMenu from '$lib/components/layout/Sidebar/UserMenu.svelte';
@@ -44,8 +42,8 @@
 	let lossChartData = [];
 	let learningRateChartData = [];
 
-	// Initialize fine-tuning client
-	let fineTuningClient = new FineTuningClient();
+	// API configuration
+	const API_URL = 'http://localhost:8001';
 
 	// Training functions
 	const startTraining = async () => {
@@ -55,92 +53,44 @@
 		}
 
 		// Validate configuration
-		const validation = FineTuningUtils.validateConfig(modelConfig);
-		if (!validation.isValid) {
-			alert('Configuration errors:\n' + validation.errors.join('\n'));
+		if (!modelConfig.baseModel) {
+			alert('Base model is required');
+			return;
+		}
+		if (!modelConfig.adapterName) {
+			alert('Adapter name is required');
 			return;
 		}
 
 		try {
-			// Set up callbacks
-			fineTuningClient.setCallbacks({
-				onProgress: (data) => {
-					console.log('Progress update received:', data);
-					trainingProgress = data.progress;
-					currentEpoch = data.epoch;
-					currentLoss = data.trainLoss;
-					validationLoss = data.valLoss;
-					learningRate = data.learningRate;
-					
-					// Update charts
-					lossChartData = [...lossChartData, {
-						epoch: data.epoch + (data.step / 100),
-						trainLoss: data.trainLoss,
-						valLoss: data.valLoss
-					}];
-
-					learningRateChartData = [...learningRateChartData, {
-						epoch: data.epoch + (data.step / 100),
-						lr: data.learningRate
-					}];
-
-					// Limit chart data
-					if (lossChartData.length > 100) {
-						lossChartData = lossChartData.slice(-100);
-						learningRateChartData = learningRateChartData.slice(-100);
-					}
-				},
-				onStatusChange: (status) => {
-					trainingStatus = status;
-				},
-				onComplete: async (result) => {
-					trainingStatus = result.message;
-					isTraining = false;
-					
-					// Fetch actual training metrics from backend
-					try {
-						if (currentSessionId) {
-							const metricsResponse = await fineTuningClient.getTrainingMetrics(currentSessionId);
-							if (metricsResponse.training_metrics && metricsResponse.training_metrics.length > 0) {
-								// Replace simulated chart data with real metrics
-								lossChartData = metricsResponse.training_metrics.map(metric => ({
-									epoch: metric.x,  // This is epoch + step/100
-									trainLoss: metric.train_loss,
-									valLoss: metric.train_loss  // Use train_loss as val_loss since no validation
-								}));
-								
-								learningRateChartData = metricsResponse.training_metrics.map(metric => ({
-									epoch: metric.x,
-									lr: metric.learning_rate
-								}));
-								
-								console.log('Loaded real training metrics:', metricsResponse.training_metrics.length, 'points');
-							}
-						}
-					} catch (error) {
-						console.error('Failed to fetch training metrics:', error);
-					}
-					
-					// Add final epoch to history
-					trainingHistory = [...trainingHistory, {
-						epoch: modelConfig.numEpochs,
-						trainLoss: currentLoss,
-						valLoss: validationLoss,
-						timestamp: new Date().toLocaleTimeString()
-					}];
-				},
-				onError: (error) => {
-					trainingStatus = 'Training failed: ' + error.message;
-					isTraining = false;
-				}
+			// Start training via API
+			const formData = new FormData();
+			formData.append('file', selectedDataset);
+			
+			const queryParams = new URLSearchParams({
+				base_model: modelConfig.baseModel,
+				adapter_name: modelConfig.adapterName
 			});
 
-			// Start training
-			console.log('Starting training...');
-			const sessionId = await fineTuningClient.startFineTuning(modelConfig, selectedDataset);
-			console.log('Received session ID:', sessionId);
-			currentSessionId = sessionId;
-			trainingLogs = [`[${new Date().toLocaleTimeString()}] Training started with session ID: ${sessionId}`];
+			const response = await fetch(`${API_URL}/api/fine-tuning/start?${queryParams}`, {
+				method: 'POST',
+				body: formData
+			});
+
+			if (!response.ok) {
+				const error = await response.json().catch(() => ({ detail: response.statusText }));
+				throw new Error(error.detail || `HTTP ${response.status}: ${response.statusText}`);
+			}
+
+			const result = await response.json();
+			currentSessionId = result.session_id;
+			isTraining = true;
+			trainingProgress = 0;
+			trainingStatus = 'Training started...';
+			trainingLogs = [`[${new Date().toLocaleTimeString()}] Training started with session ID: ${currentSessionId}`];
+			
+			// Start monitoring
+			monitorTraining();
 		} catch (error) {
 			console.error('Training failed:', error);
 			trainingStatus = 'Training failed: ' + error.message;
@@ -148,8 +98,85 @@
 		}
 	};
 
-	const stopTraining = () => {
-		fineTuningClient.stopTraining();
+	const monitorTraining = async () => {
+		const pollInterval = 2000;
+		
+		while (isTraining && currentSessionId) {
+			try {
+				const response = await fetch(`${API_URL}/api/fine-tuning/status/${currentSessionId}`);
+				if (!response.ok) break;
+				
+				const status = await response.json();
+				trainingProgress = status.progress || 0;
+				trainingStatus = status.message || 'Training...';
+				currentEpoch = status.current_epoch || 0;
+				currentLoss = status.train_loss || 0;
+				validationLoss = status.validation_loss || 0;
+				learningRate = status.learning_rate || 0;
+				
+				// Update charts
+				if (status.current_epoch !== undefined && status.train_loss !== undefined) {
+					lossChartData = [...lossChartData, {
+						epoch: status.current_epoch,
+						trainLoss: status.train_loss,
+						valLoss: status.validation_loss || status.train_loss
+					}];
+					learningRateChartData = [...learningRateChartData, {
+						epoch: status.current_epoch,
+						lr: status.learning_rate || 0
+					}];
+					
+					if (lossChartData.length > 100) {
+						lossChartData = lossChartData.slice(-100);
+						learningRateChartData = learningRateChartData.slice(-100);
+					}
+				}
+				
+				if (status.status === 'completed' || status.status === 'failed' || status.status === 'stopped') {
+					isTraining = false;
+					if (status.status === 'completed') {
+						// Fetch final metrics
+						try {
+							const metricsResponse = await fetch(`${API_URL}/api/fine-tuning/metrics/${currentSessionId}`);
+							if (metricsResponse.ok) {
+								const metrics = await metricsResponse.json();
+								if (metrics.training_metrics && metrics.training_metrics.length > 0) {
+									lossChartData = metrics.training_metrics.map(metric => ({
+										epoch: metric.x,
+										trainLoss: metric.train_loss,
+										valLoss: metric.train_loss
+									}));
+									learningRateChartData = metrics.training_metrics.map(metric => ({
+										epoch: metric.x,
+										lr: metric.learning_rate
+									}));
+								}
+							}
+						} catch (error) {
+							console.error('Failed to fetch training metrics:', error);
+						}
+					}
+					break;
+				}
+				
+				await new Promise(resolve => setTimeout(resolve, pollInterval));
+			} catch (error) {
+				console.error('Error monitoring training:', error);
+				break;
+			}
+		}
+	};
+
+	const stopTraining = async () => {
+		if (currentSessionId) {
+			try {
+				await fetch(`${API_URL}/api/fine-tuning/stop/${currentSessionId}`, {
+					method: 'POST'
+				});
+			} catch (error) {
+				console.error('Error stopping training:', error);
+			}
+		}
 		isTraining = false;
 		trainingStatus = 'Training stopped by user';
 	};
@@ -174,8 +201,19 @@
 
 	const exportModel = async () => {
 		try {
-			const result = await fineTuningClient.exportModel(modelConfig.adapterName);
-			alert(result.message);
+			// Check if model exists in Ollama
+			const response = await fetch('http://localhost:11434/api/tags');
+			if (response.ok) {
+				const data = await response.json();
+				const modelExists = data.models?.some(model => model.name === modelConfig.adapterName);
+				if (modelExists) {
+					alert(`Model ${modelConfig.adapterName} is ready for use in Ollama`);
+				} else {
+					alert(`Model ${modelConfig.adapterName} not found. Please ensure training completed successfully.`);
+				}
+			} else {
+				alert('Failed to check model availability');
+			}
 		} catch (error) {
 			alert('Export failed: ' + error.message);
 		}
@@ -184,7 +222,7 @@
 	const refreshLogs = async () => {
 		if (currentSessionId && currentSessionId !== 'undefined') {
 			try {
-				const response = await fetch(`http://localhost:8001/api/fine-tuning/status/${currentSessionId}`);
+				const response = await fetch(`${API_URL}/api/fine-tuning/status/${currentSessionId}`);
 				if (response.ok) {
 					const status = await response.json();
 					const newLog = `[${new Date().toLocaleTimeString()}] ${status.message} (Loss: ${status.train_loss?.toFixed(4) || 'N/A'})`;

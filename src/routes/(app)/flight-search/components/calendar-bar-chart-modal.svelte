@@ -311,11 +311,22 @@ let sortedTicks = [];
 				const matchingBar = bars.find((bar) => getBarKey(bar) === searchKey);
 				if (matchingBar) {
 					selectedBarKey = searchKey;
-					hoveredBarKey = searchKey;
+					// Update tooltip position for initial selection
+					setTimeout(() => {
+						if (scrollContainer) {
+							const barElement = scrollContainer.querySelector(`[data-bar-key="${searchKey}"]`);
+							if (barElement) {
+								updateSelectedTooltipPosition(matchingBar, barElement);
+								selectedTooltipBar = matchingBar;
+							}
+						}
+					}, 100);
 				}
 				initialSelectionApplied = true;
 			} else if (selectedBarKey && !bars.some((bar) => getBarKey(bar) === selectedBarKey)) {
 				selectedBarKey = null;
+				selectedTooltipPosition.visible = false;
+				selectedTooltipBar = null;
 			}
 
 			if (hoveredBarKey && !bars.some((bar) => getBarKey(bar) === hoveredBarKey)) {
@@ -413,6 +424,10 @@ let selectedBarKey = null;
 let hoveredBarKey = null;
 let initialSelectionApplied = false;
 let lastSearchKey = null;
+let selectedTooltipPosition = { x: 0, y: 0, visible: false };
+let selectedTooltipBar = null;
+let hoveredTooltipPosition = { x: 0, y: 0, visible: false };
+let hoveredTooltipBar = null;
 // let monthMarkers = [];
 
 const extractSearchDeparture = (params) =>
@@ -449,29 +464,113 @@ const getTooltipZIndex = (bar) => {
 	return 200;
 };
 
-const handleBarClick = (bar) => {
+const handleBarClick = (bar, event) => {
 	const key = getBarKey(bar);
 	if (!key) return;
-	selectedBarKey = selectedBarKey === key ? null : key;
-	hoveredBarKey = selectedBarKey;
+	const wasSelected = selectedBarKey === key;
+	selectedBarKey = wasSelected ? null : key;
+	
+	if (selectedBarKey && event?.currentTarget) {
+		// Immediately update position when clicked
+		updateSelectedTooltipPosition(bar, event.currentTarget);
+		selectedTooltipBar = bar;
+	} else {
+		// Hide selected tooltip when deselected
+		selectedTooltipPosition.visible = false;
+		selectedTooltipBar = null;
+	}
 };
 
-const handleBarMouseEnter = (bar) => {
+const updateSelectedTooltipPosition = (bar, element) => {
+	if (!element) {
+		selectedTooltipPosition.visible = false;
+		return;
+	}
+	const rect = element.getBoundingClientRect();
+	selectedTooltipPosition = {
+		x: rect.left + rect.width / 2,
+		y: rect.top - 24,
+		visible: true
+	};
+	selectedTooltipBar = bar;
+};
+
+const updateHoveredTooltipPosition = (bar, element) => {
+	if (!element) {
+		hoveredTooltipPosition.visible = false;
+		return;
+	}
+	const rect = element.getBoundingClientRect();
+	hoveredTooltipPosition = {
+		x: rect.left + rect.width / 2,
+		y: rect.top - 24,
+		visible: true
+	};
+	hoveredTooltipBar = bar;
+};
+
+const handleBarMouseEnter = (bar, event) => {
 	hoveredBarKey = getBarKey(bar);
+	if (event?.currentTarget) {
+		updateHoveredTooltipPosition(bar, event.currentTarget);
+		hoveredTooltipBar = bar;
+	}
 };
 
 const handleBarMouseLeave = (bar) => {
 	if (hoveredBarKey === getBarKey(bar)) {
 		hoveredBarKey = null;
+		hoveredTooltipPosition.visible = false;
+		hoveredTooltipBar = null;
 	}
 };
 
 const handleBarKeydown = (event, bar) => {
 	if (event.key === 'Enter' || event.key === ' ') {
 		event.preventDefault();
-		handleBarClick(bar);
+		handleBarClick(bar, event);
 	}
 };
+
+// Update tooltip position on scroll
+let scrollContainer = null;
+const handleScroll = () => {
+	// Update selected tooltip position
+	if (selectedBarKey && scrollContainer && selectedTooltipBar) {
+		const barElement = scrollContainer.querySelector(`[data-bar-key="${selectedBarKey}"]`);
+		if (barElement) {
+			updateSelectedTooltipPosition(selectedTooltipBar, barElement);
+		}
+	}
+	// Update hovered tooltip position
+	if (hoveredBarKey && scrollContainer && hoveredTooltipBar) {
+		const barElement = scrollContainer.querySelector(`[data-bar-key="${hoveredBarKey}"]`);
+		if (barElement) {
+			updateHoveredTooltipPosition(hoveredTooltipBar, barElement);
+		}
+	}
+};
+
+// Update selected tooltip position when selectedBarKey changes
+$: {
+	if (selectedBarKey && scrollContainer && bars.length > 0) {
+		// Use setTimeout to ensure DOM is updated
+		setTimeout(() => {
+			const barElement = scrollContainer?.querySelector(`[data-bar-key="${selectedBarKey}"]`);
+			if (barElement) {
+				const selectedBar = bars.find(bar => getBarKey(bar) === selectedBarKey);
+				if (selectedBar) {
+					updateSelectedTooltipPosition(selectedBar, barElement);
+					selectedTooltipBar = selectedBar;
+				}
+			}
+		}, 0);
+	} else if (!selectedBarKey) {
+		// Hide selected tooltip if no bar is selected
+		selectedTooltipPosition.visible = false;
+		selectedTooltipBar = null;
+	}
+}
 </script>
 
 {#if open}
@@ -556,8 +655,10 @@ const handleBarKeydown = (event, bar) => {
 									</div>
 								</div>
 								<div
+									bind:this={scrollContainer}
 									class="relative z-10 flex-1 overflow-visible"
-									style={`height: ${CHART_HEIGHT + AXIS_GAP + TOP_GAP}px`}
+									style={`height: ${CHART_HEIGHT + AXIS_GAP + TOP_GAP}px; overflow-x: auto; overflow-y: visible;`}
+									on:scroll={handleScroll}
 								>
 									<div
 										class="pointer-events-none absolute inset-x-0"
@@ -578,13 +679,14 @@ const handleBarKeydown = (event, bar) => {
 									>
 										{#each bars as bar (getBarKey(bar))}
 											<div
+												data-bar-key={getBarKey(bar)}
 												class="flex flex-none flex-col items-center gap-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
 												style={`width: ${isOneWay ? '24px' : '28px'};`}
-												on:mouseenter={() => handleBarMouseEnter(bar)}
+												on:mouseenter={(e) => handleBarMouseEnter(bar, e)}
 												on:mouseleave={() => handleBarMouseLeave(bar)}
 												on:click={(event) => {
 													event.stopPropagation();
-													handleBarClick(bar);
+													handleBarClick(bar, event);
 												}}
 												on:keydown={(event) => handleBarKeydown(event, bar)}
 												role="button"
@@ -598,32 +700,6 @@ const handleBarKeydown = (event, bar) => {
 														}`}
 														style={`height: ${getBarHeight(bar.price)}px`}
 													></div>
-													{#if isTooltipActive(bar)}
-														<div
-															class="pointer-events-none absolute inset-x-0 bottom-full mb-2 flex flex-col items-center gap-1"
-															style={`z-index: ${getTooltipZIndex(bar)}`}
-														>
-															<div class="rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700 flex flex-col gap-2 min-w-[180px]">
-																{#if !isOneWay}
-																	<div class="flex items-center justify-between text-[11px] tracking-wide opacity-80">
-																		<span class="font-semibold">行程時長</span>
-																		<span>{tripLengthDays === 1 ? '1 天' : `${tripLengthDays} 天`}</span>
-																	</div>
-																{/if}
-																<div class="flex items-center justify-between gap-3">
-																	<div class="font-semibold whitespace-nowrap">{formatCurrency(bar.price)} 起</div>
-																	<div class="opacity-80 whitespace-nowrap">
-																		{#if isOneWay}
-																			{formatShortDate(bar.departure)}
-																		{:else}
-																			{formatShortDateRange(bar.departure, bar.return)}
-																		{/if}
-																	</div>
-																</div>
-															</div>
-															<div class="h-2 w-2 rotate-45 bg-gray-900 dark:bg-gray-700"></div>
-														</div>
-													{/if}
 												</div>
 											</div>
 										{/each}
@@ -640,4 +716,61 @@ const handleBarKeydown = (event, bar) => {
 		</div>
 	</div>
 {/if}
+
+<!-- Selected bar tooltip (fixed/persistent) -->
+{#if selectedTooltipPosition.visible && selectedTooltipBar}
+	<div
+		class="pointer-events-none fixed flex flex-col items-center gap-1"
+		style={`z-index: 10001; left: ${selectedTooltipPosition.x}px; top: ${selectedTooltipPosition.y}px; transform: translate(-50%, -100%);`}
+	>
+		<div class="rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700 flex flex-col gap-2 min-w-[180px] border-2 border-blue-500">
+			{#if !isOneWay}
+				<div class="flex items-center justify-between text-[11px] tracking-wide opacity-80">
+					<span class="font-semibold">行程時長</span>
+					<span>{tripLengthDays === 1 ? '1 天' : `${tripLengthDays} 天`}</span>
+				</div>
+			{/if}
+			<div class="flex items-center justify-between gap-3">
+				<div class="font-semibold whitespace-nowrap">{formatCurrency(selectedTooltipBar.price)} 起</div>
+				<div class="opacity-80 whitespace-nowrap">
+					{#if isOneWay}
+						{formatShortDate(selectedTooltipBar.departure)}
+					{:else}
+						{formatShortDateRange(selectedTooltipBar.departure, selectedTooltipBar.return)}
+					{/if}
+				</div>
+			</div>
+		</div>
+		<div class="h-2 w-2 rotate-45 bg-gray-900 dark:bg-gray-700"></div>
+	</div>
+{/if}
+
+<!-- Hovered bar tooltip (temporary) -->
+{#if hoveredTooltipPosition.visible && hoveredTooltipBar && hoveredBarKey !== selectedBarKey}
+	<div
+		class="pointer-events-none fixed flex flex-col items-center gap-1"
+		style={`z-index: 10002; left: ${hoveredTooltipPosition.x}px; top: ${hoveredTooltipPosition.y}px; transform: translate(-50%, -100%);`}
+	>
+		<div class="rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700 flex flex-col gap-2 min-w-[180px]">
+			{#if !isOneWay}
+				<div class="flex items-center justify-between text-[11px] tracking-wide opacity-80">
+					<span class="font-semibold">行程時長</span>
+					<span>{tripLengthDays === 1 ? '1 天' : `${tripLengthDays} 天`}</span>
+				</div>
+			{/if}
+			<div class="flex items-center justify-between gap-3">
+				<div class="font-semibold whitespace-nowrap">{formatCurrency(hoveredTooltipBar.price)} 起</div>
+				<div class="opacity-80 whitespace-nowrap">
+					{#if isOneWay}
+						{formatShortDate(hoveredTooltipBar.departure)}
+					{:else}
+						{formatShortDateRange(hoveredTooltipBar.departure, hoveredTooltipBar.return)}
+					{/if}
+				</div>
+			</div>
+		</div>
+		<div class="h-2 w-2 rotate-45 bg-gray-900 dark:bg-gray-700"></div>
+	</div>
+{/if}
+
 

@@ -66,9 +66,10 @@
 	import FolderModal from './Sidebar/Folders/FolderModal.svelte';
 	import Sidebar from '../icons/Sidebar.svelte';
 	import PinnedModelList from './Sidebar/PinnedModelList.svelte';
-	import Note from '../icons/Note.svelte';
+import Note from '../icons/Note.svelte';
 	import AppIcon from '../icons/AppIcon.svelte';
 	import { slide } from 'svelte/transition';
+import Sparkles from '../icons/Sparkles.svelte';
 
 	const BREAKPOINT = 768;
 
@@ -577,6 +578,27 @@
 					</Tooltip>
 				</div>
 
+				<div class="">
+					<Tooltip content={$i18n.t('Google AI Mode')} placement="right">
+						<a
+							class=" cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition group"
+							href="/google-ai-mode"
+							draggable="false"
+							on:click={async (e) => {
+								e.stopImmediatePropagation();
+								e.preventDefault();
+
+								goto('/google-ai-mode');
+								itemClickHandler();
+							}}
+						>
+							<div class=" self-center flex items-center justify-center size-9">
+								<Sparkles className="size-4.5" />
+							</div>
+						</a>
+					</Tooltip>
+				</div>
+
 				<!-- <div class="">
 					<Tooltip content={$i18n.t('Search')} placement="right">
 						<button
@@ -875,6 +897,23 @@
 
 						<div class="flex self-center translate-y-[0.5px]">
 							<div class=" self-center text-sm font-primary">{$i18n.t('New Chat')}</div>
+						</div>
+					</a>
+				</div>
+
+				<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
+					<a
+						class="grow flex items-center space-x-3 rounded-lg px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition outline-none"
+						href="/google-ai-mode"
+						draggable="false"
+						on:click={itemClickHandler}
+					>
+						<div class="self-center">
+							<Sparkles className="size-4.5" strokeWidth="1.7" />
+						</div>
+
+						<div class="flex self-center translate-y-[0.5px]">
+							<div class=" self-center text-sm font-primary">{$i18n.t('Google AI Mode')}</div>
 						</div>
 					</a>
 				</div>
