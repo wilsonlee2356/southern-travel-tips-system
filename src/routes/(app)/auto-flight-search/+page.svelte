@@ -6,14 +6,65 @@ import { goto } from '$app/navigation';
 import { generateScenicImage } from '$lib/apis/pollinations/index.js';
 import { cityList } from '$lib/utils/cityCodes';
 import { generateAIFlightAnalysisForAutoSearch } from '$lib/utils/flightPostHandler.js';
+// import { runGrokConnectivityTest } from '$lib/services/grokTest.js';
 	const i18n = getContext('i18n');
+
+const grokFlightPrompt = `Search ONLY on skyscanner.com.hk using DIRECT URL method with the exact syntax shown below (do NOT modify the date format or add extra slashes).
+
+Reference example URL (must follow this pattern exactly):
+https://www.skyscanner.com.hk/transport/flights/hkg/nrt/251126/251203/?adultsv2=1&childrenv2=&cabinclass=economy&rtn=1&outboundaltsenabled=false&inboundaltsenabled=false&airlines=235&preferdirects=false
+
+Rules:
+- Dates MUST be in YYMMDD format (e.g., 251126 = 26 Nov 2025, 260101 = 1 Jan 2026)
+- CX-only filter = &airlines=235 (strictly Cathay Pacific operated only, no codeshares)
+- Route: hkg/nrt/ or hkg/hnd/ (use nrt first, fall back to hnd if needed)
+- Earliest outbound = tomorrow in YYMMDD
+- Latest return = exactly 6 months after tomorrow in YYMMDD
+
+Construct and scan multiple direct URLs covering the cheapest date combinations from tomorrow through the next 6 months (Dec 2025 – May 2026).
+
+Only include flights 100% operated by Cathay Pacific (CX metal, flight numbers CX4xx/CX5xx).
+
+Take the 10 absolute cheapest unique round-trip options (deduplicate by outbound+return YYMMDD pair), sorted by price ascending.
+
+Output ONLY pure valid JSON — no extra text, no placeholders, no comments, all 10 entries fully listed.
+
+{
+  "search_parameters": {
+    "departure": "HKG",
+    "destination": "TYO",
+    "airline": "Cathay Pacific (CX-operated only, no codeshares)",
+    "cabin": "Economy",
+    "trip_type": "Round-trip",
+    "date_range_start": "tomorrow (YYMMDD)",
+    "date_range_end": "6 months after tomorrow (YYMMDD)",
+    "sites": ["skyscanner.com.hk"],
+    "retrieved_at": "2025-11-24 HH:mm (HKT)",
+    "url_template_example": "https://www.skyscanner.com.hk/transport/flights/hkg/nrt/251126/251203/?adultsv2=1&childrenv2=&cabinclass=economy&rtn=1&outboundaltsenabled=false&inboundaltsenabled=false&airlines=235&departure-times=480-840&preferdirects=false"
+  },
+  "flights": [
+    {
+      "outbound_date": "251201",
+      "return_date": "251208",
+      "price_hkd": 1680,
+      "original_price_hkd": 2180,
+      "outbound_flight": "CX506 HKG 08:15 → HND 13:55",
+      "return_flight": "CX505 HND 15:25 → HKG 20:05",
+      "duration_nights": 7,
+      "stops": "Direct",
+      "source_site": "https://www.skyscanner.com.hk/transport/flights/hkg/nrt/251201/251208/?adultsv2=1&childrenv2=&cabinclass=economy&rtn=1&outboundaltsenabled=false&inboundaltsenabled=false&airlines=235&preferdirects=false"
+    }
+  ],
+  "total_options_aggregated": 10,
+  "price_range_hkd": { "lowest": 0, "highest": 0 },
+  "note": "10 cheapest unique CX-operated round-trips using exact Skyscanner YYMMDD direct URLs (example syntax enforced)."
+}`;
 
 	import UserMenu from '$lib/components/layout/Sidebar/UserMenu.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Sidebar from '$lib/components/icons/Sidebar.svelte';
 	import SearchForm from './components/SearchForm.svelte';
 	import SavedSearchesList from './components/SavedSearchesList.svelte';
-	import SearchResults from './components/SearchResults.svelte';
 	
 	// List of saved search configurations
 	let savedSearches = [];
@@ -24,23 +75,11 @@ import { generateAIFlightAnalysisForAutoSearch } from '$lib/utils/flightPostHand
 	// Track which search is currently selected for display
 	let selectedSearchId = null;
 	
-	// Tooltip state for charts
-	let hoveredBar = null;
-	let tooltipPosition = { x: 0, y: 0 };
-	
-	// Track selected flights (multiple selection allowed)
-	let selectedFlights = [];
 
 	// Global auto-search refresh schedule (HH:MM, 24-hour)
 	let autoSearchRefreshTime = '03:00';
 	let isUpdatingSchedule = false;
 
-	// Placeholder event handlers (page in development)
-	const toggleFlight = () => {};
-	const selectFlight = () => {};
-	const toggleCompare = () => {};
-	const updateHoveredBar = () => {};
-	const deselectFlight = () => {};
 	
 // Model selection
 let selectedModel = null;
@@ -282,6 +321,14 @@ onMount(async () => {
 
 	await loadSavedSearches();
 	await loadAutoSearchSchedule();
+
+	// Lightweight Grok connectivity check so we detect issues as soon as the page loads.
+	try {
+		// const grokGreeting = await runGrokConnectivityTest(grokFlightPrompt);
+		// console.info('Grok connectivity test succeeded:', grokGreeting);
+	} catch (error) {
+		console.warn('Grok connectivity test failed:', error);
+	}
 });
 
 $: airlineCodeToName = new Map(
@@ -355,8 +402,8 @@ $: airlineCodeToName = new Map(
 		return filtered;
 	})();
 
-	// Handle adding a new search from the SearchForm component
-	const callAutoSearchApi = async (search) => {
+	// Handle adding a new search from the SearchForm component - now uses MCP
+	const callMCPFlightSearch = async (search, modelId, returnTripDays) => {
 		const airlineCodes = search.airlines ?? [];
 		if (airlineCodes.length < 1) {
 			throw new Error('Please select at least 1 airline before adding an auto search.');
@@ -365,15 +412,21 @@ $: airlineCodeToName = new Map(
 			throw new Error(`Please select no more than ${MAX_AIRLINES} airlines.`);
 		}
 
+		if (!modelId) {
+			throw new Error('Please select an AI model to use for the search.');
+		}
+
 		const payload = {
-			from_place: search.departure,
-			to_place: search.destination,
+			departure: search.departure,
+			destination: search.destination,
 			airlines: airlineCodes,
 			travel_class: travelClassMap[search.travelClass] ?? 0,
-			direct_flight: Boolean(search.nonStop)
+			direct_flight: Boolean(search.nonStop),
+			model_id: modelId,
+			return_trip_days: returnTripDays || null
 		};
 
-		const response = await fetch(`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search`, {
+		const response = await fetch(`${WEBUI_API_BASE_URL}/auto-flight-search/mcp-search`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(payload),
@@ -382,18 +435,17 @@ $: airlineCodeToName = new Map(
 
 		if (!response.ok) {
 			const errorText = await response.text();
-			throw new Error(errorText || `Auto search failed (${response.status})`);
+			throw new Error(errorText || `MCP flight search failed (${response.status})`);
 		}
 
 		return await response.json();
 	};
 
 	const handleAddSearch = async (event) => {
-		const newSearch = event.detail;
+		const { search: newSearch, modelId, returnTripDays } = event.detail;
 		let backendId = null;
 
-		// Add a loading state for this new search so the right-side panel shows the same
-		// loading cover as when the user presses the refresh button on a saved search.
+		// Add a loading state for this new search
 		{
 			const loadingCopy = new Set(loadingSearches);
 			loadingCopy.add(newSearch.id);
@@ -406,30 +458,24 @@ $: airlineCodeToName = new Map(
 			selectedSearchId = newSearch.id;
 
 			const searchIndex = savedSearches.findIndex((s) => s.id === newSearch.id);
-			const data = await callAutoSearchApi(newSearch);
+			const data = await callMCPFlightSearch(newSearch, modelId, returnTripDays);
 
-			console.debug('Auto search response (add):', data);
+			console.debug('MCP flight search response (add):', data);
 
-			backendId = data?.auto_search?.auto_search_id ?? newSearch.id;
-			const backendAirlineModels = Array.isArray(data?.airlines) ? data.airlines : [];
-			const backendAirlineCodes = backendAirlineModels
-				.map((airline) => airline?.code)
-				.filter((code) => typeof code === 'string' && code.trim().length > 0);
-			const backendAirlineNames = backendAirlineModels.map(
-				(airline) => airline?.name ?? airline?.code ?? airline?.airline_id ?? 'Unknown Airline'
-			);
+			backendId = data?.auto_search_id ?? newSearch.id;
 
 			savedSearches[searchIndex] = {
 				...newSearch,
 				id: backendId,
 				lastSearched: new Date().toISOString(),
-				travelClass:
-					travelClassReverseMap[data?.travel_class] ?? newSearch.travelClass ?? 'ECONOMY',
-				nonStop: Boolean(data?.direct_flight),
-				airlines: backendAirlineCodes.length ? backendAirlineCodes : newSearch.airlines,
-				airlineNames: backendAirlineNames.length ? backendAirlineNames : newSearch.airlineNames,
-				autoSearchResponse: data,
-				error: undefined
+				travelClass: newSearch.travelClass ?? 'ECONOMY',
+				nonStop: newSearch.nonStop,
+				airlines: newSearch.airlines,
+				airlineNames: newSearch.airlineNames,
+				mcpResponse: data,
+				savedFlightCount: data?.saved_flight_count ?? 0,
+				toolCallsCount: data?.tool_calls_count ?? 0,
+				error: data?.error || undefined
 			};
 
 			savedSearches = [...savedSearches];
@@ -701,261 +747,6 @@ $: airlineCodeToName = new Map(
 	// Select a search to display
 	const selectSearch = (searchId) => {
 		selectedSearchId = searchId;
-		selectedFlights = [];
-		hoveredBar = null;
-	};
-
-	// Handle bar hover
-	const handleBarHover = (event, data, index) => {
-		hoveredBar = index;
-		const rect = event.target.getBoundingClientRect();
-		tooltipPosition = {
-			x: rect.left + rect.width / 2,
-			y: rect.top
-		};
-	};
-
-	// Handle bar leave
-	const handleBarLeave = () => {
-		hoveredBar = null;
-	};
-
-	// Handle cell click in grid - toggle flight selection
-	const handleCellClick = (depDate, retDate, cell) => {
-		if (!cell) return;
-		
-		const flightKey = `${depDate}_${retDate}`;
-		const existingIndex = selectedFlights.findIndex(f => f.key === flightKey);
-		
-		console.log('Cell clicked:', { depDate, retDate, flightKey, existingIndex });
-		
-		if (existingIndex >= 0) {
-			// Deselect - remove from array
-			console.log('Deselecting flight');
-			selectedFlights = selectedFlights.filter((_, i) => i !== existingIndex);
-		} else {
-			// Select - add to array
-			console.log('Selecting flight');
-			selectedFlights = [...selectedFlights, {
-				key: flightKey,
-				...cell
-			}];
-		}
-		
-		console.log('Selected flights after click:', selectedFlights);
-	};
-	
-	// Reactive set of selected flight keys for faster lookup
-	$: selectedFlightKeys = new Set(selectedFlights.map(f => f.key));
-	
-	// Debug reactive statement
-	$: {
-		console.log('selectedFlightKeys updated:', Array.from(selectedFlightKeys));
-	}
-	
-	// Check if a flight is selected
-	const isFlightSelected = (depDate, retDate) => {
-		const flightKey = `${depDate}_${retDate}`;
-		const isSelected = selectedFlightKeys.has(flightKey);
-		return isSelected;
-	};
-	
-	// Remove a flight from selection
-	const removeSelectedFlight = (flightKey) => {
-		selectedFlights = selectedFlights.filter(f => f.key !== flightKey);
-	};
-
-	// Posting state for auto-search post button
-	let isPostingAuto = false;
-
-	// Handle post from CheapestPricesList
-	const handleAutoSearchPost = async (event) => {
-		const { selectedDates, model, airlineCode, airlineName } = event.detail;
-		const selectedSearch = savedSearches.find(s => s.id === selectedSearchId);
-		
-		if (!selectedSearch || !selectedSearch.autoSearchResponse) {
-			alert('Please select a search first');
-			return;
-		}
-
-		if (!selectedDates || selectedDates.length === 0) {
-			alert('Please select at least one date to post');
-			return;
-		}
-
-		if (!model) {
-			alert('Please select an AI model to use for content generation');
-			return;
-		}
-
-		try {
-			isPostingAuto = true;
-			// Get route information from the selected search
-			const route = selectedSearch.autoSearchResponse?.route;
-			const departurePlace = route?.from_place || '';
-			const returnPlace = route?.to_place || '';
-
-			// Filter selectedDates to only include dates from the current airline
-			// Since combinedCalendarData in PriceLineChart is already filtered to the current airline
-			// when viewing a specific airline (not "Overall"), the selectedDates should already
-			// be filtered. But we add an extra check here to ensure we only use the current airline's data.
-			let filteredSelectedDates = selectedDates;
-			
-			// If airlineCode is provided, filter to only include dates from that airline
-			if (airlineCode && selectedDates.length > 0) {
-				filteredSelectedDates = selectedDates.filter(d => {
-					// Check if the date's airline_code matches the current airline
-					// If airline_code is not available in the date object, we trust that
-					// combinedCalendarData was already filtered correctly
-					return !d.airline_code || d.airline_code === airlineCode;
-				});
-			}
-			
-			if (!filteredSelectedDates.length) {
-				alert('Please select at least one valid date for this airline.');
-				return;
-			}
-
-			// Determine the first cheapest price entry
-			const [firstCheapest] = [...filteredSelectedDates].sort((a, b) => (a?.price ?? Infinity) - (b?.price ?? Infinity));
-			if (!firstCheapest || !Number.isFinite(firstCheapest.price)) {
-				alert('Unable to determine the cheapest price for the selected dates.');
-				return;
-			}
-			const firstCheapestDateISO = formatDateForApi(firstCheapest.date || firstCheapest.timestamp || firstCheapest.formattedDate);
-			if (!firstCheapestDateISO) {
-				alert('Unable to determine the date for the cheapest price.');
-				return;
-			}
-
-			// Find the lowest price from filtered selected dates
-			const lowestPrice = firstCheapest.price;
-
-			// Separate departure and return dates (using filtered dates)
-			const departureDates = filteredSelectedDates
-				.filter(d => d.direction === 'departure')
-				.map(d => d.formattedDate);
-			const returnDates = filteredSelectedDates
-				.filter(d => d.direction === 'return')
-				.map(d => d.formattedDate);
-
-			const firstDepartureSelection =
-				filteredSelectedDates.find((d) => d.direction === 'departure') || filteredSelectedDates[0];
-
-			// Determine outbound/return dates for API (ensure return is after outbound)
-			const outboundDateForApi = firstCheapestDateISO;
-			const firstReturnSelection = filteredSelectedDates.find((d) => d.direction === 'return');
-			let returnDateForApi =
-				formatDateForApi(firstReturnSelection?.date || firstReturnSelection?.formattedDate) ||
-				getNextDateString(outboundDateForApi);
-			if (
-				!returnDateForApi ||
-				!outboundDateForApi ||
-				new Date(returnDateForApi) <= new Date(outboundDateForApi)
-			) {
-				returnDateForApi = getNextDateString(outboundDateForApi);
-			}
-
-			// Format flight data for auto-search
-			const flightData = {
-				departurePlace,
-				returnPlace,
-				lowestPrice,
-				departureDates,
-				returnDates
-			};
-
-			// Generate AI analysis with modified prompt
-			const aiAnalysis = await generateAIFlightAnalysisForAutoSearch(flightData, model);
-
-			// Generate scenic & flight info images
-			let scenicImage = null;
-			let originalScenicImage = null;
-			let flightInfoImage = null;
-			try {
-				const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') || '' : '';
-				const flightDataForBackend = {
-					flights: [
-						{
-							airline: airlineName || airlineCode || 'Multiple Airlines',
-							startingPlace: departurePlace,
-							destination: returnPlace,
-							departureDate: outboundDateForApi,
-							returnDate: returnDateForApi,
-							departureTime: '00:00',
-							arrivalTime: '',
-							cost: lowestPrice,
-							seatClass: travelClassReverseMap[selectedSearch.autoSearchResponse?.travel_class] || 'ECONOMY'
-						}
-					]
-				};
-
-				const imagePayload = {
-					destination: translateDestinationToChinese(returnPlace),
-					tourist_spot: '',
-					style: 'realistic',
-					width: 1024,
-					height: 1024,
-					flight_data: flightDataForBackend,
-					ai_analysis: aiAnalysis
-				};
-
-				const imageResponse = await generateScenicImage(token, imagePayload);
-				if (imageResponse?.success) {
-					scenicImage = imageResponse.image_base64 || imageResponse.image_url || null;
-					originalScenicImage = imageResponse.original_image_base64 || null;
-					flightInfoImage = imageResponse.flight_info_image_base64 || null;
-				}
-			} catch (imageError) {
-				console.error('Error generating images for auto-search post:', imageError);
-			}
-
-			const primaryDepartureDateISO =
-				formatDateForApi(firstDepartureSelection?.date || firstDepartureSelection?.formattedDate) ||
-				outboundDateForApi;
-			const primaryReturnDateISO =
-				formatDateForApi(firstReturnSelection?.date || firstReturnSelection?.formattedDate) ||
-				returnDateForApi;
-
-			// Format post data
-			const flightTimeValue = '0:00';
-
-			const postData = {
-				airline: airlineName || airlineCode || 'Multiple Airlines',
-				returnPrice: lowestPrice,
-				departureDate: primaryDepartureDateISO,
-				returnDate: primaryReturnDateISO,
-				startingPlace: departurePlace,
-				destination: returnPlace,
-				seatClass: travelClassReverseMap[selectedSearch.autoSearchResponse?.travel_class] || 'ECONOMY',
-				departureDates: departureDates,
-				returnDates: returnDates,
-				departureTime: '00:00',
-				arrivalTime: '',
-				flightTime: flightTimeValue
-			};
-
-			// Combine with AI analysis
-			const completePostData = {
-				...postData,
-				aiAnalysis: aiAnalysis,
-				modelInfo: model,
-				scenicImage,
-				originalScenicImage,
-				flightInfoImage,
-				promoteText: aiAnalysis?.promote_text || ''
-			};
-
-			// Store in sessionStorage and navigate to post page
-			sessionStorage.setItem('flightPostData', JSON.stringify(completePostData));
-			goto('/post');
-		} catch (error) {
-			console.error('Error posting auto-search:', error);
-			alert('Failed to generate post. Please try again.');
-		} finally {
-			// In practice, navigation to /post will unmount this page; this is just a safety.
-			isPostingAuto = false;
-		}
 	};
 </script>
 
@@ -1063,6 +854,8 @@ $: airlineCodeToName = new Map(
 						availableAirlines={availableAirlines}
 						airlinesLoading={airlinesLoading}
 						airlinesError={airlinesError}
+						availableModels={filteredModels}
+						selectedModel={selectedModel}
 					/>
 
 					<!-- Auto-search daily refresh time configuration -->
@@ -1121,56 +914,87 @@ $: airlineCodeToName = new Map(
 							/>
 						</div>
 						
-						<!-- Right Column: Results Display (2/3 width) -->
+						<!-- Right Column: AI Run Log (2/3 width) -->
 						<div class="lg:col-span-2">
-							<SearchResults
-								selectedSearch={savedSearches.find(s => s.id === selectedSearchId)}
-								{selectedFlights}
-								{selectedFlightKeys}
-								{hoveredBar}
-								{filteredModels}
-								{selectedModel}
-								isPosting={isPostingAuto}
-								{loadingSearches}
-								on:toggleSearch={(e) => toggleSearch(e.detail)}
-								on:toggleFlight={(e) => toggleFlight(e.detail)}
-								on:selectFlight={(e) => selectFlight(e.detail)}
-								on:toggleCompare={(e) => toggleCompare(e.detail)}
-								on:updateModel={(e) => (selectedModel = e.detail)}
-								on:updateHoveredBar={(e) => updateHoveredBar(e.detail)}
-								on:deselectFlight={(e) => deselectFlight(e.detail)}
-								on:post={handleAutoSearchPost}
-							/>
+							{#if selectedSearchId}
+								{@const selectedSearch = savedSearches.find(s => s.id === selectedSearchId)}
+								{#if selectedSearch}
+									<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+										<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+											AI Search Results
+										</h2>
+										
+										{#if selectedSearch.mcpResponse}
+											<div class="space-y-4">
+												<div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+													<div class="flex items-center gap-2 mb-2">
+														{#if selectedSearch.mcpResponse.success}
+															<svg class="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+																<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+															</svg>
+														{:else}
+															<svg class="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+																<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+															</svg>
+														{/if}
+														<span class="font-medium text-gray-900 dark:text-gray-100">
+															{selectedSearch.mcpResponse.message || 'Search completed'}
+														</span>
+													</div>
+													
+													<div class="grid grid-cols-2 gap-4 mt-4">
+														<div>
+															<div class="text-sm text-gray-600 dark:text-gray-400">Flights Found</div>
+															<div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+																{selectedSearch.savedFlightCount || 0}
+															</div>
+														</div>
+														<div>
+															<div class="text-sm text-gray-600 dark:text-gray-400">Tool Calls</div>
+															<div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+																{selectedSearch.toolCallsCount || 0}
+															</div>
+														</div>
+													</div>
+													
+													{#if selectedSearch.mcpResponse.error}
+														<div class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded text-sm text-red-700 dark:text-red-300">
+															{selectedSearch.mcpResponse.error}
+														</div>
+													{/if}
+												</div>
+												
+												{#if selectedSearch.lastSearched}
+													<div class="text-sm text-gray-500 dark:text-gray-400">
+														Last searched: {new Date(selectedSearch.lastSearched).toLocaleString()}
+													</div>
+												{/if}
+											</div>
+										{:else if selectedSearch.error}
+											<div class="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+												<div class="text-red-700 dark:text-red-300">
+													{selectedSearch.error}
+												</div>
+											</div>
+										{:else}
+											<div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center text-gray-500 dark:text-gray-400">
+												No search results yet. Click refresh to run the AI search.
+											</div>
+										{/if}
+									</div>
+								{/if}
+							{:else}
+								<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-12 text-center">
+									<p class="text-gray-500 dark:text-gray-400">
+										Select a search from the list to view AI search results
+									</p>
+								</div>
+							{/if}
 						</div>
 					</div>
 				{/if}
 			</div>
 
-			<!-- Hover Tooltip -->
-			{#if hoveredBar !== null && selectedSearchId}
-				{@const selectedSearch = savedSearches.find(s => s.id === selectedSearchId)}
-				{#if selectedSearch && selectedSearch.chartData && selectedSearch.chartData[hoveredBar]}
-					{@const data = selectedSearch.chartData[hoveredBar]}
-					<div 
-						class="fixed z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl p-3 pointer-events-none text-xs"
-						style="left: {tooltipPosition.x}px; top: {tooltipPosition.y - 80}px; transform: translateX(-50%);"
-					>
-						<div class="absolute bottom-[-6px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-6 border-r-6 border-t-6 border-l-transparent border-r-transparent border-t-white dark:border-t-gray-800"></div>
-						
-						<div class="space-y-1 min-w-[150px]">
-							<div class="font-semibold text-gray-700 dark:text-gray-300">
-								{data.duration}-day trip
-							</div>
-							<div class="text-gray-900 dark:text-gray-100">
-								{formatTooltipDate(data.departureDate)} - {formatTooltipDate(data.returnDate)}
-							</div>
-							<div class="font-bold text-blue-600 dark:text-blue-400">
-								From ${data.price}
-							</div>
-						</div>
-					</div>
-				{/if}
-			{/if}
 	</div>
 </div>
 

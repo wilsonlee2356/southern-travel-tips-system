@@ -14,13 +14,27 @@ from sqlalchemy import (
     UniqueConstraint,
     or_,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, joinedload
 
 from open_webui.internal.db import Base, get_db
 
 
 def generate_uuid() -> str:
     return str(uuid.uuid4())
+
+
+class Airport(Base):
+    __tablename__ = "airport"
+
+    airport_id = Column(String, primary_key=True, default=generate_uuid)
+    iata = Column(String, nullable=False)
+    airport_name = Column(Text, nullable=False)
+    place_name = Column(Text, nullable=False)
+    display_name = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
 
 class Airline(Base):
@@ -45,11 +59,26 @@ class FlightRoute(Base):
     __tablename__ = "flight_route"
 
     route_id = Column(String, primary_key=True, default=generate_uuid)
-    from_place = Column(String(10), nullable=False)
-    to_place = Column(String(10), nullable=False)
+    from_airport_id = Column(
+        String, ForeignKey("airport.airport_id"), nullable=False, index=True
+    )
+    to_airport_id = Column(
+        String, ForeignKey("airport.airport_id"), nullable=False, index=True
+    )
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    from_airport = relationship(
+        "Airport",
+        foreign_keys=[from_airport_id],
+        lazy="joined",
+    )
+    to_airport = relationship(
+        "Airport",
+        foreign_keys=[to_airport_id],
+        lazy="joined",
     )
 
     departure_auto_searches = relationship(
@@ -64,6 +93,14 @@ class FlightRoute(Base):
         back_populates="return_route",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def from_place(self) -> Optional[str]:
+        return self.from_airport.iata if self.from_airport else None
+
+    @property
+    def to_place(self) -> Optional[str]:
+        return self.to_airport.iata if self.to_airport else None
 
 
 class AutoSearch(Base):
@@ -186,6 +223,18 @@ class Price(Base):
         return auto_search.auto_search_id if auto_search else None
 
 
+class AirportModel(BaseModel):
+    airport_id: str = Field(default_factory=generate_uuid)
+    iata: str
+    airport_name: str
+    place_name: str
+    display_name: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AirlineModel(BaseModel):
     airline_id: str = Field(default_factory=generate_uuid)
     code: Optional[str] = None
@@ -198,8 +247,10 @@ class AirlineModel(BaseModel):
 
 class FlightRouteModel(BaseModel):
     route_id: str = Field(default_factory=generate_uuid)
-    from_place: str
-    to_place: str
+    from_airport_id: str
+    to_airport_id: str
+    from_place: Optional[str] = None
+    to_place: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -330,33 +381,75 @@ class FlightRoutesTable:
     def _normalize_code(self, value: str) -> str:
         return value.strip().upper()
 
+    def _get_airport(
+        self, db, code: str, *, field: str
+    ) -> Airport:
+        normalized = self._normalize_code(code)
+        airport = (
+            db.query(Airport).filter(Airport.iata == normalized).first()
+        )
+        if not airport:
+            raise ValueError(f"Unknown airport code '{code}' for {field}")
+        return airport
+
+    def _to_model(self, record: FlightRoute) -> FlightRouteModel:
+        return FlightRouteModel(
+            route_id=record.route_id,
+            from_airport_id=record.from_airport_id,
+            to_airport_id=record.to_airport_id,
+            from_place=record.from_place,
+            to_place=record.to_place,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        )
+
     def create(self, from_place: str, to_place: str) -> FlightRouteModel:
         with get_db() as db:
+            from_airport = self._get_airport(db, from_place, field="from_place")
+            to_airport = self._get_airport(db, to_place, field="to_place")
             record = FlightRoute(
-                from_place=self._normalize_code(from_place),
-                to_place=self._normalize_code(to_place),
+                from_airport_id=from_airport.airport_id,
+                to_airport_id=to_airport.airport_id,
             )
+            record.from_airport = from_airport
+            record.to_airport = to_airport
             db.add(record)
             db.commit()
             db.refresh(record)
-            return FlightRouteModel.model_validate(record)
+            return self._to_model(record)
 
     def get(self, route_id: str) -> Optional[FlightRouteModel]:
         with get_db() as db:
-            record = db.query(FlightRoute).filter_by(route_id=route_id).first()
-            return FlightRouteModel.model_validate(record) if record else None
-
-    def get_by_places(self, from_place: str, to_place: str) -> Optional[FlightRouteModel]:
-        with get_db() as db:
             record = (
                 db.query(FlightRoute)
+                .options(
+                    joinedload(FlightRoute.from_airport),
+                    joinedload(FlightRoute.to_airport),
+                )
+                .filter_by(route_id=route_id)
+                .first()
+            )
+            return self._to_model(record) if record else None
+
+    def get_by_places(
+        self, from_place: str, to_place: str
+    ) -> Optional[FlightRouteModel]:
+        with get_db() as db:
+            from_airport = self._get_airport(db, from_place, field="from_place")
+            to_airport = self._get_airport(db, to_place, field="to_place")
+            record = (
+                db.query(FlightRoute)
+                .options(
+                    joinedload(FlightRoute.from_airport),
+                    joinedload(FlightRoute.to_airport),
+                )
                 .filter(
-                    FlightRoute.from_place == self._normalize_code(from_place),
-                    FlightRoute.to_place == self._normalize_code(to_place),
+                    FlightRoute.from_airport_id == from_airport.airport_id,
+                    FlightRoute.to_airport_id == to_airport.airport_id,
                 )
                 .first()
             )
-            return FlightRouteModel.model_validate(record) if record else None
+            return self._to_model(record) if record else None
 
     def get_or_create(self, from_place: str, to_place: str) -> FlightRouteModel:
         existing = self.get_by_places(from_place, to_place)
@@ -366,19 +459,41 @@ class FlightRoutesTable:
 
     def list(self) -> List[FlightRouteModel]:
         with get_db() as db:
-            records = db.query(FlightRoute).order_by(FlightRoute.created_at.desc()).all()
-            return [FlightRouteModel.model_validate(record) for record in records]
+            records = (
+                db.query(FlightRoute)
+                .options(
+                    joinedload(FlightRoute.from_airport),
+                    joinedload(FlightRoute.to_airport),
+                )
+                .order_by(FlightRoute.created_at.desc())
+                .all()
+            )
+            return [self._to_model(record) for record in records]
 
-    def update(self, route_id: str, from_place: str, to_place: str) -> Optional[FlightRouteModel]:
+    def update(
+        self, route_id: str, from_place: str, to_place: str
+    ) -> Optional[FlightRouteModel]:
         with get_db() as db:
-            record = db.query(FlightRoute).filter_by(route_id=route_id).first()
+            record = (
+                db.query(FlightRoute)
+                .options(
+                    joinedload(FlightRoute.from_airport),
+                    joinedload(FlightRoute.to_airport),
+                )
+                .filter_by(route_id=route_id)
+                .first()
+            )
             if not record:
                 return None
-            record.from_place = from_place
-            record.to_place = to_place
+            from_airport = self._get_airport(db, from_place, field="from_place")
+            to_airport = self._get_airport(db, to_place, field="to_place")
+            record.from_airport_id = from_airport.airport_id
+            record.to_airport_id = to_airport.airport_id
+            record.from_airport = from_airport
+            record.to_airport = to_airport
             db.commit()
             db.refresh(record)
-            return FlightRouteModel.model_validate(record)
+            return self._to_model(record)
 
     def delete(self, route_id: str) -> bool:
         with get_db() as db:

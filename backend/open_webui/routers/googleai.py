@@ -441,6 +441,7 @@ async def generate_chat_completion(
 def convert_openai_to_googleai_payload(payload):
     """Convert OpenAI chat completion payload to Google AI format"""
     messages = payload.get("messages", [])
+    tools = payload.get("tools", [])
     
     # Convert messages to Google AI format
     googleai_messages = []
@@ -457,15 +458,94 @@ def convert_openai_to_googleai_payload(payload):
                 "parts": [{"text": message["content"]}]
             })
         elif message["role"] == "assistant":
+            parts = []
+            # Add text content if present
+            if message.get("content"):
+                parts.append({"text": message["content"]})
+            # Add function calls if present
+            if message.get("tool_calls"):
+                for tool_call in message["tool_calls"]:
+                    function_call = tool_call.get("function", {})
+                    parts.append({
+                        "functionCall": {
+                            "name": function_call.get("name", ""),
+                            "args": json.loads(function_call.get("arguments", "{}")) if isinstance(function_call.get("arguments"), str) else function_call.get("arguments", {})
+                        }
+                    })
+            if parts:
+                googleai_messages.append({
+                    "role": "model",
+                    "parts": parts
+                })
+        elif message["role"] == "tool":
+            # Google AI uses "functionResponse" for tool responses
+            tool_call_id = message.get("tool_call_id", "")
+            content = message.get("content", "")
+            # Get function name from message metadata (added by workflow)
+            function_name = message.get("function_name")
+            
+            # If not in metadata, try to find from previous messages
+            if not function_name:
+                for prev_msg in reversed(googleai_messages):
+                    if prev_msg.get("role") == "model" and "parts" in prev_msg:
+                        for part in prev_msg["parts"]:
+                            if "functionCall" in part:
+                                function_name = part["functionCall"].get("name")
+                                if function_name:
+                                    break
+                        if function_name:
+                            break
+            
+            if not function_name:
+                log.warning("Could not find function name for tool response (tool_call_id=%s), using default", tool_call_id)
+                function_name = "unknown_function"
+            
+            try:
+                # Try to parse content as JSON
+                function_response = json.loads(content) if isinstance(content, str) else content
+            except:
+                function_response = {"result": content}
+            
             googleai_messages.append({
-                "role": "model",
-                "parts": [{"text": message["content"]}]
+                "role": "user",
+                "parts": [{
+                    "functionResponse": {
+                        "name": function_name,
+                        "response": function_response
+                    }
+                }]
             })
     
-    # Build Google AI payload - simplified format
+    # Build Google AI payload
     googleai_payload = {
         "contents": googleai_messages
     }
+    
+    # Convert tools to Google AI function declarations
+    if tools:
+        function_declarations = []
+        for tool in tools:
+            if tool.get("type") == "function":
+                func = tool.get("function", {})
+                # Convert OpenAI function schema to Google AI format
+                parameters = func.get("parameters", {})
+                googleai_params = {
+                    "type": parameters.get("type", "object"),
+                    "properties": parameters.get("properties", {}),
+                    "required": parameters.get("required", [])
+                }
+                
+                function_declarations.append({
+                    "name": func.get("name", ""),
+                    "description": func.get("description", ""),
+                    "parameters": googleai_params
+                })
+        
+        if function_declarations:
+            googleai_payload["tools"] = [{
+                "functionDeclarations": function_declarations
+            }]
+            log.debug("Converted %d tools to Google AI function declarations", len(function_declarations))
     
     # Add generation config only if parameters are provided
     generation_config = {}
@@ -490,8 +570,41 @@ def convert_googleai_response_to_openai(googleai_response, model_name):
         if "candidates" in googleai_response and len(googleai_response["candidates"]) > 0:
             candidate = googleai_response["candidates"][0]
             
-            if "content" in candidate and "parts" in candidate["content"] and len(candidate["content"]["parts"]) > 0:
-                content = candidate["content"]["parts"][0].get("text", "")
+            if "content" in candidate and "parts" in candidate["content"]:
+                parts = candidate["content"]["parts"]
+                
+                # Extract text content and function calls
+                content_parts = []
+                tool_calls = []
+                
+                for part in parts:
+                    if "text" in part:
+                        content_parts.append(part["text"])
+                    elif "functionCall" in part:
+                        func_call = part["functionCall"]
+                        tool_calls.append({
+                            "id": f"call_{int(time.time() * 1000)}_{len(tool_calls)}",
+                            "type": "function",
+                            "function": {
+                                "name": func_call.get("name", ""),
+                                "arguments": json.dumps(func_call.get("args", {}))
+                            }
+                        })
+                
+                content = "".join(content_parts) if content_parts else None
+                
+                message = {
+                    "role": "assistant"
+                }
+                if content:
+                    message["content"] = content
+                if tool_calls:
+                    message["tool_calls"] = tool_calls
+                
+                finish_reason = candidate.get("finishReason", "stop").lower()
+                # Google AI uses "FUNCTION_CALL" for function calling
+                if finish_reason == "function_call":
+                    finish_reason = "tool_calls"
                 
                 openai_response = {
                     "id": f"chatcmpl-{int(time.time())}",
@@ -501,11 +614,8 @@ def convert_googleai_response_to_openai(googleai_response, model_name):
                     "choices": [
                         {
                             "index": 0,
-                            "message": {
-                                "role": "assistant",
-                                "content": content
-                            },
-                            "finish_reason": candidate.get("finishReason", "stop").lower()
+                            "message": message,
+                            "finish_reason": finish_reason
                         }
                     ],
                     "usage": {
@@ -514,10 +624,14 @@ def convert_googleai_response_to_openai(googleai_response, model_name):
                         "total_tokens": googleai_response.get("usageMetadata", {}).get("totalTokenCount", 0)
                     }
                 }
+                
+                if tool_calls:
+                    log.debug("Converted Google AI response with %d function calls", len(tool_calls))
+                
                 return openai_response
             
     except Exception as e:
-        log.error(f"Error converting Google AI response: {e}")
+        log.exception(f"Error converting Google AI response: {e}")
     
     # Fallback response
     return {

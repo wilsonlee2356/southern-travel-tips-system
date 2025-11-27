@@ -183,11 +183,32 @@ async def generate_chat_completion(
         }
         log.debug(f"direct connection to model: {models}")
     else:
+        # Ensure models are loaded
+        if not request.app.state.MODELS:
+            log.info("MODELS not loaded, fetching all models...")
+            await get_all_models(request, user=user)
+            log.info("Loaded %d models into MODELS", len(request.app.state.MODELS))
         models = request.app.state.MODELS
 
     model_id = form_data["model"]
+    log.debug("Looking for model_id: %s in %d available models", model_id, len(models))
+    
     if model_id not in models:
-        raise Exception("Model not found")
+        # Log available models for debugging
+        available_model_ids = list(models.keys())[:30]  # First 30 for logging
+        ollama_model_ids = [
+            k for k in models.keys() 
+            if models[k].get("owned_by") == "ollama"
+        ][:20]  # First 20 Ollama models
+        
+        log.error(
+            "Model '%s' not found in MODELS. Total models: %d. Available Ollama models (first 20): %s. All models (first 30): %s",
+            model_id,
+            len(models),
+            ollama_model_ids,
+            available_model_ids,
+        )
+        raise Exception(f"Model not found: {model_id}. Available Ollama models: {ollama_model_ids[:10]}")
 
     model = models[model_id]
 

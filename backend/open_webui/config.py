@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import shutil
 import base64
 import redis
@@ -69,6 +70,162 @@ def run_migrations():
 
 
 run_migrations()
+
+
+CITY_CODES_PATH = Path(__file__).resolve().parents[2] / "src" / "lib" / "utils" / "cityCodes.ts"
+CITY_ENTRY_REGEX = re.compile(
+    r"\{\s*name:\s*'(?P<name>[^']+)',\s*chinese:\s*'(?P<chinese>[^']+)',\s*code:\s*'(?P<code>[^']+)',\s*display:\s*'(?P<display>[^']+)'\s*\}"
+)
+
+IATA_AIRPORT_NAMES = {
+    "HKG": "Hong Kong International Airport",
+    "ICN": "Incheon International Airport",
+    "PUS": "Gimhae International Airport",
+    "CJU": "Jeju International Airport",
+    "NRT": "Narita International Airport",
+    "KIX": "Kansai International Airport",
+    "NGO": "Chubu Centrair International Airport",
+    "FUK": "Fukuoka Airport",
+    "CTS": "New Chitose Airport",
+    "OKA": "Naha Airport",
+    "TPE": "Taiwan Taoyuan International Airport",
+    "KHH": "Kaohsiung International Airport",
+    "RMQ": "Taichung International Airport",
+    "PVG": "Shanghai Pudong International Airport",
+    "PEK": "Beijing Capital International Airport",
+    "CAN": "Guangzhou Baiyun International Airport",
+    "SZX": "Shenzhen Bao'an International Airport",
+    "CTU": "Chengdu Shuangliu International Airport",
+    "XMN": "Xiamen Gaoqi International Airport",
+    "HGH": "Hangzhou Xiaoshan International Airport",
+    "NKG": "Nanjing Lukou International Airport",
+    "TAO": "Qingdao Jiaodong International Airport",
+    "KMG": "Kunming Changshui International Airport",
+    "WUH": "Wuhan Tianhe International Airport",
+    "XIY": "Xi'an Xianyang International Airport",
+    "SIN": "Singapore Changi Airport",
+    "BKK": "Suvarnabhumi Airport",
+    "HKT": "Phuket International Airport",
+    "CNX": "Chiang Mai International Airport",
+    "UTP": "U-Tapao International Airport",
+    "KBV": "Krabi International Airport",
+    "KUL": "Kuala Lumpur International Airport",
+    "PEN": "Penang International Airport",
+    "BKI": "Kota Kinabalu International Airport",
+    "LGK": "Langkawi International Airport",
+    "MNL": "Ninoy Aquino International Airport",
+    "CEB": "Mactan-Cebu International Airport",
+    "MPH": "Godofredo P. Ramos Airport",
+    "SGN": "Tan Son Nhat International Airport",
+    "HAN": "Noi Bai International Airport",
+    "DAD": "Da Nang International Airport",
+    "CXR": "Cam Ranh International Airport",
+    "CGK": "Soekarno-Hatta International Airport",
+    "DPS": "Ngurah Rai International Airport",
+    "PNH": "Phnom Penh International Airport",
+    "REP": "Siem Reap International Airport",
+    "DXB": "Dubai International Airport",
+    "AUH": "Abu Dhabi International Airport",
+    "DOH": "Hamad International Airport",
+    "SYD": "Sydney Kingsford Smith Airport",
+    "MEL": "Melbourne Airport",
+    "BNE": "Brisbane Airport",
+    "PER": "Perth Airport",
+    "AKL": "Auckland Airport",
+    "CHC": "Christchurch Airport",
+    "LHR": "London Heathrow Airport",
+    "PAR": "Paris Charles de Gaulle Airport",
+    "FRA": "Frankfurt Airport",
+    "MUC": "Munich Airport",
+    "AMS": "Amsterdam Airport Schiphol",
+    "FCO": "Leonardo da Vinci–Fiumicino Airport",
+    "MAD": "Adolfo Suárez Madrid–Barajas Airport",
+    "BCN": "Barcelona–El Prat Airport",
+    "VIE": "Vienna International Airport",
+    "ZRH": "Zurich Airport",
+    "CPH": "Copenhagen Airport",
+    "ARN": "Stockholm Arlanda Airport",
+    "OSL": "Oslo Gardermoen Airport",
+    "HEL": "Helsinki-Vantaa Airport",
+    "IST": "Istanbul Airport",
+    "JFK": "John F. Kennedy International Airport",
+    "LAX": "Los Angeles International Airport",
+    "SFO": "San Francisco International Airport",
+    "YVR": "Vancouver International Airport",
+    "YYZ": "Toronto Pearson International Airport",
+    "ORD": "O'Hare International Airport",
+    "SEA": "Seattle-Tacoma International Airport",
+    "DEL": "Indira Gandhi International Airport",
+    "BOM": "Chhatrapati Shivaji Maharaj International Airport",
+    "BLR": "Kempegowda International Airport",
+    "CMB": "Bandaranaike International Airport",
+    "MLE": "Velana International Airport",
+    "CAI": "Cairo International Airport",
+    "JNB": "O. R. Tambo International Airport",
+    "CPT": "Cape Town International Airport",
+}
+
+
+def _parse_city_codes() -> list[dict[str, str]]:
+    if not CITY_CODES_PATH.exists():
+        log.warning("cityCodes.ts not found; skipping airport seed")
+        return []
+
+    text = CITY_CODES_PATH.read_text(encoding="utf-8")
+    return [match.groupdict() for match in CITY_ENTRY_REGEX.finditer(text)]
+
+
+def _resolve_airport_name(iata: str, fallback_city: str) -> str:
+    return IATA_AIRPORT_NAMES.get(iata, f"{fallback_city} Airport")
+
+
+def seed_airports() -> None:
+    """
+    Populate the airport table using data from the frontend cityCodes utility.
+    Runs after migrations so the table exists.
+    """
+    try:
+        from open_webui.models.flight_pricing import Airport
+
+        with get_db() as db:
+            entries = _parse_city_codes()
+            if not entries:
+                return
+
+            now = datetime.utcnow()
+            inserted = 0
+            updated = 0
+
+            for entry in entries:
+                airport_name = _resolve_airport_name(entry["code"], entry["name"])
+                airport = db.query(Airport).filter_by(iata=entry["code"]).first()
+
+                if airport:
+                    airport.airport_name = airport_name
+                    airport.place_name = entry["chinese"]
+                    airport.display_name = entry["display"]
+                    airport.updated_at = now
+                    updated += 1
+                else:
+                    db.add(
+                        Airport(
+                            iata=entry["code"],
+                            airport_name=airport_name,
+                            place_name=entry["chinese"],
+                            display_name=entry["display"],
+                            created_at=now,
+                            updated_at=now,
+                        )
+                    )
+                    inserted += 1
+
+            db.commit()
+            log.info(f"Airport seed complete. Inserted={inserted}, Updated={updated}")
+    except Exception as exc:
+        log.warning(f"Skipping airport seeding due to error: {exc}")
+
+
+seed_airports()
 
 
 class Config(Base):

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, time
 from typing import Any, Dict, List, Optional, Tuple
 import threading
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, validator
 
 from open_webui.env import SRC_LOG_LEVELS
@@ -1166,3 +1166,139 @@ async def delete_auto_flight_search(
         message="Auto flight search deleted.",
     )
 
+
+class MCPFlightSearchRequest(BaseModel):
+    """Request model for MCP flight search"""
+
+    departure: str = Field(..., min_length=3, max_length=10, description="Origin airport code")
+    destination: str = Field(..., min_length=3, max_length=10, description="Destination airport code")
+    airlines: List[str] = Field(..., description="Airline codes to search (1-10 airlines)")
+    return_trip_days: Optional[int] = Field(None, ge=1, le=365, description="Number of days for return trip")
+    travel_class: int = Field(0, ge=0, le=3, description="0=economy, 1=premium_economy, 2=business, 3=first_class")
+    direct_flight: bool = Field(False, description="Search direct flights only")
+    model_id: str = Field(..., description="Model ID to use (Gemini, Ollama, or OpenAI)")
+
+
+class MCPFlightSearchResponse(BaseModel):
+    """Response model for MCP flight search"""
+
+    success: bool
+    message: str
+    saved_flight_count: int = 0
+    tool_calls_count: int = 0
+    auto_search_id: Optional[str] = None
+    error: Optional[str] = None
+
+
+@router.post(
+    "/mcp-search",
+    response_model=MCPFlightSearchResponse,
+    status_code=status.HTTP_200_OK,
+    summary="AI-powered flight search using MCP",
+)
+async def mcp_flight_search(
+    request: Request,
+    payload: MCPFlightSearchRequest,
+    user=Depends(get_verified_user),
+):
+    """
+    Run AI-powered flight search using MCP (Model Context Protocol).
+
+    The AI will:
+    1. Use Google AI Mode to get initial insights about cheap periods
+    2. Use Google Flight Calendar to verify prices
+    3. Use Google Flight Search to get detailed flight data and store in database
+
+    Only Google Flight Search results are stored in the database.
+    """
+    from open_webui.ai_auto.context import MCPRequest
+    from open_webui.ai_auto.workflow import run_mcp_workflow
+
+    # Validate airlines
+    if len(payload.airlines) < MIN_AIRLINES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Provide at least {MIN_AIRLINES} airline codes.",
+        )
+
+    if len(payload.airlines) > MAX_AIRLINES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Provide no more than {MAX_AIRLINES} airline codes.",
+        )
+
+    # Normalize airline codes
+    airlines_table = AirlinesTable()
+    normalized_airlines = []
+    for airline_input in payload.airlines:
+        normalized = airline_input.strip().upper()
+        airline = airlines_table.get_by_code(normalized)
+        if airline and airline.code:
+            normalized_airlines.append(airline.code)
+        else:
+            # Try by name
+            airline = airlines_table.get_by_name(normalized)
+            if airline and airline.code:
+                normalized_airlines.append(airline.code)
+            elif len(normalized) in (2, 3):
+                normalized_airlines.append(normalized)
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Unrecognized airline: {normalized}",
+                )
+
+    normalized_airlines = list(dict.fromkeys(normalized_airlines))
+
+    # Create MCP request
+    mcp_request = MCPRequest(
+        departure=payload.departure.upper(),
+        destination=payload.destination.upper(),
+        airlines=normalized_airlines,
+        return_trip_days=payload.return_trip_days,
+        travel_class=payload.travel_class,
+        direct_flight=payload.direct_flight,
+        model_id=payload.model_id,
+        user_id=user.id,
+    )
+
+    # Run workflow
+    log.info(
+        "MCP flight search request from user %s: %s -> %s, airlines=%s, model=%s",
+        user.id,
+        payload.departure,
+        payload.destination,
+        normalized_airlines,
+        payload.model_id,
+    )
+    
+    try:
+        mcp_response = await run_mcp_workflow(request, mcp_request, user)
+        log.info(
+            "MCP workflow completed for user %s: success=%s, flights=%d, tool_calls=%d",
+            user.id,
+            mcp_response.success,
+            mcp_response.saved_flight_count,
+            len(mcp_response.tool_calls),
+        )
+
+        # Extract auto_search_id from workflow state
+        auto_search_id = None
+        if mcp_response.workflow_state:
+            auto_search_id = mcp_response.workflow_state.auto_search_id
+
+        return MCPFlightSearchResponse(
+            success=mcp_response.success,
+            message=mcp_response.message,
+            saved_flight_count=mcp_response.saved_flight_count,
+            tool_calls_count=len(mcp_response.tool_calls),
+            auto_search_id=auto_search_id,
+            error=mcp_response.error,
+        )
+
+    except Exception as e:
+        log.exception("MCP flight search failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"MCP flight search failed: {str(e)}",
+        )

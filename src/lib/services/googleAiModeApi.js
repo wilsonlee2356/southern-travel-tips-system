@@ -6,6 +6,110 @@
 const GOOGLE_AI_MODE_ENDPOINT = 'https://www.searchapi.io/api/v1/search';
 
 /**
+ * Convert Google AI Mode text_blocks entries into a single string for UI display/logging.
+ * @param {Array<{answer?: string, items?: Array<{answer?: string}>}>} textBlocks
+ * @returns {string}
+ */
+export function formatGoogleAiModeTextBlocks(textBlocks) {
+	if (!Array.isArray(textBlocks) || textBlocks.length === 0) {
+		return '';
+	}
+
+	const segments = [];
+
+	const visitBlock = (block) => {
+		if (!block || typeof block !== 'object') {
+			return;
+		}
+
+		const cleanedAnswer = typeof block.answer === 'string' ? block.answer.trim() : '';
+		const pushIfText = (text) => {
+			if (text) {
+				segments.push(text);
+			}
+		};
+
+		switch (block.type) {
+			case 'header':
+				pushIfText(cleanedAnswer.toUpperCase());
+				break;
+			case 'paragraph':
+				pushIfText(cleanedAnswer);
+				break;
+			case 'unordered_list': {
+				if (cleanedAnswer) {
+					pushIfText(cleanedAnswer);
+				}
+				(block.items || []).forEach((item) => {
+					const itemText = formatListItemText(item, '•');
+					pushIfText(itemText);
+				});
+				break;
+			}
+			case 'ordered_list': {
+				if (cleanedAnswer) {
+					pushIfText(cleanedAnswer);
+				}
+				(block.items || []).forEach((item, idx) => {
+					const itemText = formatListItemText(item, `${idx + 1}.`);
+					pushIfText(itemText);
+				});
+				break;
+			}
+			case 'table': {
+				const headers = block.table?.headers;
+				const rows = block.table?.rows;
+				if (Array.isArray(headers) && headers.length > 0) {
+					pushIfText(headers.join(' | '));
+				}
+				if (Array.isArray(rows)) {
+					rows.forEach((row) => {
+						pushIfText(Array.isArray(row) ? row.join(' | ') : '');
+					});
+				}
+				break;
+			}
+			case 'code_blocks': {
+				const lang = block.language ? `${block.language}:\n` : '';
+				pushIfText(`${lang}${block.code ?? ''}`.trim());
+				break;
+			}
+			default:
+				if (cleanedAnswer) {
+					pushIfText(cleanedAnswer);
+				}
+		}
+
+		if (Array.isArray(block.items) && block.type !== 'unordered_list' && block.type !== 'ordered_list') {
+			block.items.forEach((item, idx) => visitBlock(item, idx));
+		}
+	};
+
+	const formatListItemText = (itemBlock, prefix) => {
+		if (!itemBlock || typeof itemBlock !== 'object') {
+			return '';
+		}
+		const textParts = [];
+		if (typeof itemBlock.answer === 'string' && itemBlock.answer.trim()) {
+			textParts.push(`${prefix} ${itemBlock.answer.trim()}`);
+		}
+		if (Array.isArray(itemBlock.items) && itemBlock.items.length > 0) {
+			itemBlock.items.forEach((nestedItem, idx) => {
+				const nestedText = formatListItemText(nestedItem, prefix === '•' ? '◦' : `${idx + 1})`);
+				if (nestedText) {
+					textParts.push(nestedText);
+				}
+			});
+		}
+		return textParts.join('\n');
+	};
+
+	textBlocks.forEach((block) => visitBlock(block));
+
+	return segments.filter(Boolean).join('\n\n');
+}
+
+/**
  * Supported Google AI Mode parameters documented by SearchAPI.io.
  * Exposed for discoverability and potential validation in UI layers.
  */
@@ -114,6 +218,12 @@ export async function fetchGoogleAiModeResults(params = {}, signal) {
 		throw new Error(`Google AI Mode request failed (${response.status}): ${details}`);
 	}
 
-	return response.json();
+	const data = await response.json();
+	console.debug('Google AI Mode raw response:', data);
+
+	const formattedTextBlocks = formatGoogleAiModeTextBlocks(data?.text_blocks);
+	console.debug('Google AI Mode processed text blocks:', formattedTextBlocks);
+
+	return data;
 }
 
