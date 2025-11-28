@@ -1,197 +1,126 @@
-2025-11-28 02:03:39.640 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:48 - Starting MCP workflow for user 0afef353-767f-4e1a-a916-7fb166c29be0: HKG -> ICN, airlines=['RS', 'KE'], model=deepseek-r1:671b, return_days=None
-2025-11-28 02:03:39.680 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:83 - Created auto_search 646d877f-cb88-428a-9cf6-b9d05c0b4bbd for MCP workflow: route=HKG->ICN, class=0, direct=False
-2025-11-28 02:03:39.680 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:210 - MCP workflow iteration 1/20
-2025-11-28 02:03:39.680 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:224 - Calling model deepseek-r1:671b (iteration 1, message count: 2, tools: 3)
-2025-11-28 02:05:10.879 | ERROR    | open_webui.routers.ollama:send_post_request:170 - Failed to parse error response: 504, message='Attempt to decode JSON with unexpected mimetype: text/html', url='https://ollama.ssl-labs.ai/api/chat'
-2025-11-28 02:05:10.881 | ERROR    | open_webui.ai_auto.workflow:run_mcp_workflow:313 - Error calling model deepseek-r1:671b (iteration 1): 504: Open WebUI: Server Connection Error
-Traceback (most recent call last):
+2025-11-28 23:57:56.433 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:523 - Google Flight Search tool completed: total_flights=3, stored=0, cumulative_stored=0
+2025-11-28 23:57:56.433 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:560 - Tool 'google_flight_search' Response (truncated): {
+  "flights": [
+    {
+      "flights": [
+        {
+          "departure_airport": {
+            "name": "Hong Kong International Airport",
+            "id": "HKG",
+            "date": "2026-03-10",
+            "time": "00:55"
+          },
+          "arrival_airport": {
+            "name": "Incheon International Airport",
+            "id": "ICN",
+            "date": "2026-03-10",
+            "time": "05:20"
+          },
+          "duration": 205,
+          "airplane": "Airbus A350",
+          "airline": "Korean Air",
+          "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/KE.png",
+          "travel_class": "Economy",
+          "flight_number": "KE 2012",
+          "is_overnight": true,
+          "extensions": [
+            "Power and USB outlets",
+            "On-demand video",
+            "Wi-Fi for fee",
+            "Seat type Above Average Legroom",
+            "Legroom 32 inches",
+            "Carbon emission: 177 kg"
+          ],
+          "detected_extensions": {
+            "has_power_and_usb_outlets": true,
+            "has_on_demand_video": true,
+            "wifi": "for fee",
+            "seat_type": "Above Average Legroom",
+            "legroom_short": "32 in",
+            "legroom_long": "32 inches",
+            "carbon_emission": 177
+          }
+        }
+      ],
+      "total_duration": 205,
+      "carbon_emissions": {
+        "this_flight": 177000,
+        "typical_for_this_route": 182000,
+        "difference_percent": -3,
+        "lowest_route": 182000
+      },
+      "price": 2327,
+      "type": "Round trip",
+      "extensions": [
+        "Bag and fare conditions depend on the return flight"
+      ],
+      "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/KE.png",
+      "departure_token": "WyJDalJJZWpWMWNqSnFVa3A1Tm10QlExcE9RWGRDUnkwdExTMHRMUzB0TFMxMmRISnJNa0ZCUVVGQlIydHdlRzlKVEc5WlVXdEJFZ2hMUlRJd01USWpNUm9LQ0pjU0VBQWFBMGhMUkRnY2NNbnBBUT09IixbWyJIS0ciLCIyMDI2LTAzLTEwIiwiSUNOIixudWxsLCJLRSIsIjIwMTIiXV1d"
+    },
+    {
+      "flights": [
+        {
+          "departure_airport": {
+            "name": "Hong Kong International Airport",
+            "id": "HKG",
+            "date": "2026-03-10",
+            "time": "12:35"
+          },
+          "arrival_airport": {
+            "name": "Incheon International Airport",
+            "id": "ICN",
+            "date": "2026-03-10",
+            "time": "17:05"
+          },
+          "duration": 210,
+          "airplane": "Airbus A330",
+          "airline": "Korean Air",
+          "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/KE.png",
+          "travel_class": "Economy",
+          "flight_number": "KE 2002",
+          "extensions": [
+            "Power and USB outlets",
+            "On-demand video",
+            "Seat type Above Average Legroom",
+            "Legroom 33 inches",
+            "Carbon emission: 182 kg"
+          ],
+          "detected_extensions": {
+            "has_power_and_usb_outlets": true,
+            "has_on_deman...
+2025-11-28 23:57:56.434 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:630 - Tool call google_flight_search completed successfully
+2025-11-28 23:57:56.434 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:233 - MCP workflow iteration 7/20
+2025-11-28 23:57:56.434 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:252 - Calling model deepseek-r1:671b (iteration 7, message count: 18, total message size: 60519 bytes, tools: 4)
+2025-11-29 00:02:54.468 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:271 - Model call completed in 298.03 seconds (iteration 7)
+2025-11-29 00:02:54.468 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:329 - Model response received: type=dict, has_choices=True, choices_count=1
+2025-11-29 00:02:54.468 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:339 - AI Model Response (truncated): {
+  "id": "deepseek-r1:671b-939f22f5-dee5-4639-b755-bb34abc069b8",
+  "created": 1764345774,
+  "model": "deepseek-r1:671b",
+  "choices": [
+    {
+      "index": 0,
+      "logprobs": null,
+      "finish_reason": "stop",
+      "message": {
+        "role": "assistant",
+        "content": "I found several affordable round-trip flight options from Hong Kong (HKG) to Seoul (ICN) between March 9-11 with Korean Air. Here are your best options:\n\n### Flight Options:\n1. **Korean Air KE 2012**  \n   - Departure: March 10, 00:55 AM HKG \u2192 Arrival: 05:20 AM ICN  \n   - Return flight included (details not shown)  \n   - Aircraft: Airbus A350  \n   - Price: **HKD 2,327**\n\n2. **Korean Air KE 2002**  \n   - Departure: March 10, 12:35 PM HKG \u2192 Arrival: 05:05 PM ICN  \n   - Return flight included (details not shown)  \n   - Aircraft: Airbus A330  \n   - Price: **HKD 2,327**\n\n3. **Korean Air KE 2006**  \n   - Departure: March 10, 06:10 PM HKG \u2192 Arrival: 09:45 PM ICN  \n   - Return flight included (details not shown)  \n   - Aircraft: Boeing 737  \n   - Price: **HKD 2,327**\n\n### Next Steps:\n- All options are priced identically at **HKD 2,327**.\n- Cathay Pacific flights weren't available for your dates within this price range.  \n- I can save one of these itineraries to secure the fare\u2014let me know which departure time works best, or if you'd like more details!",
+        "reasoning_content": "We have received the results from a previous google_flight_analysis tool call for round-trip flights from HKG to ICN on March 10 (return date not specified in this context). The response includes three flight options with Korean Air, all priced at HKD 2327.\n\nHowever, note that the user's original request was:\n\"Find me a cheap flight ticket from Hong Kong to Seoul between March 9 and March 11. I want Cathay Pacific or Korean Air.\"\n\nWe have results for outbound on March 10 (with return? The data shows round trip but without specifying the return date in the response). ...
+2025-11-29 00:02:54.468 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:351 - Message analysis: has_content=True, content_length=1058, has_tool_calls=False, tool_calls_count=0
+2025-11-29 00:02:54.468 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:410 - Extracted assistant message: content_length=1058, tool_calls=0, message_keys=['role', 'content', 'reasoning_content']
+2025-11-29 00:02:54.468 | WARNING  | open_webui.ai_auto.workflow:run_mcp_workflow:419 - No tool calls in response. Model may not be recognizing tools or may need different prompting.
+2025-11-29 00:02:54.468 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:421 - Model response content: I found several affordable round-trip flight options from Hong Kong (HKG) to Seoul (ICN) between March 9-11 with Korean Air. Here are your best options:
 
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/routers/ollama.py", line 163, in send_post_request
-    res = await r.json()
-                │ └ <function ClientResponse.json at 0x7fb7ab1f0860>
-                └ <ClientResponse(https://ollama.ssl-labs.ai/api/chat) [504 Gateway Time-out]>
-                  <CIMultiDictProxy('Server': 'openresty', 'Date':...
+### Flight Options:
+1. **Korean Air KE 2012**
+   - Departure: March 10, 00:55 AM HKG → Arrival: 05:20 AM ICN
+   - Return flight included (details not shown)
+   - Aircraft: Airbus A350
+   - Price: **HKD 2,327**
 
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/aiohttp/client_reqrep.py", line 749, in json
-    raise ContentTypeError(
-          └ <class 'aiohttp.client_exceptions.ContentTypeError'>
-
-aiohttp.client_exceptions.ContentTypeError: 504, message='Attempt to decode JSON with unexpected mimetype: text/html', url='https://ollama.ssl-labs.ai/api/chat'
-
-
-During handling of the above exception, another exception occurred:
-
-
-Traceback (most recent call last):
-
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/__main__.py", line 4, in <module>
-    uvicorn.main()
-    │       └ <Command main>
-    └ <module 'uvicorn' from '/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/__init__.py'>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 1442, in __call__
-    return self.main(*args, **kwargs)
-           │    │     │       └ {}
-           │    │     └ ()
-           │    └ <function Command.main at 0x7fb7ad8a72e0>
-           └ <Command main>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 1363, in main
-    rv = self.invoke(ctx)
-         │    │      └ <click.core.Context object at 0x7fb7ae587f10>
-         │    └ <function Command.invoke at 0x7fb7ad8a6fc0>
-         └ <Command main>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 1226, in invoke
-    return ctx.invoke(self.callback, **ctx.params)
-           │   │      │    │           │   └ {'host': '0.0.0.0', 'port': 8080, 'forwarded_allow_ips': '*', 'workers': 1, 'app': 'open_webui.main:app', 'uds': None, 'fd': ...
-           │   │      │    │           └ <click.core.Context object at 0x7fb7ae587f10>
-           │   │      │    └ <function main at 0x7fb7ad6a2e80>
-           │   │      └ <Command main>
-           │   └ <function Context.invoke at 0x7fb7ad8a6200>
-           └ <click.core.Context object at 0x7fb7ae587f10>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 794, in invoke
-    return callback(*args, **kwargs)
-           │         │       └ {'host': '0.0.0.0', 'port': 8080, 'forwarded_allow_ips': '*', 'workers': 1, 'app': 'open_webui.main:app', 'uds': None, 'fd': ...
-           │         └ ()
-           └ <function main at 0x7fb7ad6a2e80>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/main.py", line 413, in main
-    run(
-    └ <function run at 0x7fb7ad855b20>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/main.py", line 580, in run
-    server.run()
-    │      └ <function Server.run at 0x7fb7ad7302c0>
-    └ <uvicorn.server.Server object at 0x7fb7ad8dd510>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/server.py", line 67, in run
-    return asyncio.run(self.serve(sockets=sockets))
-           │       │   │    │             └ None
-           │       │   │    └ <function Server.serve at 0x7fb7ad730360>
-           │       │   └ <uvicorn.server.Server object at 0x7fb7ad8dd510>
-           │       └ <function run at 0x7fb7adc6eac0>
-           └ <module 'asyncio' from '/home/sunny/anaconda3/envs/open-webui/lib/python3.11/asyncio/__init__.py'>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/asyncio/runners.py", line 190, in run
-    return runner.run(main)
-           │      │   └ <coroutine object Server.serve at 0x7fb7ad63af20>
-           │      └ <function Runner.run at 0x7fb7adaf27a0>
-           └ <asyncio.runners.Runner object at 0x7fb7ad6ab2d0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/asyncio/runners.py", line 118, in run
-    return self._loop.run_until_complete(task)
-           │    │     │                  └ <Task pending name='Task-1' coro=<Server.serve() running at /home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-package...
-           │    │     └ <cyfunction Loop.run_until_complete at 0x7fb7ad2285f0>
-           │    └ <uvloop.Loop running=True closed=False debug=False>
-           └ <asyncio.runners.Runner object at 0x7fb7ad6ab2d0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
-    await self.app(scope, receive_or_disconnect, send_no_error)
-          │    │   │      │                      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7fb5fcdfefc0>
-          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fb5fcdff4c0>
-          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <starlette_compress.CompressMiddleware object at 0x7fb7ac9c57b0>
-          └ <open_webui.main.RedirectMiddleware object at 0x7fb54be6bf90>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette_compress/__init__.py", line 92, in __call__
-    return await self._zstd(scope, receive, send)
-                 │    │     │      │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7fb5fcdfefc0>
-                 │    │     │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fb5fcdff4c0>
-                 │    │     └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-                 │    └ <member '_zstd' of 'CompressMiddleware' objects>
-                 └ <starlette_compress.CompressMiddleware object at 0x7fb7ac9c57b0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette_compress/_zstd_legacy.py", line 100, in __call__
-    await self.app(scope, receive, wrapper)
-          │    │   │      │        └ <function ZstdResponder.__call__.<locals>.wrapper at 0x7fb5fcf723e0>
-          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fb5fcdff4c0>
-          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <member 'app' of 'ZstdResponder' objects>
-          └ <starlette_compress._zstd_legacy.ZstdResponder object at 0x7fb5fd301780>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-          │                            │    │    │     │      │        └ <function ZstdResponder.__call__.<locals>.wrapper at 0x7fb5fcf723e0>
-          │                            │    │    │     │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fb5fcdff4c0>
-          │                            │    │    │     └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │                            │    │    └ <starlette.requests.Request object at 0x7fb5fcd57dd0>
-          │                            │    └ <fastapi.routing.APIRouter object at 0x7fb65c0422d0>
-          │                            └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x7fb5fd3c5290>
-          └ <function wrap_app_handling_exceptions at 0x7fb7aaab3ba0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fb5fcf73740>
-          │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fb5fcdff4c0>
-          │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          └ <fastapi.routing.APIRouter object at 0x7fb65c0422d0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
-    await self.middleware_stack(scope, receive, send)
-          │    │                │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fb5fcf73740>
-          │    │                │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fb5fcdff4c0>
-          │    │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <bound method Router.app of <fastapi.routing.APIRouter object at 0x7fb65c0422d0>>
-          └ <fastapi.routing.APIRouter object at 0x7fb65c0422d0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
-    await route.handle(scope, receive, send)
-          │     │      │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fb5fcf73740>
-          │     │      │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fb5fcdff4c0>
-          │     │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │     └ <function Route.handle at 0x7fb7aaad1260>
-          └ APIRoute(path='/api/v1/auto-flight-search/mcp-search', name='mcp_flight_search', methods=['POST'])
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
-    await self.app(scope, receive, send)
-          │    │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fb5fcf73740>
-          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fb5fcdff4c0>
-          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <function request_response.<locals>.app at 0x7fb5fd3aa5c0>
-          └ APIRoute(path='/api/v1/auto-flight-search/mcp-search', name='mcp_flight_search', methods=['POST'])
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
-    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-          │                            │    │        │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fb5fcf73740>
-          │                            │    │        │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fb5fcdff4c0>
-          │                            │    │        └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │                            │    └ <starlette.requests.Request object at 0x7fb5fcd57f90>
-          │                            └ <function request_response.<locals>.app.<locals>.app at 0x7fb5fcf72980>
-          └ <function wrap_app_handling_exceptions at 0x7fb7aaab3ba0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fb5fcf714e0>
-          │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fb5fcdff4c0>
-          │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          └ <function request_response.<locals>.app.<locals>.app at 0x7fb5fcf72980>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
-    response = await f(request)
-                     │ └ <starlette.requests.Request object at 0x7fb5fcd57f90>
-                     └ <function get_request_handler.<locals>.app at 0x7fb5fd3aa480>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/routing.py", line 301, in app
-    raw_response = await run_endpoint_function(
-                         └ <function run_endpoint_function at 0x7fb7aaad3060>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/routing.py", line 212, in run_endpoint_function
-    return await dependant.call(**values)
-                 │         │      └ {'user': UserModel(id='0afef353-767f-4e1a-a916-7fb166c29be0', name='Sunny', email='sunny@gmail.com', role='admin', profile_im...
-                 │         └ <function mcp_flight_search at 0x7fb666b9a8e0>
-                 └ Dependant(path_params=[], query_params=[], header_params=[], cookie_params=[], body_params=[ModelField(field_info=Body(Pydant...
-
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/routers/auto_flight.py", line 1276, in mcp_flight_search
-    mcp_response = await run_mcp_workflow(request, mcp_request, user)
-                         │                │        │            └ UserModel(id='0afef353-767f-4e1a-a916-7fb166c29be0', name='Sunny', email='sunny@gmail.com', role='admin', profile_image_url='...
-                         │                │        └ MCPRequest(departure='HKG', destination='ICN', airlines=['RS', 'KE'], return_trip_days=None, travel_class=0, direct_flight=Fa...
-                         │                └ <starlette.requests.Request object at 0x7fb5fcd57f90>
-                         └ <function run_mcp_workflow at 0x7fb5fcd032e0>
-
-> File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/ai_auto/workflow.py", line 234, in run_mcp_workflow
-    response = await generate_chat_completion(request, form_data, user, bypass_filter=True)
-                     │                        │        │          └ UserModel(id='0afef353-767f-4e1a-a916-7fb166c29be0', name='Sunny', email='sunny@gmail.com', role='admin', profile_image_url='...
-                     │                        │        └ {'model': 'deepseek-r1:671b', 'messages': [{'role': 'system', 'content': 'You are an AI assistant helping to find cheap fligh...
-                     │                        └ <starlette.requests.Request object at 0x7fb5fcd57f90>
-                     └ <function generate_chat_completion at 0x7fb65faf77e0>
-
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/utils/chat.py", line 283, in generate_chat_completion
-    response = await generate_ollama_chat_completion(
-                     └ <function generate_chat_completion at 0x7fb65fcee3e0>
-
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/routers/ollama.py", line 1403, in generate_chat_completion
-    return await send_post_request(
-                 └ <function send_post_request at 0x7fb65fca9bc0>
-
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/routers/ollama.py", line 196, in send_post_request
-    raise e  # Re-raise HTTPException to be handled by FastAPI
-
-  File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/routers/ollama.py", line 171, in send_post_request
-    raise HTTPException(
-          └ <class 'fastapi.exceptions.HTTPException'>
-
-fastapi.exceptions.HTTPException: 504: Open WebUI: Server Connection Error
-2025-11-28 02:05:10.905 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:480 - MCP workflow finished: success=False, flights_saved=0, tool_calls=0, iterations=1, reason=Model call failed: 504: Open WebUI: Server Connection Error
-2025-11-28 02:05:10.905 | INFO     | open_webui.routers.auto_flight:mcp_flight_search:1277 - MCP workflow completed for user 0afef353-767f-4e1a-a916-7fb166c29be0: success=False, flights=0, tool_calls=0
+2. **Korean Air KE 2002**
+   - Departure: March 10, 12:35 PM HKG → Arrival: 05:05 PM ICN
+   - Return flight included (detai
+2025-11-29 00:02:54.468 | WARNING  | open_webui.ai_auto.workflow:run_mcp_workflow:696 - Model completed workflow without tool calls (iteration 7). Consider using finish_workflow tool for explicit completion.
+2025-11-29 00:02:54.468 | INFO     | open_webui.ai_auto.workflow:run_mcp_workflow:727 - MCP workflow finished: success=True, flights_saved=0, tool_calls=8, iterations=7, reason=Model completed workflow without tool calls (legacy - should use finish_workflow tool)
+2025-11-29 00:02:54.468 | INFO     | open_webui.routers.auto_flight:mcp_flight_search:1277 - MCP workflow completed for user 0afef353-767f-4e1a-a916-7fb166c29be0: success=True, flights=0, tool_calls=

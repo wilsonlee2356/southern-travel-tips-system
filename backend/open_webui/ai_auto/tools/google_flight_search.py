@@ -1,5 +1,6 @@
 """Google Flight Search Tool for MCP"""
 
+import json
 import logging
 import os
 from datetime import datetime
@@ -171,13 +172,38 @@ class GoogleFlightSearchTool:
                 if not auto_search_id:
                     log.warning("Cannot store flights: missing auto_search_id")
 
-            return {
+            result = {
                 "flights": all_flights,
                 "best_flights": best_flights,
                 "other_flights": other_flights,
                 "stored_count": stored_count,
                 "total_count": len(all_flights),
             }
+            
+            # Log full response (truncated if too long, but show summary)
+            # Create a summary version for logging (exclude full flight details to avoid huge logs)
+            summary_result = {
+                "total_count": result["total_count"],
+                "stored_count": result["stored_count"],
+                "best_flights_count": len(best_flights) if best_flights else 0,
+                "other_flights_count": len(other_flights) if other_flights else 0,
+                "flights_count": len(flights) if flights else 0,
+            }
+            # Include first few flights as sample
+            if all_flights:
+                summary_result["sample_flights"] = all_flights[:3]  # First 3 flights as sample
+            
+            response_str = json.dumps(summary_result, default=str, indent=2)
+            log.info("Google Flight Search Response Summary: %s", response_str)
+            
+            # Log full response in debug mode
+            full_response_str = json.dumps(result, default=str, indent=2)
+            if len(full_response_str) > 5000:
+                log.debug("Google Flight Search Response (truncated): %s...", full_response_str[:5000])
+            else:
+                log.debug("Google Flight Search Response (full): %s", full_response_str)
+            
+            return result
 
         except requests.RequestException as e:
             log.error("Google Flight Search request failed: %s", e)

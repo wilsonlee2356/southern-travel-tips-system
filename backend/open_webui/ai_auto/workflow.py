@@ -2,6 +2,8 @@
 
 import json
 import logging
+import re
+import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import Request
@@ -137,13 +139,13 @@ async def run_mcp_workflow(
             "type": "function",
             "function": {
                 "name": "google_ai_mode",
-                "description": "Get initial insights about cheap flight periods using Google AI Mode. Use simple sentences in the query.",
+                "description": "Get initial insights about cheap flight periods using Google AI Mode. You MUST use this EXACT query format: 'Give me the cheapest {day_number} days return flights of {airline} from {departure_airport} to {arrival_airport} in the next 6 months, provide all the exact ticket price (all price in HKD), multiple departure and return dates and time'. Only change day_number, airline, departure_airport, and arrival_airport. Do NOT modify any other words or structure.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "Simple sentence query, e.g., 'Give me the cheapest 8 days return flights of CX from HKG to NGO in the next 6 months, provide all the exact ticket price (all price in HKD), multiple departure and return dates and time'",
+                            "description": "MUST use this EXACT format (only change variables): 'Give me the cheapest {day_number} days return flights of {airline} from {departure_airport} to {arrival_airport} in the next 6 months, provide all the exact ticket price (all price in HKD), multiple departure and return dates and time'. Example: 'Give me the cheapest 8 days return flights of CX from HKG to NGO in the next 6 months, provide all the exact ticket price (all price in HKD), multiple departure and return dates and time'",
                         },
                         "location": {"type": "string", "description": "Optional location string"},
                         "hl": {"type": "string", "description": "Interface language", "default": "en"},
@@ -182,7 +184,7 @@ async def run_mcp_workflow(
             "type": "function",
             "function": {
                 "name": "google_flight_search",
-                "description": "Get detailed flight data using Google Flight Search API and store results in database. This is the only tool that stores data.",
+                "description": "MANDATORY: Get real flight data using Google Flight Search API and AUTOMATICALLY save results to database. This is the ONLY tool that saves data. When you call this tool, it AUTOMATICALLY saves all cheap flights it finds - you do NOT need to ask the user for permission. You MUST call this with specific dates (YYYY-MM-DD format) extracted from google_ai_mode results. Call it for ALL promising dates to save as many cheap flights as possible. Simply summarizing google_ai_mode results is NOT enough - you must call this tool to actually save flights.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -198,6 +200,27 @@ async def run_mcp_workflow(
                         "children": {"type": "integer", "default": 0},
                     },
                     "required": ["departure_id", "arrival_id", "outbound_date"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "finish_workflow",
+                "description": "Call this tool when you have completed the flight search workflow. Use this when you have found enough flights, exhausted reasonable search options, or determined that no more searches are needed. This will end the workflow.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "reason": {
+                            "type": "string",
+                            "description": "Brief reason for finishing the workflow (e.g., 'Found sufficient cheap flights', 'Exhausted search options', 'No flights found matching criteria')",
+                        },
+                        "summary": {
+                            "type": "string",
+                            "description": "Optional summary of what was accomplished (e.g., 'Found 5 cheap flights for CX from HKG to NGO')",
+                        },
+                    },
+                    "required": ["reason"],
                 },
             },
         },
@@ -220,18 +243,36 @@ async def run_mcp_workflow(
             }
 
             # Call model
+            call_start_time = None
             try:
+                call_start_time = time.time()
+                
+                # Calculate total message size for logging
+                total_message_size = sum(len(json.dumps(m, default=str)) for m in messages)
                 log.info(
-                    "Calling model %s (iteration %d, message count: %d, tools: %d)",
+                    "Calling model %s (iteration %d, message count: %d, total message size: %d bytes, tools: %d)",
                     mcp_request.model_id,
                     workflow_state.iteration_count,
                     len(messages),
+                    total_message_size,
                     len(tools_schema),
                 )
+                if total_message_size > 100000:  # > 100KB
+                    log.warning(
+                        "Large message context detected (%d bytes). This may cause slow responses with reasoning models. Consider using a faster model or reducing context size.",
+                        total_message_size,
+                    )
                 log.debug("Form data keys: %s", list(form_data.keys()))
                 log.debug("Tools schema: %s", [t.get("function", {}).get("name") for t in tools_schema])
                 
                 response = await generate_chat_completion(request, form_data, user, bypass_filter=True)
+                
+                call_duration = time.time() - call_start_time
+                log.info(
+                    "Model call completed in %.2f seconds (iteration %d)",
+                    call_duration,
+                    workflow_state.iteration_count,
+                )
                 
                 log.debug("Response type: %s, class: %s", type(response).__name__, type(response))
                 
@@ -292,6 +333,14 @@ async def run_mcp_workflow(
                     len(response_data.get("choices", [])),
                 )
                 
+                # Log full AI response (truncated if too long)
+                response_str = json.dumps(response_data, default=str, indent=2)
+                if len(response_str) > 2000:
+                    log.info("AI Model Response (truncated): %s...", response_str[:2000])
+                    log.debug("AI Model Response (full): %s", response_str)
+                else:
+                    log.info("AI Model Response: %s", response_str)
+                
                 if "choices" in response_data and response_data["choices"]:
                     first_choice = response_data["choices"][0]
                     log.debug("First choice keys: %s", list(first_choice.keys()) if isinstance(first_choice, dict) else "not a dict")
@@ -306,6 +355,16 @@ async def run_mcp_workflow(
                             bool(tool_calls_in_message),
                             len(tool_calls_in_message) if tool_calls_in_message else 0,
                         )
+                        # Log tool calls details if present
+                        if tool_calls_in_message:
+                            for idx, tc in enumerate(tool_calls_in_message):
+                                log.info(
+                                    "Tool call %d: id=%s, function=%s, arguments=%s",
+                                    idx,
+                                    tc.get("id", "unknown"),
+                                    tc.get("function", {}).get("name", "unknown"),
+                                    tc.get("function", {}).get("arguments", "{}")[:500],
+                                )
                 else:
                     log.warning("Response has no 'choices' field or choices is empty. Response structure: %s", list(response_data.keys())[:10])
 
@@ -316,7 +375,8 @@ async def run_mcp_workflow(
                     status_code = e.status_code
                     detail = getattr(e, "detail", error_msg)
                     if status_code == 504:
-                        error_msg = f"Ollama server timeout (504): The server at the configured Ollama endpoint is not responding. Please check your Ollama server connection."
+                        call_duration = time.time() - call_start_time if call_start_time else 0
+                        error_msg = f"Ollama server timeout (504): The model took {call_duration:.1f}s to respond, but the server/gateway timed out. DeepSeek R1 models with reasoning can take 5-10+ minutes, especially with complex tool calls. If using a reverse proxy (nginx, etc.), increase timeout settings significantly: proxy_read_timeout 600s; proxy_connect_timeout 600s; proxy_send_timeout 600s; (or even 900s for very long reasoning). Also check Ollama server timeout settings."
                     elif status_code == 503:
                         error_msg = f"Ollama server unavailable (503): The server is temporarily unavailable."
                     elif status_code == 500:
@@ -389,7 +449,45 @@ async def run_mcp_workflow(
                     # Execute tool
                     try:
                         if function_name == "google_ai_mode":
-                            log.debug("Calling Google AI Mode tool")
+                            # Validate and enforce the exact query template format
+                            query = function_args.get("query", "")
+                            log.debug("Google AI Mode query received: %s", query[:200] if len(query) > 200 else query)
+                            
+                            # Check if query matches the required template pattern
+                            # Template: "Give me the cheapest {day_number} days return flights of {airline} from {departure_airport} to {arrival_airport} in the next 6 months, provide all the exact ticket price (all price in HKD), multiple departure and return dates and time"
+                            required_parts = [
+                                "Give me the cheapest",
+                                "days return flights of",
+                                "from",
+                                "to",
+                                "in the next 6 months, provide all the exact ticket price (all price in HKD), multiple departure and return dates and time"
+                            ]
+                            
+                            query_lower = query.lower()
+                            matches_template = all(part.lower() in query_lower for part in required_parts)
+                            
+                            if not matches_template:
+                                log.warning(
+                                    "Google AI Mode query does not match required template. Received: %s. Reformatting to match template.",
+                                    query[:200],
+                                )
+                                # Extract variables from query if possible, otherwise use defaults
+                                day_match = re.search(r'(\d+)\s*days?', query, re.IGNORECASE)
+                                airline_match = re.search(r'flights?\s+of\s+([A-Z]{2,3})', query, re.IGNORECASE)
+                                dep_match = re.search(r'from\s+([A-Z]{3})', query, re.IGNORECASE)
+                                arr_match = re.search(r'to\s+([A-Z]{3})', query, re.IGNORECASE)
+                                
+                                day_number = day_match.group(1) if day_match else (str(mcp_request.return_trip_days) if mcp_request.return_trip_days else "8")
+                                airline = airline_match.group(1) if airline_match else (mcp_request.airlines[0] if mcp_request.airlines else "CX")
+                                departure_airport = dep_match.group(1) if dep_match else mcp_request.departure
+                                arrival_airport = arr_match.group(1) if arr_match else mcp_request.destination
+                                
+                                # Reformat to exact template
+                                query = f"Give me the cheapest {day_number} days return flights of {airline} from {departure_airport} to {arrival_airport} in the next 6 months, provide all the exact ticket price (all price in HKD), multiple departure and return dates and time"
+                                function_args["query"] = query
+                                log.info("Reformatted Google AI Mode query to match template: %s", query)
+                            
+                            log.debug("Calling Google AI Mode tool with validated query")
                             result = tools["google_ai_mode"].call(**function_args)
                             log.info("Google AI Mode tool completed: has_text_blocks=%s", bool(result.get("text_blocks")))
                         elif function_name == "google_flight_calendar":
@@ -428,12 +526,87 @@ async def run_mcp_workflow(
                                 stored_count,
                                 workflow_state.saved_flight_count,
                             )
+                        elif function_name == "finish_workflow":
+                            # Handle workflow completion tool
+                            reason = function_args.get("reason", "Workflow completed by AI")
+                            summary = function_args.get("summary", "")
+                            log.info(
+                                "AI requested workflow completion: reason=%s, summary=%s",
+                                reason,
+                                summary,
+                            )
+                            workflow_state.is_complete = True
+                            workflow_state.completion_reason = f"AI completed workflow: {reason}"
+                            if summary:
+                                workflow_state.completion_reason += f" ({summary})"
+                            result = {
+                                "status": "success",
+                                "message": "Workflow completed successfully",
+                                "reason": reason,
+                                "summary": summary,
+                                "saved_flight_count": workflow_state.saved_flight_count,
+                            }
+                            log.info(
+                                "Workflow marked as complete by AI. Saved flights: %d",
+                                workflow_state.saved_flight_count,
+                            )
                         else:
                             log.warning("Unknown tool requested: %s", function_name)
                             result = {"error": f"Unknown tool: {function_name}"}
 
+                        # Log full tool response (truncated if too long)
+                        result_str = json.dumps(result, default=str, indent=2)
+                        if len(result_str) > 3000:
+                            log.info("Tool '%s' Response (truncated): %s...", function_name, result_str[:3000])
+                            log.debug("Tool '%s' Response (full): %s", function_name, result_str)
+                        else:
+                            log.info("Tool '%s' Response: %s", function_name, result_str)
+
                         tool_call.result = result
                         workflow_state.tool_calls.append(tool_call)
+
+                        # Prepare tool result for messages - truncate very large responses to reduce context size
+                        # This helps with reasoning models that take too long with large contexts
+                        result_for_message = result
+                        result_json_str = json.dumps(result, default=str)
+                        
+                        # If result is very large (>50KB), create a summary instead
+                        MAX_TOOL_RESULT_SIZE = 50000  # 50KB limit
+                        if len(result_json_str) > MAX_TOOL_RESULT_SIZE:
+                            log.warning(
+                                "Tool '%s' response is very large (%d bytes), creating summary for message context",
+                                function_name,
+                                len(result_json_str),
+                            )
+                            # Create a summary with key information
+                            if function_name == "google_ai_mode":
+                                summary = {
+                                    "status": "success",
+                                    "text_blocks_count": len(result.get("text_blocks", [])),
+                                    "has_extracted_json": "extracted_json" in result,
+                                    "summary": "Large response received. Use google_flight_calendar and google_flight_search for real data.",
+                                }
+                            elif function_name == "google_flight_calendar":
+                                calendar_entries = result.get("calendar", [])
+                                summary = {
+                                    "status": "success",
+                                    "calendar_entries_count": len(calendar_entries) if isinstance(calendar_entries, list) else 0,
+                                    "summary": f"Received {len(calendar_entries) if isinstance(calendar_entries, list) else 0} calendar entries with price data.",
+                                }
+                            elif function_name == "google_flight_search":
+                                summary = {
+                                    "status": "success",
+                                    "total_count": result.get("total_count", 0),
+                                    "stored_count": result.get("stored_count", 0),
+                                    "summary": f"Found {result.get('total_count', 0)} flights, stored {result.get('stored_count', 0)} in database.",
+                                }
+                            else:
+                                summary = {
+                                    "status": "success",
+                                    "summary": "Large response received. Check logs for full details.",
+                                }
+                            result_for_message = summary
+                            log.info("Created summary for tool '%s' response: %s", function_name, json.dumps(summary, default=str))
 
                         # Add tool result to messages
                         # Include function_name for Google AI compatibility
@@ -442,8 +615,16 @@ async def run_mcp_workflow(
                                 "role": "tool",
                                 "tool_call_id": tool_call_id,
                                 "function_name": function_name,  # Store for Google AI conversion
-                                "content": json.dumps(result, default=str),
+                                "content": json.dumps(result_for_message, default=str),
                             }
+                        )
+                        
+                        # Log message size
+                        message_content_size = len(json.dumps(result_for_message, default=str))
+                        log.debug(
+                            "Added tool result to messages: function=%s, content_size=%d bytes",
+                            function_name,
+                            message_content_size,
                         )
 
                         log.info("Tool call %s completed successfully", function_name)
@@ -463,25 +644,73 @@ async def run_mcp_workflow(
                             }
                         )
 
-            # Check completion criteria
-            if workflow_state.saved_flight_count >= 3:  # Found at least 3 flights
+            # Check completion criteria (after tool execution)
+            # Note: finish_workflow tool sets is_complete = True during execution
+            
+            # Check if google_flight_search has been called at least once
+            has_called_flight_search = any(
+                tc.tool_name == "google_flight_search" for tc in workflow_state.tool_calls
+            )
+            
+            if workflow_state.is_complete:
+                # Already completed (either by finish_workflow tool or automatic threshold)
+                if not has_called_flight_search and workflow_state.saved_flight_count == 0:
+                    log.warning(
+                        "Workflow completed but google_flight_search was never called. No flights were saved. Completion reason: %s",
+                        workflow_state.completion_reason,
+                    )
+                else:
+                    log.info(
+                        "Workflow completed: reason=%s, saved_flights=%d, flight_search_called=%s",
+                        workflow_state.completion_reason,
+                        workflow_state.saved_flight_count,
+                        has_called_flight_search,
+                    )
+            elif workflow_state.saved_flight_count >= 3:  # Found at least 3 flights
                 workflow_state.is_complete = True
-                workflow_state.completion_reason = f"Found {workflow_state.saved_flight_count} flights"
+                workflow_state.completion_reason = f"Found {workflow_state.saved_flight_count} flights (automatic threshold)"
                 log.info(
                     "Workflow completion criteria met: saved_flight_count=%d >= 3",
                     workflow_state.saved_flight_count,
                 )
             elif not tool_calls and assistant_content:
                 # Model finished without tool calls
-                workflow_state.is_complete = True
-                workflow_state.completion_reason = "Model completed workflow"
-                log.info("Model completed workflow without tool calls (iteration %d)", workflow_state.iteration_count)
+                if not has_called_flight_search:
+                    log.warning(
+                        "Model completed workflow without calling google_flight_search (iteration %d). No flights were saved. The AI should call google_flight_search with dates from google_ai_mode results.",
+                        workflow_state.iteration_count,
+                    )
+                    # Don't complete - force the AI to call google_flight_search
+                    # Add a message to remind the AI
+                    messages.append({
+                        "role": "user",
+                        "content": "You have not called google_flight_search yet. You MUST call google_flight_search with specific dates from the google_ai_mode results to save flights. The goal is to SAVE flights, not just report on them. Please extract dates from the google_ai_mode results (e.g., 'Feb 3, 2026' → '2026-02-03') and call google_flight_search with those dates.",
+                    })
+                    log.info("Added reminder message to force AI to call google_flight_search")
+                    # Continue the loop instead of completing
+                    continue
+                else:
+                    # Model finished without tool calls but has called google_flight_search before
+                    workflow_state.is_complete = True
+                    workflow_state.completion_reason = "Model completed workflow without tool calls (legacy - should use finish_workflow tool)"
+                    log.warning(
+                        "Model completed workflow without tool calls (iteration %d). Consider using finish_workflow tool for explicit completion.",
+                        workflow_state.iteration_count,
+                    )
             elif workflow_state.iteration_count >= workflow_state.max_iterations:
-                log.warning(
-                    "Workflow reached max iterations (%d) without completion. Saved flights: %d",
-                    workflow_state.max_iterations,
-                    workflow_state.saved_flight_count,
-                )
+                workflow_state.is_complete = True
+                workflow_state.completion_reason = f"Reached max iterations ({workflow_state.max_iterations})"
+                if not has_called_flight_search:
+                    log.error(
+                        "Workflow reached max iterations (%d) without calling google_flight_search. No flights were saved.",
+                        workflow_state.max_iterations,
+                    )
+                else:
+                    log.warning(
+                        "Workflow reached max iterations (%d) without explicit completion. Saved flights: %d",
+                        workflow_state.max_iterations,
+                        workflow_state.saved_flight_count,
+                    )
 
     except Exception as e:
         log.exception("Error in MCP workflow (iteration %d): %s", workflow_state.iteration_count, e)

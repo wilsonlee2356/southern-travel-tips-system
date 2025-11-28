@@ -80,6 +80,15 @@ class GoogleAiModeTool:
                             log.warning("Failed to parse extracted JSON from Google AI Mode")
 
             log.info("Google AI Mode response received (text_blocks: %d)", len(data.get("text_blocks", [])))
+            
+            # Log full response (truncated if too long)
+            response_str = json.dumps(data, default=str, indent=2)
+            if len(response_str) > 2000:
+                log.info("Google AI Mode Response (truncated): %s...", response_str[:2000])
+                log.debug("Google AI Mode Response (full): %s", response_str)
+            else:
+                log.info("Google AI Mode Response: %s", response_str)
+            
             return data
 
         except requests.RequestException as e:

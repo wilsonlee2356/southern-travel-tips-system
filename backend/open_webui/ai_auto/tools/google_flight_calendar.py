@@ -1,5 +1,6 @@
 """Google Flight Calendar Tool for MCP"""
 
+import json
 import logging
 from typing import Any, Dict, Optional
 
@@ -85,6 +86,14 @@ class GoogleFlightCalendarTool:
                 departure_id,
                 arrival_id,
             )
+            
+            # Log full response (truncated if too long)
+            response_str = json.dumps(data, default=str, indent=2)
+            if len(response_str) > 3000:
+                log.info("Google Flight Calendar Response (truncated): %s...", response_str[:3000])
+                log.debug("Google Flight Calendar Response (full): %s", response_str)
+            else:
+                log.info("Google Flight Calendar Response: %s", response_str)
 
             return data
 
