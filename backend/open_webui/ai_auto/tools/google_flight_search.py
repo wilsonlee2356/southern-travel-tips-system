@@ -82,13 +82,14 @@ class GoogleFlightSearchTool:
         if included_airlines:
             params["included_airlines"] = included_airlines
 
-        if excluded_airlines:
+        # Only include excluded_airlines if it has a non-empty value
+        if excluded_airlines and excluded_airlines.strip():
             params["excluded_airlines"] = excluded_airlines
 
+        # Only set stops parameter when non_stop is explicitly True
+        # When False or None, don't include the parameter (let API use default)
         if non_stop is True:
             params["stops"] = "0"
-        elif non_stop is False:
-            params["stops"] = "1"
 
         if children > 0:
             params["children"] = children
@@ -113,6 +114,21 @@ class GoogleFlightSearchTool:
 
         try:
             response = requests.get(GOOGLE_FLIGHTS_ENDPOINT, params=params, timeout=120)
+            
+            # Log response details for debugging
+            if response.status_code != 200:
+                log.warning(
+                    "Google Flight Search API returned status %d. Response: %s",
+                    response.status_code,
+                    response.text[:500] if response.text else "No response body",
+                )
+                # Try to parse error response
+                try:
+                    error_data = response.json()
+                    log.warning("Error response JSON: %s", json.dumps(error_data, default=str)[:500])
+                except:
+                    pass
+            
             response.raise_for_status()
             data: Dict[str, Any] = response.json()
 

@@ -233,14 +233,20 @@ async def run_mcp_workflow(
             log.info("MCP workflow iteration %d/%d", workflow_state.iteration_count, workflow_state.max_iterations)
 
             # Prepare form_data for chat completion
+            # Use "required" tool_choice on first iteration to force the model to use tools
+            # After that, use "auto" to let the model decide
+            tool_choice = "required" if workflow_state.iteration_count == 1 else "auto"
+            
             form_data = {
                 "model": mcp_request.model_id,
                 "messages": messages,
                 "tools": tools_schema,
-                "tool_choice": "auto",
+                "tool_choice": tool_choice,  # Force tool use on first iteration
                 "stream": False,
                 "temperature": 0.7,
             }
+            
+            log.debug("Tool choice for iteration %d: %s", workflow_state.iteration_count, tool_choice)
 
             # Call model
             call_start_time = None
@@ -505,16 +511,22 @@ async def run_mcp_workflow(
                                 len(calendar_entries) if isinstance(calendar_entries, list) else 0,
                             )
                         elif function_name == "google_flight_search":
+                            # Clean up empty parameters that might cause API errors
+                            # Remove excluded_airlines if it's empty or None
+                            if not function_args.get("excluded_airlines") or not str(function_args.get("excluded_airlines", "")).strip():
+                                function_args.pop("excluded_airlines", None)
+                            
                             # Add auto_search_id and store_results flag
                             function_args["auto_search_id"] = auto_search_id
                             function_args["store_results"] = True
                             log.debug(
-                                "Calling Google Flight Search: %s -> %s, outbound=%s, return=%s, airlines=%s",
+                                "Calling Google Flight Search: %s -> %s, outbound=%s, return=%s, airlines=%s, non_stop=%s",
                                 function_args.get("departure_id"),
                                 function_args.get("arrival_id"),
                                 function_args.get("outbound_date"),
                                 function_args.get("return_date"),
                                 function_args.get("included_airlines"),
+                                function_args.get("non_stop"),
                             )
                             result = tools["google_flight_search"].call(**function_args)
                             stored_count = result.get("stored_count", 0)
