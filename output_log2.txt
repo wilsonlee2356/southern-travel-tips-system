@@ -1,0 +1,431 @@
+"""
+Script to load flight search JSON data into SQLite database
+Usage: python load_flight_data.py output2.txt flights.db
+"""
+
+import json
+import sqlite3
+import sys
+from datetime import datetime
+from typing import Dict, List, Any
+
+
+def create_database(db_path: str, schema_path: str = 'flight_data_schema.sql'):
+    """Create database and tables from schema file"""
+    conn = sqlite3.connect(db_path)
+    with open(schema_path, 'r', encoding='utf-8') as f:
+        schema = f.read()
+        conn.executescript(schema)
+    conn.commit()
+    return conn
+
+
+def insert_search(conn: sqlite3.Connection, search_params: Dict[str, Any]) -> int:
+    """Insert search parameters and return search_id"""
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO searches (
+            engine, departure_id, arrival_id, currency, hl, gl,
+            outbound_date, return_date, flight_type, travel_class,
+            stops, adults, children, infants_in_seat, infants_on_lap,
+            included_airlines
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        search_params.get('engine'),
+        search_params.get('departure_id'),
+        search_params.get('arrival_id'),
+        search_params.get('currency'),
+        search_params.get('hl'),
+        search_params.get('gl'),
+        search_params.get('outbound_date'),
+        search_params.get('return_date'),
+        search_params.get('flight_type'),
+        search_params.get('travel_class'),
+        search_params.get('stops'),
+        int(search_params.get('adults', 1)),
+        int(search_params.get('children', 0)),
+        int(search_params.get('infants_in_seat', 0)),
+        int(search_params.get('infants_on_lap', 0)),
+        search_params.get('included_airlines')
+    ))
+    return cursor.lastrowid
+
+
+def insert_flight_option(conn: sqlite3.Connection, search_id: int, 
+                        flight_option: Dict[str, Any], is_best: bool) -> int:
+    """Insert flight option and return option_id"""
+    cursor = conn.cursor()
+    
+    carbon_emissions = flight_option.get('carbon_emissions', {})
+    
+    cursor.execute("""
+        INSERT INTO flight_options (
+            search_id, is_best_flight, total_duration, price, type,
+            airline_logo, departure_token,
+            carbon_emission_this_flight, carbon_emission_typical,
+            carbon_emission_difference_percent, carbon_emission_lowest_route
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        search_id,
+        1 if is_best else 0,
+        flight_option.get('total_duration'),
+        flight_option.get('price'),
+        flight_option.get('type'),
+        flight_option.get('airline_logo'),
+        flight_option.get('departure_token'),
+        carbon_emissions.get('this_flight'),
+        carbon_emissions.get('typical_for_this_route'),
+        carbon_emissions.get('difference_percent'),
+        carbon_emissions.get('lowest_route')
+    ))
+    option_id = cursor.lastrowid
+    
+    # Insert extensions
+    extensions = flight_option.get('extensions', [])
+    for ext in extensions:
+        cursor.execute("""
+            INSERT INTO option_extensions (option_id, extension_text)
+            VALUES (?, ?)
+        """, (option_id, ext))
+    
+    return option_id
+
+
+def get_or_create_airline(conn: sqlite3.Connection, flight_number: str, airline_name: str = None, airline_logo: str = None) -> str:
+    """Extract airline code from flight number and get or create airline in airline_auto table"""
+    cursor = conn.cursor()
+    
+    # Extract airline code from flight number (e.g., "CX 598" -> "CX")
+    airline_code = None
+    if flight_number:
+        parts = flight_number.strip().split()
+        if parts:
+            airline_code = parts[0]
+    
+    # Use airline code as airline_id if available, otherwise use airline name
+    airline_id = airline_code if airline_code else (airline_name or 'UNKNOWN')
+    
+    # Check if airline already exists
+    cursor.execute("SELECT airline_id FROM airline_auto WHERE airline_id = ?", (airline_id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        # Create new airline entry
+        cursor.execute("""
+            INSERT INTO airline_auto (airline_id, code, name, airline_logo)
+            VALUES (?, ?, ?, ?)
+        """, (
+            airline_id,
+            airline_code,
+            airline_name or airline_code,
+            airline_logo
+        ))
+    
+    return airline_id
+
+
+def insert_flight_segment(conn: sqlite3.Connection, option_id: int,
+                          segment: Dict[str, Any], segment_order: int) -> int:
+    """Insert flight segment and return segment_id"""
+    cursor = conn.cursor()
+    
+    dep_airport = segment.get('departure_airport', {})
+    arr_airport = segment.get('arrival_airport', {})
+    detected_ext = segment.get('detected_extensions', {})
+    
+    # Get or create airline in airline_auto table
+    flight_number = segment.get('flight_number', '')
+    airline_name = segment.get('airline')
+    airline_logo = segment.get('airline_logo')
+    airline_id = get_or_create_airline(conn, flight_number, airline_name, airline_logo)
+    
+    cursor.execute("""
+        INSERT INTO flight_segments (
+            option_id, segment_order,
+            departure_airport_iata, departure_airport_name,
+            departure_date, departure_time,
+            arrival_airport_iata, arrival_airport_name,
+            arrival_date, arrival_time,
+            duration, airplane, airline_id, airline, airline_logo,
+            travel_class, flight_number, is_overnight,
+            has_in_seat_usb_outlet, has_power_and_usb_outlets,
+            has_on_demand_video, wifi, seat_type,
+            legroom_short, legroom_long, carbon_emission
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        option_id,
+        segment_order,
+        dep_airport.get('id'),  # IATA code
+        dep_airport.get('name'),
+        dep_airport.get('date'),
+        dep_airport.get('time'),
+        arr_airport.get('id'),  # IATA code
+        arr_airport.get('name'),
+        arr_airport.get('date'),
+        arr_airport.get('time'),
+        segment.get('duration'),
+        segment.get('airplane'),
+        airline_id,  # Foreign key to airline table
+        segment.get('airline'),  # Keep English name as fallback
+        segment.get('airline_logo'),
+        segment.get('travel_class'),
+        flight_number,
+        1 if segment.get('is_overnight') else 0,
+        detected_ext.get('has_in_seat_usb_outlet'),
+        detected_ext.get('has_power_and_usb_outlets'),
+        detected_ext.get('has_on_demand_video'),
+        detected_ext.get('wifi'),
+        detected_ext.get('seat_type'),
+        detected_ext.get('legroom_short'),
+        detected_ext.get('legroom_long'),
+        detected_ext.get('carbon_emission')
+    ))
+    segment_id = cursor.lastrowid
+    
+    # Insert extensions
+    extensions = segment.get('extensions', [])
+    for ext in extensions:
+        cursor.execute("""
+            INSERT INTO flight_extensions (segment_id, extension_text)
+            VALUES (?, ?)
+        """, (segment_id, ext))
+    
+    return segment_id
+
+
+def insert_layovers(conn: sqlite3.Connection, option_id: int,
+                   layovers: List[Dict[str, Any]]):
+    """Insert layover information"""
+    cursor = conn.cursor()
+    for idx, layover in enumerate(layovers):
+        cursor.execute("""
+            INSERT INTO layovers (option_id, layover_order, airport_iata, airport_name, duration)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            option_id,
+            idx + 1,
+            layover.get('id'),  # IATA code
+            layover.get('name'),
+            layover.get('duration')
+        ))
+
+
+def insert_price_insights(conn: sqlite3.Connection, search_id: int,
+                         price_insights: Dict[str, Any]):
+    """Insert price insights and history"""
+    cursor = conn.cursor()
+    
+    typical_range = price_insights.get('typical_price_range', {})
+    
+    cursor.execute("""
+        INSERT INTO price_insights (
+            search_id, lowest_price, price_level,
+            typical_low_price, typical_high_price
+        ) VALUES (?, ?, ?, ?, ?)
+    """, (
+        search_id,
+        price_insights.get('lowest_price'),
+        price_insights.get('price_level'),
+        typical_range.get('low_price'),
+        typical_range.get('high_price')
+    ))
+    insight_id = cursor.lastrowid
+    
+    # Insert price history
+    price_history = price_insights.get('price_history', [])
+    for entry in price_history:
+        cursor.execute("""
+            INSERT INTO price_history (insight_id, price, iso_date)
+            VALUES (?, ?, ?)
+        """, (
+            insight_id,
+            entry.get('price'),
+            entry.get('iso_date')
+        ))
+
+
+def insert_airport_if_not_exists(conn: sqlite3.Connection, airport_iata: str, airport_name: str):
+    """Insert airport into airport_auto table if it doesn't exist"""
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT OR IGNORE INTO airport_auto (
+            airport_id, iata, airport_name
+        ) VALUES (?, ?, ?)
+    """, (airport_iata, airport_iata, airport_name))
+
+
+def insert_airports(conn: sqlite3.Connection, airports_data: List[Dict[str, Any]]):
+    """Insert airport information into airport_auto table"""
+    cursor = conn.cursor()
+    
+    for airport_group in airports_data:
+        # Process departure airports
+        for dep in airport_group.get('departure', []):
+            airport = dep.get('airport', {})
+            airport_iata = airport.get('id')
+            if airport_iata:
+                cursor.execute("""
+                    INSERT OR IGNORE INTO airport_auto (
+                        airport_id, iata, airport_name, city, country,
+                        country_code, image_url, thumbnail_url
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    airport_iata,  # Use IATA as airport_id
+                    airport_iata,
+                    airport.get('name'),
+                    dep.get('city'),
+                    dep.get('country'),
+                    dep.get('country_code'),
+                    dep.get('image'),
+                    dep.get('thumbnail')
+                ))
+        
+        # Process arrival airports
+        for arr in airport_group.get('arrival', []):
+            airport = arr.get('airport', {})
+            airport_iata = airport.get('id')
+            if airport_iata:
+                cursor.execute("""
+                    INSERT OR IGNORE INTO airport_auto (
+                        airport_id, iata, airport_name, city, country,
+                        country_code, image_url, thumbnail_url
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    airport_iata,  # Use IATA as airport_id
+                    airport_iata,
+                    airport.get('name'),
+                    arr.get('city'),
+                    arr.get('country'),
+                    arr.get('country_code'),
+                    arr.get('image'),
+                    arr.get('thumbnail')
+                ))
+
+
+def insert_search_airports(conn: sqlite3.Connection, search_id: int,
+                          airports_data: List[Dict[str, Any]]):
+    """Link searches to airports using IATA codes"""
+    cursor = conn.cursor()
+    
+    for airport_group in airports_data:
+        # Process departure airports
+        for dep in airport_group.get('departure', []):
+            airport_iata = dep.get('airport', {}).get('id')  # IATA code
+            if airport_iata:
+                cursor.execute("""
+                    INSERT INTO search_airports (search_id, airport_iata, is_departure)
+                    VALUES (?, ?, 1)
+                """, (search_id, airport_iata))
+        
+        # Process arrival airports
+        for arr in airport_group.get('arrival', []):
+            airport_iata = arr.get('airport', {}).get('id')  # IATA code
+            if airport_iata:
+                cursor.execute("""
+                    INSERT INTO search_airports (search_id, airport_iata, is_departure)
+                    VALUES (?, ?, 0)
+                """, (search_id, airport_iata))
+
+
+def load_flight_data(json_file: str, db_path: str):
+    """Main function to load JSON data into database"""
+    print(f"Loading data from {json_file} into {db_path}...")
+    
+    # Read JSON file
+    with open(json_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    # Create database
+    conn = create_database(db_path)
+    
+    try:
+        for search_result in data:
+            # Insert search parameters
+            search_id = insert_search(conn, search_result.get('search_parameters', {}))
+            print(f"Inserted search {search_id}")
+            
+            # Insert airports FIRST (before flight segments that reference them)
+            airports_data = search_result.get('airports', [])
+            if airports_data:
+                insert_airports(conn, airports_data)
+                insert_search_airports(conn, search_id, airports_data)
+            
+            # Insert best flights
+            best_flights = search_result.get('best_flights', [])
+            for flight_option in best_flights:
+                option_id = insert_flight_option(conn, search_id, flight_option, is_best=True)
+                
+                # Insert flight segments (ensure airports exist first)
+                flights = flight_option.get('flights', [])
+                for idx, segment in enumerate(flights):
+                    # Ensure airports exist before inserting segment
+                    dep_airport = segment.get('departure_airport', {})
+                    arr_airport = segment.get('arrival_airport', {})
+                    if dep_airport.get('id'):
+                        insert_airport_if_not_exists(conn, dep_airport.get('id'), dep_airport.get('name', ''))
+                    if arr_airport.get('id'):
+                        insert_airport_if_not_exists(conn, arr_airport.get('id'), arr_airport.get('name', ''))
+                    insert_flight_segment(conn, option_id, segment, idx + 1)
+                
+                # Insert layovers if present (ensure airports exist first)
+                layovers = flight_option.get('layovers', [])
+                if layovers:
+                    for layover in layovers:
+                        if layover.get('id'):
+                            insert_airport_if_not_exists(conn, layover.get('id'), layover.get('name', ''))
+                    insert_layovers(conn, option_id, layovers)
+            
+            # Insert other flights
+            other_flights = search_result.get('other_flights', [])
+            for flight_option in other_flights:
+                option_id = insert_flight_option(conn, search_id, flight_option, is_best=False)
+                
+                # Insert flight segments (ensure airports exist first)
+                flights = flight_option.get('flights', [])
+                for idx, segment in enumerate(flights):
+                    # Ensure airports exist before inserting segment
+                    dep_airport = segment.get('departure_airport', {})
+                    arr_airport = segment.get('arrival_airport', {})
+                    if dep_airport.get('id'):
+                        insert_airport_if_not_exists(conn, dep_airport.get('id'), dep_airport.get('name', ''))
+                    if arr_airport.get('id'):
+                        insert_airport_if_not_exists(conn, arr_airport.get('id'), arr_airport.get('name', ''))
+                    insert_flight_segment(conn, option_id, segment, idx + 1)
+                
+                # Insert layovers if present (ensure airports exist first)
+                layovers = flight_option.get('layovers', [])
+                if layovers:
+                    for layover in layovers:
+                        if layover.get('id'):
+                            insert_airport_if_not_exists(conn, layover.get('id'), layover.get('name', ''))
+                    insert_layovers(conn, option_id, layovers)
+            
+            # Insert price insights
+            price_insights = search_result.get('price_insights', {})
+            if price_insights:
+                insert_price_insights(conn, search_id, price_insights)
+            
+            conn.commit()
+            print(f"Completed search {search_id}")
+        
+        print(f"\nSuccessfully loaded {len(data)} search results into database!")
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"Error: {e}")
+        raise
+    finally:
+        conn.close()
+
+
+if __name__ == '__main__':
+    if len(sys.argv) < 3:
+        print("Usage: python load_flight_data.py <json_file> <db_file>")
+        print("Example: python load_flight_data.py output2.txt flights.db")
+        sys.exit(1)
+    
+    json_file = sys.argv[1]
+    db_file = sys.argv[2]
+    
+    load_flight_data(json_file, db_file)
+

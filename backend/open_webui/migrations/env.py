@@ -5,6 +5,36 @@ from open_webui.models.auths import Auth
 from open_webui.env import DATABASE_URL, DATABASE_PASSWORD
 from sqlalchemy import engine_from_config, pool, create_engine
 
+# Import all models so Alembic can detect them for autogenerate
+# Import flight_search models (uses airline_auto and airport_auto, separate from original tables)
+try:
+    from open_webui.models.flight_search import (
+        Search,
+        FlightOption,
+        FlightSegment,
+        FlightExtension,
+        OptionExtension,
+        Layover,
+        PriceInsight,
+        PriceHistory,
+        AirlineAuto,
+        AirportAuto,
+        SearchAirport,
+    )
+except ImportError:
+    # Models not available yet, skip
+    pass
+
+# Import auto_search_config models
+try:
+    from open_webui.models.auto_search_config import (
+        AutoSearchConfig,
+        AutoSearchAirline,
+    )
+except ImportError:
+    # Models not available yet, skip
+    pass
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -16,9 +46,10 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-target_metadata = Auth.metadata
+# Since all models share the same Base, we can use Base.metadata
+# All imported models will be registered with this metadata
+from open_webui.internal.db import Base
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

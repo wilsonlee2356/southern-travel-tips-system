@@ -1,30 +1,38 @@
 import logging
-import re
-from collections import defaultdict
-from datetime import datetime, timedelta, time
-from typing import Any, Dict, List, Optional, Tuple
-import threading
+from datetime import datetime, date, time
+from typing import List, Optional, Dict, Any
 
 import requests
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field, validator
 
 from open_webui.env import SRC_LOG_LEVELS
 from open_webui.models.flight_pricing import (
     AirlinesTable,
     AirlineModel,
-    AutoSearchAirlineModel,
-    AutoSearchAirlinesTable,
-    AutoSearchModel,
-    AutoSearchTable,
-    PriceModel,
-    PricesTable,
-    FlightRouteModel,
-    FlightRoutesTable,
+    Airline,
+)
+from open_webui.models.auto_search_config import (
+    AutoSearchConfig,
+    AutoSearchAirline,
+    AutoSearchConfigModel,
+)
+from open_webui.models.flight_search import (
+    Search,
+    FlightOption,
+    FlightSegment,
+    FlightExtension,
+    OptionExtension,
+    Layover,
+    PriceInsight,
+    PriceHistory,
+    AirlineAuto,
+    AirportAuto,
+    SearchAirport,
 )
 from open_webui.utils.auth import get_verified_user
-from open_webui.utils.flight_calendar import fetch_calendar, FlightCalendarError
+from open_webui.internal.db import get_db
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MAIN"])
@@ -33,114 +41,6 @@ router = APIRouter()
 
 MIN_AIRLINES = 1
 MAX_AIRLINES = 10
-SIX_MONTHS_IN_DAYS = 180
-TRAVEL_CLASS_LABELS = {
-    0: "economy",
-    1: "premium_economy",
-    2: "business",
-    3: "first",
-}
-
-# --- Auto search daily refresh scheduler (in‑process) ---
-
-# Default daily refresh time (local server time)
-_AUTO_SEARCH_REFRESH_TIME: time = time(hour=3, minute=0)
-_refresh_scheduler_lock = threading.Lock()
-_refresh_scheduler_timer: Optional[threading.Timer] = None
-
-
-class AutoSearchScheduleModel(BaseModel):
-    """Simple model to represent the daily auto-search refresh time (HH:MM, 24h)."""
-
-    time: str = Field(
-        ...,
-        description="Daily refresh time in HH:MM 24-hour format, e.g. '03:00' or '18:30'",
-        examples=["03:00", "18:30"],
-    )
-
-
-def _parse_time_string(value: str) -> time:
-    """Parse 'HH:MM' into a time object, raising HTTPException on error."""
-    try:
-        parts = value.split(":", 1)
-        if len(parts) != 2:
-            raise ValueError
-        hour = int(parts[0])
-        minute = int(parts[1])
-        if not (0 <= hour <= 23 and 0 <= minute <= 59):
-            raise ValueError
-        return time(hour=hour, minute=minute)
-    except Exception as exc:  # pragma: no cover - defensive
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Time must be in 'HH:MM' 24-hour format.",
-        ) from exc
-
-
-def _run_all_auto_search_refresh_sync() -> None:
-    """
-    Refresh all existing auto searches synchronously.
-
-    This uses the same internal logic as the /auto-search/{id}/refresh endpoint,
-    but runs without HTTP context so it can be called from a background timer.
-    """
-    auto_search_table = AutoSearchTable()
-    searches = auto_search_table.list_all()
-    if not searches:
-        log.info("Scheduled auto-search refresh: no auto searches to refresh.")
-        return
-
-    log.info("Scheduled auto-search refresh started for %d auto searches", len(searches))
-
-    for search in searches:
-        try:
-            # Reuse the same sync logic as the HTTP refresh endpoint
-            _refresh_auto_flight_search_sync(search.auto_search_id)
-        except Exception:  # pragma: no cover - defensive logging
-            log.exception(
-                "Scheduled auto-search refresh failed for auto_search_id=%s",
-                search.auto_search_id,
-            )
-
-    log.info("Scheduled auto-search refresh completed.")
-
-
-def _schedule_next_auto_search_refresh() -> None:
-    """Schedule the next daily refresh based on _AUTO_SEARCH_REFRESH_TIME."""
-    global _refresh_scheduler_timer
-    with _refresh_scheduler_lock:
-        if _refresh_scheduler_timer is not None:
-            _refresh_scheduler_timer.cancel()
-
-        now = datetime.now()
-        target = datetime.combine(now.date(), _AUTO_SEARCH_REFRESH_TIME)
-        if target <= now:
-            target += timedelta(days=1)
-        delay = (target - now).total_seconds()
-
-        def _timer_callback() -> None:
-            try:
-                _run_all_auto_search_refresh_sync()
-            finally:
-                # Always schedule the next run
-                _schedule_next_auto_search_refresh()
-
-        _refresh_scheduler_timer = threading.Timer(delay, _timer_callback)
-        _refresh_scheduler_timer.daemon = True
-        _refresh_scheduler_timer.start()
-
-        log.info(
-            "Scheduled daily auto-search refresh at %s (in %.0f seconds)",
-            _AUTO_SEARCH_REFRESH_TIME.strftime("%H:%M"),
-            delay,
-        )
-
-# Start the scheduler with the default time when this module is first imported
-try:  # pragma: no cover - defensive
-    _schedule_next_auto_search_refresh()
-except Exception:
-    # If scheduling fails at import time, log but do not prevent app startup
-    log.exception("Failed to start auto-search refresh scheduler on import")
 
 
 class AutoFlightSearchRequest(BaseModel):
@@ -149,6 +49,7 @@ class AutoFlightSearchRequest(BaseModel):
     airlines: List[str] = Field(..., description="Airline names to track (1-10 airlines)")
     travel_class: int = Field(0, ge=0, le=3, description="0=economy, 1=premium_economy, 2=business, 3=first_class")
     direct_flight: bool = Field(False, description="Track direct flights only")
+    return_trip_duration: int = Field(..., ge=1, le=365, description="Number of days for the return trip")
 
     @validator("airlines")
     def validate_airlines(cls, value: List[str]) -> List[str]:
@@ -161,51 +62,34 @@ class AutoFlightSearchRequest(BaseModel):
         return unique
 
 
-class AirlinePriceDataPoint(BaseModel):
-    departure_date: datetime
-    price: int
-    is_lowest_price: bool = False
-
-
-class AirlinePriceSeries(BaseModel):
-    airline_id: Optional[str] = None
-    airline_code: Optional[str] = None
-    airline_name: Optional[str] = None
-    route_id: Optional[str] = None
-    route_from: Optional[str] = None
-    route_to: Optional[str] = None
-    direction: Optional[str] = None
-    prices: List[AirlinePriceDataPoint] = Field(default_factory=list)
-
-
 class AutoFlightSearchResponse(BaseModel):
-    route: FlightRouteModel
-    return_route: FlightRouteModel
-    airlines: List[AirlineModel]
-    auto_search: AutoSearchModel
-    auto_search_airlines: List[AutoSearchAirlineModel]
+    """Simple response for auto flight search creation"""
+    success: bool = True
+    message: str = "Auto flight search initiated. n8n workflow will handle the search."
+    airlines: List[AirlineModel] = Field(default_factory=list)
+    auto_search_id: Optional[int] = None
+
+
+class AutoSearchListResponse(BaseModel):
+    """Response for listing auto searches"""
+    auto_search_id: int
+    departure_id: str
+    arrival_id: str
     travel_class: int
-    direct_flight: bool
-    outbound_departure: str
-    outbound_end: str
-    inbound_departure: str
-    inbound_end: str
-    prices: List[AirlinePriceSeries] = Field(default_factory=list)
-    message: str = "Auto flight search initiated."
+    is_direct: bool
+    return_trip_duration: int
+    created_at: datetime
+    updated_at: datetime
+    airlines: List[AirlineModel] = Field(default_factory=list)
 
 
-class AutoFlightDeleteResponse(BaseModel):
-    auto_search_id: str
-    prices_deleted: int
-    message: str = "Auto flight search deleted."
-
-
-def _build_date_range() -> tuple[str, str]:
-    tomorrow = datetime.utcnow().date() + timedelta(days=1)
-    six_months_later = tomorrow + timedelta(days=SIX_MONTHS_IN_DAYS)
-    start = tomorrow.strftime("%Y-%m-%d")
-    end = six_months_later.strftime("%Y-%m-%d")
-    return start, end
+class N8nWebhookData(BaseModel):
+    """Data structure for n8n webhook response"""
+    search_parameters: Dict[str, Any]
+    best_flights: Optional[List[Dict[str, Any]]] = None
+    other_flights: Optional[List[Dict[str, Any]]] = None
+    price_insights: Optional[Dict[str, Any]] = None
+    price_history: Optional[List[Dict[str, Any]]] = None
 
 
 def _call_n8n_webhook_for_airlines(
@@ -213,19 +97,19 @@ def _call_n8n_webhook_for_airlines(
     arrival_id: str,
     is_direct: bool,
     airline_codes: List[str],
-    trip_duration: int = 7,
+    trip_duration: int,
 ) -> None:
     """
     Call n8n webhook API for each airline when a new auto search is created.
     
-    URL format: https://n8n.ssl-labs.ai/webhook-test/f56d4963-08b0-4c21-97c7-be28249e32d8/auto_search/{departure_id}/{arrival_id}/{is_direct}/{airline}/{trip_duration}
+    URL format: https://n8n.ssl-labs.ai/webhook/f56d4963-08b0-4c21-97c7-be28249e32d8/auto_search/{departure_id}/{arrival_id}/{is_direct}/{airline}/{trip_duration}
     
     Args:
         departure_id: Departure airport code (e.g., HKG)
         arrival_id: Arrival airport code (e.g., KIX)
         is_direct: Whether to search for direct flights only
         airline_codes: List of airline codes to call webhook for
-        trip_duration: Trip duration in days (default: 7)
+        trip_duration: Trip duration in days (required, 1-365)
     """
     base_url = "https://n8n.ssl-labs.ai/webhook/f56d4963-08b0-4c21-97c7-be28249e32d8/auto_search"
     
@@ -235,7 +119,7 @@ def _call_n8n_webhook_for_airlines(
     for airline_code in airline_codes:
         airline_code_upper = airline_code.upper().strip()
         if not airline_code_upper:
-            continue
+                        continue
             
         # Build the webhook URL
         webhook_url = f"{base_url}/{departure_id}/{arrival_id}/{is_direct_str}/{airline_code_upper}/{trip_duration}"
@@ -261,6 +145,71 @@ def _call_n8n_webhook_for_airlines(
                 response.text[:500] if response.text else "No response body",
             )
             
+            # Parse and store the flight data if present
+            if response.text:
+                try:
+                    flight_data = response.json()
+                    # Handle both single object and list
+                    if isinstance(flight_data, dict):
+                        data_list = [flight_data]
+                    elif isinstance(flight_data, list):
+                        data_list = flight_data
+                    else:
+                        log.warning("Unexpected data format from n8n: %s", type(flight_data))
+                        continue
+
+                    # Store the data in database
+                    with get_db() as db:
+                        try:
+                            # Find the auto_search_airline_id
+                            auto_search_airline = db.query(AutoSearchAirline).join(AutoSearchConfig).filter(
+                                AutoSearchConfig.departure_id == departure_id.upper(),
+                                AutoSearchConfig.arrival_id == arrival_id.upper(),
+                            ).join(Airline).filter(
+                                Airline.code == airline_code_upper
+                            ).first()
+                            
+                            auto_search_airline_id = auto_search_airline.auto_search_airline_id if auto_search_airline else None
+                            
+                            if auto_search_airline_id is None:
+                                log.warning(
+                                    "No matching auto_search_airline found for %s -> %s, airline=%s. Storing without link.",
+                                    departure_id,
+                                    arrival_id,
+                                    airline_code_upper,
+                                )
+                            
+                            search_ids = []
+                            for search_data in data_list:
+                                try:
+                                    log.info("Processing search data from n8n response for airline %s", airline_code_upper)
+                                    search_id = _store_flight_search_data(db, search_data, auto_search_airline_id)
+                                    search_ids.append(search_id)
+                                    log.info("Successfully stored search with ID: %d", search_id)
+                                except Exception as e:
+                                    log.exception("Failed to store search data item: %s", str(e))
+                                    continue
+
+                            if search_ids:
+                                db.commit()
+                                log.info(
+                                    "Stored %d flight searches from n8n response for %s -> %s, airline=%s",
+                                    len(search_ids),
+                                    departure_id,
+                                    arrival_id,
+                                    airline_code_upper,
+                                )
+                            else:
+                                log.warning("No search records were successfully stored from n8n response")
+                                db.rollback()
+                        except Exception as e:
+                            db.rollback()
+                            log.exception("Failed to store n8n response data: %s", str(e))
+                except ValueError as e:
+                    log.warning("Failed to parse JSON from n8n response: %s", str(e))
+                except Exception as e:
+                    log.exception("Unexpected error processing n8n response: %s", str(e))
+            
         except requests.RequestException as e:
             log.error(
                 "n8n webhook call failed for airline %s: %s",
@@ -272,418 +221,6 @@ def _call_n8n_webhook_for_airlines(
                 "Unexpected error calling n8n webhook for airline %s: %s",
                 airline_code_upper,
                 str(e),
-            )
-
-
-def _parse_calendar_date(value: str) -> datetime | None:
-    if not value:
-        return None
-    candidate = str(value)[:10]
-    try:
-        parsed = datetime.fromisoformat(candidate)
-    except ValueError:
-        try:
-            parsed = datetime.strptime(candidate, "%Y-%m-%d")
-        except ValueError:
-            return None
-    return parsed.replace(hour=0, minute=0, second=0, microsecond=0)
-
-
-def _normalize_price(value) -> int | None:
-    if value is None:
-        return None
-    if isinstance(value, (int, float)):
-        return int(round(value))
-    if isinstance(value, str):
-        cleaned = re.sub(r"[^\d.]", "", value)
-        if not cleaned:
-            return None
-        try:
-            return int(round(float(cleaned)))
-        except ValueError:
-            return None
-    if isinstance(value, dict):
-        for key in ("raw", "value", "amount", "price"):
-            if key in value:
-                normalized = _normalize_price(value[key])
-                if normalized is not None:
-                    return normalized
-    return None
-
-
-DATE_KEY_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}")
-
-
-def _extract_calendar_prices(data: dict | None) -> List[Tuple[datetime, int]]:
-    if not isinstance(data, dict):
-        return []
-    calendar = data.get("calendar")
-    if calendar is None:
-        return []
-
-    entries: List[dict] = []
-    stack = [calendar]
-    direct_entries: List[Tuple[datetime, int]] = []
-    while stack:
-        current = stack.pop()
-        if isinstance(current, dict):
-            # handle dicts keyed by date strings (e.g. {"2025-01-01": {"price": {...}}})
-            for key, value in current.items():
-                if isinstance(key, str) and DATE_KEY_PATTERN.match(key):
-                    parsed_date = _parse_calendar_date(key)
-                    if not parsed_date:
-                        continue
-                    price_source = value
-                    if isinstance(value, dict):
-                        price_source = (
-                            value.get("price")
-                            or value.get("lowest_price")
-                            or value.get("min_price")
-                            or value.get("amount")
-                            or value
-                        )
-                    price_int = _normalize_price(price_source)
-                    if price_int is not None:
-                        direct_entries.append((parsed_date, price_int))
-                # continue traversing nested structures for additional price info
-                if isinstance(value, (list, dict)):
-                    stack.append(value)
-
-            has_date = any(
-                key in current
-                for key in (
-                    "date",
-                    "departure_date",
-                    "outbound_date",
-                    "departure",
-                    "day",
-                )
-            )
-            has_price = any(
-                key in current
-                for key in ("price", "lowest_price", "min_price", "amount")
-            )
-            if has_date and has_price:
-                entries.append(current)
-        elif isinstance(current, list):
-            stack.extend(current)
-
-    results: List[Tuple[datetime, int]] = list(direct_entries)
-    for entry in entries:
-        date_value = (
-            entry.get("date")
-            or entry.get("departure_date")
-            or entry.get("outbound_date")
-            or entry.get("departure")
-            or entry.get("day")
-        )
-        parsed_date = _parse_calendar_date(date_value)
-        if not parsed_date:
-            continue
-
-        price_value = (
-            entry.get("price")
-            or entry.get("lowest_price")
-            or entry.get("min_price")
-            or entry.get("amount")
-        )
-        price_int = _normalize_price(price_value)
-        if price_int is None:
-            continue
-
-        results.append((parsed_date, price_int))
-
-    return results
-
-
-def _aggregate_calendar_prices(
-    entries: List[Tuple[datetime, int]]
-) -> List[Tuple[datetime, int, bool]]:
-    if not entries:
-        return []
-
-    aggregated: dict[datetime, int] = {}
-    for date_value, price in entries:
-        if date_value not in aggregated or price < aggregated[date_value]:
-            aggregated[date_value] = price
-
-    if not aggregated:
-        return []
-
-    lowest_price = min(aggregated.values())
-    ordered = sorted(aggregated.items(), key=lambda item: item[0])
-    return [
-        (date_value, price, price == lowest_price) for date_value, price in ordered
-    ]
-
-
-def _summarize_calendar_payload(payload: dict | None, limit: int = 3) -> dict:
-    if not isinstance(payload, dict):
-        return {"type": type(payload).__name__}
-
-    calendar = payload.get("calendar")
-    summary: dict[str, Any] = {
-        "calendar_type": type(calendar).__name__,
-        "calendar_len": len(calendar) if isinstance(calendar, list) else None,
-    }
-
-    samples: list[dict[str, Any]] = []
-    if isinstance(calendar, list):
-        for entry in calendar[:limit]:
-            if isinstance(entry, dict):
-                sample: dict[str, Any] = {"keys": list(entry.keys())}
-                for key in ("date", "departure_date", "outbound_date"):
-                    if key in entry:
-                        sample[key] = entry[key]
-                price_field = (
-                    entry.get("price")
-                    or entry.get("lowest_price")
-                    or entry.get("min_price")
-                    or entry.get("amount")
-                )
-                if price_field is not None:
-                    sample["price"] = price_field
-                samples.append(sample)
-            else:
-                samples.append({"type": type(entry).__name__})
-    summary["samples"] = samples
-    return summary
-
-
-def _collect_calendar_prices_for_airlines(
-    route: FlightRouteModel,
-    return_route: FlightRouteModel,
-    airline_codes: List[str],
-    travel_class: int,
-    direct_flight: bool,
-) -> Dict[Tuple[str, str], List[Tuple[datetime, int, bool]]]:
-    outbound_start, outbound_end = _build_date_range()
-    travel_class_label = TRAVEL_CLASS_LABELS.get(travel_class)
-    raw_entries_per_pair: Dict[Tuple[str, str], List[Tuple[datetime, int]]] = defaultdict(list)
-
-    for code in airline_codes:
-        airline_code = code.strip().upper()
-        if not airline_code:
-            continue
-
-        try:
-            log.debug(
-                "Fetching outbound calendar for airline %s: %s -> %s",
-                airline_code,
-                route.from_place,
-                route.to_place,
-            )
-            outbound_payload = fetch_calendar(
-                departure_id=route.from_place,
-                arrival_id=route.to_place,
-                outbound_date=outbound_start,
-                outbound_date_start=outbound_start,
-                outbound_date_end=outbound_end,
-                flight_type="one_way",
-                travel_class=travel_class_label,
-                non_stop=direct_flight,
-                included_airlines=airline_code,
-            )
-            log.info(
-                "Outbound calendar summary for %s (%s -> %s): %s",
-                airline_code,
-                route.from_place,
-                route.to_place,
-                _summarize_calendar_payload(outbound_payload),
-            )
-            raw_entries_per_pair[(airline_code, route.route_id)].extend(
-                _extract_calendar_prices(outbound_payload)
-            )
-        except FlightCalendarError as exc:
-            log.warning(
-                "Outbound calendar fetch failed for airline %s: %s",
-                airline_code,
-                exc,
-            )
-        except Exception as exc:  # pragma: no cover - defensive logging
-            log.exception(
-                "Unexpected outbound calendar error for airline %s: %s",
-                airline_code,
-                exc,
-            )
-
-        try:
-            log.debug(
-                "Fetching inbound calendar for airline %s: %s -> %s",
-                airline_code,
-                return_route.from_place,
-                return_route.to_place,
-            )
-            inbound_payload = fetch_calendar(
-                departure_id=return_route.from_place,
-                arrival_id=return_route.to_place,
-                outbound_date=outbound_start,
-                outbound_date_start=outbound_start,
-                outbound_date_end=outbound_end,
-                flight_type="one_way",
-                travel_class=travel_class_label,
-                non_stop=direct_flight,
-                included_airlines=airline_code,
-            )
-            log.info(
-                "Inbound calendar summary for %s (%s -> %s): %s",
-                airline_code,
-                return_route.from_place,
-                return_route.to_place,
-                _summarize_calendar_payload(inbound_payload),
-            )
-            raw_entries_per_pair[(airline_code, return_route.route_id)].extend(
-                _extract_calendar_prices(inbound_payload)
-            )
-        except FlightCalendarError as exc:
-            log.warning(
-                "Inbound calendar fetch failed for airline %s: %s",
-                airline_code,
-                exc,
-            )
-        except Exception as exc:  # pragma: no cover - defensive logging
-            log.exception(
-                "Unexpected inbound calendar error for airline %s: %s",
-                airline_code,
-                exc,
-            )
-
-    aggregated: Dict[Tuple[str, str], List[Tuple[datetime, int, bool]]] = {}
-    for key, entries in raw_entries_per_pair.items():
-        aggregated_entries = _aggregate_calendar_prices(entries)
-        if aggregated_entries:
-            aggregated[key] = aggregated_entries
-
-    return aggregated
-
-
-def _compose_auto_search_response(
-    *,
-    auto_search: AutoSearchModel,
-    route: FlightRouteModel | None,
-    return_route: FlightRouteModel | None,
-    airlines: List[AirlineModel],
-    auto_search_airlines: List[AutoSearchAirlineModel],
-    prices: List[PriceModel],
-    travel_class: int,
-    direct_flight: bool,
-    message: str,
-) -> AutoFlightSearchResponse:
-    if route is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Auto search is missing its departure route.",
-        )
-
-    if return_route is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Auto search is missing its return route.",
-        )
-
-    outbound_start, outbound_end = _build_date_range()
-    sorted_prices = sorted(prices, key=lambda price: price.departure_date)
-    airline_series_map: Dict[str, AirlinePriceSeries] = {}
-
-    airline_lookup: Dict[str, str] = {
-        airline.airline_id: (airline.code or airline.airline_id)
-        for airline in airlines
-    }
-    airline_name_lookup: Dict[str, str] = {
-        airline.airline_id: airline.name or airline.code or airline.airline_id
-        for airline in airlines
-    }
-    link_code_lookup: Dict[str, str] = {}
-    link_name_lookup: Dict[str, str] = {}
-    link_route_lookup: Dict[str, str] = {}
-    link_by_id: Dict[str, AutoSearchAirlineModel] = {}
-    for link in auto_search_airlines:
-        airline_id = link.airline_id
-        airline_code = airline_lookup.get(
-            airline_id, airline_id or link.auto_search_airline_id
-        )
-        airline_name = airline_name_lookup.get(airline_id, airline_code)
-        link_code_lookup[link.auto_search_airline_id] = airline_code
-        link_name_lookup[link.auto_search_airline_id] = airline_name
-        link_route_lookup[link.auto_search_airline_id] = link.route_id
-        link_by_id[link.auto_search_airline_id] = link
-
-    route_map: Dict[str, FlightRouteModel] = {}
-    if route:
-        route_map[route.route_id] = route
-    if return_route:
-        route_map[return_route.route_id] = return_route
-
-    for price in sorted_prices:
-        link = link_by_id.get(price.auto_search_airline_id)
-        airline_id: Optional[str] = link.airline_id if link else None
-
-        if link:
-            airline_code = airline_lookup.get(airline_id, airline_id or "UNKNOWN")
-            airline_name = airline_name_lookup.get(airline_id, airline_code)
-        else:
-            airline_code = link_code_lookup.get(price.auto_search_airline_id, "UNKNOWN")
-            airline_name = link_name_lookup.get(price.auto_search_airline_id, airline_code)
-
-        route_id = link_route_lookup.get(price.auto_search_airline_id)
-        route_obj = route_map.get(route_id) if route_id else None
-
-        key = (
-            f"{airline_code or airline_id or price.auto_search_airline_id or 'UNKNOWN'}::{route_id or 'UNKNOWN'}"
-        )
-        direction = None
-        if route_obj:
-            if return_route and route_obj.route_id == return_route.route_id:
-                direction = "return"
-            elif route and route_obj.route_id == route.route_id:
-                direction = "departure"
-
-        series = airline_series_map.get(key)
-        if not series:
-            series = AirlinePriceSeries(
-                airline_id=airline_id,
-                airline_code=airline_code or key,
-                airline_name=airline_name or airline_code or key,
-                route_id=route_id,
-                route_from=route_obj.from_place if route_obj else None,
-                route_to=route_obj.to_place if route_obj else None,
-                direction=direction,
-                prices=[],
-            )
-            airline_series_map[key] = series
-        else:
-            if direction:
-                series.direction = direction
-            if route_obj and not series.route_from:
-                series.route_from = route_obj.from_place
-            if route_obj and not series.route_to:
-                series.route_to = route_obj.to_place
-
-        series.prices.append(
-            AirlinePriceDataPoint(
-                departure_date=price.departure_date,
-                price=price.price,
-                is_lowest_price=price.is_lowest_price,
-            )
-        )
-
-    for series in airline_series_map.values():
-        series.prices.sort(key=lambda item: item.departure_date)
-
-    return AutoFlightSearchResponse(
-        route=route,
-        return_route=return_route,
-        airlines=airlines,
-        auto_search=auto_search,
-        auto_search_airlines=auto_search_airlines,
-        travel_class=travel_class,
-        direct_flight=direct_flight,
-        outbound_departure=outbound_start,
-        outbound_end=outbound_end,
-        inbound_departure=outbound_start,
-        inbound_end=outbound_end,
-        prices=list(airline_series_map.values()),
-        message=message,
     )
 
 
@@ -707,12 +244,17 @@ async def list_airlines(user=Depends(get_verified_user)):
 async def create_auto_flight_search(
     payload: AutoFlightSearchRequest, user=Depends(get_verified_user)
 ):
-    routes_table = FlightRoutesTable()
+    """
+    Create a new auto flight search and trigger n8n webhook for each airline.
+    
+    This endpoint validates the request and calls the n8n webhook for each airline.
+    The n8n workflow will handle the actual flight search and data storage.
+    """
     airlines_table = AirlinesTable()
-    auto_search_table = AutoSearchTable()
-    prices_table = PricesTable()
 
     airline_codes: List[str] = []
+    airline_models: List[AirlineModel] = []
+    
     for item in payload.airlines:
         normalized = item.strip()
         if not normalized:
@@ -721,13 +263,18 @@ async def create_auto_flight_search(
         by_code = airlines_table.get_by_code(upper)
         if by_code:
             airline_codes.append(by_code.code)
+            airline_models.append(by_code)
             continue
         by_name = airlines_table.get_by_name(normalized)
         if by_name and by_name.code:
             airline_codes.append(by_name.code)
+            airline_models.append(by_name)
             continue
         if len(upper) in (2, 3):
-            airline_codes.append(upper)
+            # Create airline if it doesn't exist
+            airline_model = airlines_table.get_or_create_by_code(upper)
+            airline_codes.append(airline_model.code or upper)
+            airline_models.append(airline_model)
             continue
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -747,443 +294,611 @@ async def create_auto_flight_search(
             detail=f"Provide no more than {MAX_AIRLINES} airline codes.",
         )
 
-    (
-        auto_search_model,
-        route,
-        return_route,
-        airline_models,
-        auto_search_airline_models,
-    ) = auto_search_table.create_configuration(
-        departure_code=payload.from_place,
-        destination_code=payload.to_place,
+    # Store auto search config in database
+    auto_search_id = None
+    with get_db() as db:
+        try:
+            auto_search_config = AutoSearchConfig(
+                departure_id=payload.from_place.upper(),
+                arrival_id=payload.to_place.upper(),
         travel_class=payload.travel_class,
-        direct_flight=payload.direct_flight,
-        airline_codes=airline_codes,
-    )
+                is_direct=payload.direct_flight,
+                return_trip_duration=payload.return_trip_duration,
+            )
+            db.add(auto_search_config)
+            db.commit()
+            db.refresh(auto_search_config)
+            auto_search_id = auto_search_config.auto_search_id
+            
+            # Link airlines to the auto search config
+            for airline_model in airline_models:
+                auto_search_airline = AutoSearchAirline(
+                    auto_search_id=auto_search_config.auto_search_id,
+                    airline_id=airline_model.airline_id,
+                )
+                db.add(auto_search_airline)
+            db.commit()
+            
+            log.info(
+                "Auto flight search config stored: id=%d, %s -> %s, airlines=%s",
+                auto_search_config.auto_search_id,
+                payload.from_place,
+                payload.to_place,
+                airline_codes,
+            )
+        except Exception as e:
+            db.rollback()
+            log.error("Failed to store auto search config: %s", str(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to store auto search configuration",
+            )
 
-    # Call n8n webhook for each airline (skip calendar fetching and price storage)
+    # Call n8n webhook for each airline
     _call_n8n_webhook_for_airlines(
         departure_id=payload.from_place.upper(),
         arrival_id=payload.to_place.upper(),
         is_direct=payload.direct_flight,
         airline_codes=airline_codes,
-        trip_duration=7,  # Default trip duration in days (can be made configurable)
+        trip_duration=payload.return_trip_duration,
     )
 
-    # Return response with empty prices (n8n will handle the actual search)
-    response_payload = _compose_auto_search_response(
-        auto_search=auto_search_model,
-        route=route,
-        return_route=return_route,
-        airlines=airline_models,
-        auto_search_airlines=auto_search_airline_models,
-        prices=[],  # Empty prices - n8n workflow handles the search
-        travel_class=payload.travel_class,
-        direct_flight=payload.direct_flight,
-        message="Auto flight search initiated. n8n workflow will handle the search.",
-    )
-
-    log.debug(
-        "Auto flight search response for user %s: %s",
+    log.info(
+        "Auto flight search created for user %s: %s -> %s, airlines=%s",
         user.id,
-        response_payload.model_dump(),
+        payload.from_place,
+        payload.to_place,
+        airline_codes,
     )
 
-    return response_payload
+    return AutoFlightSearchResponse(
+        success=True,
+        message="Auto flight search initiated. n8n workflow will handle the search.",
+        airlines=airline_models,
+        auto_search_id=auto_search_id,
+    )
+
+
+def _parse_date(date_str: Optional[str]) -> Optional[date]:
+    """Parse date string in YYYY-MM-DD format"""
+    if not date_str:
+        return None
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        log.warning("Failed to parse date: %s", date_str)
+        return None
+
+
+def _parse_time(time_str: Optional[str]) -> Optional[time]:
+    """Parse time string in HH:MM format"""
+    if not time_str:
+        return None
+    try:
+        return datetime.strptime(time_str, "%H:%M").time()
+    except (ValueError, TypeError):
+        log.warning("Failed to parse time: %s", time_str)
+        return None
+
+
+def _get_or_create_airline_auto(db, airline_name: str, airline_code: Optional[str] = None, airline_logo: Optional[str] = None) -> AirlineAuto:
+    """Get or create an airline in airline_auto table"""
+    airline_id = airline_code.upper() if airline_code else airline_name.upper()[:10]
+    
+    airline = db.query(AirlineAuto).filter(AirlineAuto.airline_id == airline_id).first()
+    if not airline:
+        airline = AirlineAuto(
+            airline_id=airline_id,
+            code=airline_code.upper() if airline_code else None,
+            name=airline_name,
+            airline_logo=airline_logo,
+        )
+        db.add(airline)
+        db.flush()
+    return airline
+
+
+def _get_or_create_airport_auto(db, airport_iata: str, airport_name: str) -> AirportAuto:
+    """Get or create an airport in airport_auto table"""
+    airport = db.query(AirportAuto).filter(AirportAuto.iata == airport_iata.upper()).first()
+    if not airport:
+        airport = AirportAuto(
+            airport_id=airport_iata.upper(),
+            iata=airport_iata.upper(),
+            airport_name=airport_name,
+        )
+        db.add(airport)
+        db.flush()
+    return airport
+
+
+def _store_flight_search_data(db, search_data: Dict[str, Any], auto_search_airline_id: Optional[int] = None) -> int:
+    """Store flight search data from n8n webhook response"""
+    log.info("Storing flight search data: has_search_params=%s, has_best_flights=%s, has_other_flights=%s",
+             "search_parameters" in search_data,
+             "best_flights" in search_data,
+             "other_flights" in search_data)
+    
+    search_params = search_data.get("search_parameters", {})
+    if not search_params:
+        log.error("Missing search_parameters in search_data: %s", list(search_data.keys()))
+        raise ValueError("Missing search_parameters in search data")
+    
+    # Create or get search record
+    outbound_date = _parse_date(search_params.get("outbound_date"))
+    if not outbound_date:
+        log.error("Invalid or missing outbound_date: %s", search_params.get("outbound_date"))
+        raise ValueError(f"Invalid or missing outbound_date: {search_params.get('outbound_date')}")
+    
+    search = Search(
+        auto_search_airline_id=auto_search_airline_id,
+        engine=search_params.get("engine", "google_flights"),
+        departure_id=search_params.get("departure_id", ""),
+        arrival_id=search_params.get("arrival_id", ""),
+        currency=search_params.get("currency", "HKD"),
+        hl=search_params.get("hl"),
+        gl=search_params.get("gl"),
+        outbound_date=outbound_date,
+        return_date=_parse_date(search_params.get("return_date")),
+        flight_type=search_params.get("flight_type", "round_trip"),
+        travel_class=search_params.get("travel_class", "economy"),
+        stops=search_params.get("stops"),
+        adults=int(search_params.get("adults", "1")),
+        children=int(search_params.get("children", "0")),
+        infants_in_seat=int(search_params.get("infants_in_seat", "0")),
+        infants_on_lap=int(search_params.get("infants_on_lap", "0")),
+        included_airlines=search_params.get("included_airlines"),
+    )
+    db.add(search)
+    db.flush()
+    
+    # Store airports
+    departure_airport = _get_or_create_airport_auto(db, search.departure_id, f"Airport {search.departure_id}")
+    arrival_airport = _get_or_create_airport_auto(db, search.arrival_id, f"Airport {search.arrival_id}")
+    
+    search_airport_dep = SearchAirport(
+        search_id=search.search_id,
+        airport_iata=departure_airport.iata,
+        is_departure=True,
+    )
+    search_airport_arr = SearchAirport(
+        search_id=search.search_id,
+        airport_iata=arrival_airport.iata,
+        is_departure=False,
+    )
+    db.add(search_airport_dep)
+    db.add(search_airport_arr)
+    
+    # Store best flights
+    best_flights = search_data.get("best_flights", [])
+    for flight_option_data in best_flights:
+        _store_flight_option(db, search.search_id, flight_option_data, is_best=True)
+    
+    # Store other flights
+    other_flights = search_data.get("other_flights", [])
+    for flight_option_data in other_flights:
+        _store_flight_option(db, search.search_id, flight_option_data, is_best=False)
+    
+    # Store price insights
+    price_insights_data = search_data.get("price_insights")
+    if price_insights_data:
+        # Handle nested typical_price_range structure
+        typical_range = price_insights_data.get("typical_price_range", {})
+        typical_low = typical_range.get("low_price") if typical_range else price_insights_data.get("typical_low_price")
+        typical_high = typical_range.get("high_price") if typical_range else price_insights_data.get("typical_high_price")
+        
+        price_insight = PriceInsight(
+            search_id=search.search_id,
+            lowest_price=price_insights_data.get("lowest_price"),
+            price_level=price_insights_data.get("price_level"),
+            typical_low_price=typical_low,
+            typical_high_price=typical_high,
+        )
+        db.add(price_insight)
+        db.flush()
+        
+        # Store price history
+        price_history_data = price_insights_data.get("price_history", [])
+        for history_item in price_history_data:
+            try:
+                iso_date_str = history_item.get("iso_date")
+                if iso_date_str:
+                    # Handle both ISO format strings and datetime objects
+                    if isinstance(iso_date_str, str):
+                        iso_date = datetime.fromisoformat(iso_date_str.replace("Z", "+00:00"))
+                    else:
+                        iso_date = iso_date_str
+                    
+                    history = PriceHistory(
+                        insight_id=price_insight.insight_id,
+                        price=history_item.get("price"),
+                        iso_date=iso_date,
+                    )
+                    db.add(history)
+            except Exception as e:
+                log.warning("Failed to parse price history item: %s, error: %s", history_item, str(e))
+                continue
+    
+    return search.search_id
+
+
+def _store_flight_option(db, search_id: int, flight_option_data: Dict[str, Any], is_best: bool):
+    """Store a flight option (best or other)"""
+    carbon_emissions = flight_option_data.get("carbon_emissions", {})
+    
+    flight_option = FlightOption(
+        search_id=search_id,
+        is_best_flight=is_best,
+        total_duration=flight_option_data.get("total_duration"),
+        price=flight_option_data.get("price", 0),
+        type=flight_option_data.get("type"),
+        airline_logo=flight_option_data.get("airline_logo"),
+        departure_token=flight_option_data.get("departure_token"),
+        carbon_emission_this_flight=carbon_emissions.get("this_flight"),
+        carbon_emission_typical=carbon_emissions.get("typical_for_this_route"),
+        carbon_emission_difference_percent=carbon_emissions.get("difference_percent"),
+        carbon_emission_lowest_route=carbon_emissions.get("lowest_route"),
+    )
+    db.add(flight_option)
+    db.flush()
+    
+    # Store option extensions
+    extensions = flight_option_data.get("extensions", [])
+    for ext_text in extensions:
+        if ext_text:
+            ext = OptionExtension(
+                option_id=flight_option.option_id,
+                extension_text=ext_text,
+            )
+            db.add(ext)
+    
+    # Store flight segments
+    flights = flight_option_data.get("flights", [])
+    for idx, flight_segment_data in enumerate(flights):
+        departure_airport_data = flight_segment_data.get("departure_airport", {})
+        arrival_airport_data = flight_segment_data.get("arrival_airport", {})
+        
+        departure_airport = _get_or_create_airport_auto(
+            db,
+            departure_airport_data.get("id", ""),
+            departure_airport_data.get("name", ""),
+        )
+        arrival_airport = _get_or_create_airport_auto(
+            db,
+            arrival_airport_data.get("id", ""),
+            arrival_airport_data.get("name", ""),
+        )
+        
+        detected_extensions = flight_segment_data.get("detected_extensions", {})
+        airline_name = flight_segment_data.get("airline", "")
+        airline_code = flight_segment_data.get("flight_number", "").split()[0] if flight_segment_data.get("flight_number") else None
+        
+        airline_auto = _get_or_create_airline_auto(
+            db,
+            airline_name,
+            airline_code,
+            flight_segment_data.get("airline_logo"),
+        )
+        
+        departure_date = _parse_date(departure_airport_data.get("date"))
+        arrival_date = _parse_date(arrival_airport_data.get("date"))
+        departure_time = _parse_time(departure_airport_data.get("time"))
+        arrival_time = _parse_time(arrival_airport_data.get("time"))
+        
+        if departure_time is None:
+            departure_time = time(0, 0)
+        if arrival_time is None:
+            arrival_time = time(0, 0)
+        
+        if not departure_date or not arrival_date:
+            log.warning("Skipping flight segment with invalid dates: %s", flight_segment_data)
+            continue
+        
+        flight_segment = FlightSegment(
+            option_id=flight_option.option_id,
+            segment_order=idx + 1,  # 1-based ordering like the Python script
+            departure_airport_iata=departure_airport.iata,
+            departure_airport_name=departure_airport_data.get("name", ""),
+            departure_date=departure_date,
+            departure_time=departure_time,
+            arrival_airport_iata=arrival_airport.iata,
+            arrival_airport_name=arrival_airport_data.get("name", ""),
+            arrival_date=arrival_date,
+            arrival_time=arrival_time,
+            duration=flight_segment_data.get("duration", 0),
+            airplane=flight_segment_data.get("airplane"),
+            airline_id=airline_auto.airline_id,
+            airline=airline_name,
+            airline_logo=flight_segment_data.get("airline_logo"),
+            travel_class=flight_segment_data.get("travel_class"),
+            flight_number=flight_segment_data.get("flight_number", ""),
+            has_in_seat_usb_outlet=detected_extensions.get("has_in_seat_usb_outlet"),
+            has_power_and_usb_outlets=detected_extensions.get("has_power_and_usb_outlets"),
+            has_on_demand_video=detected_extensions.get("has_on_demand_video"),
+            wifi=detected_extensions.get("wifi"),
+            seat_type=detected_extensions.get("seat_type"),
+            legroom_short=detected_extensions.get("legroom_short"),
+            legroom_long=detected_extensions.get("legroom_long"),
+            carbon_emission=detected_extensions.get("carbon_emission"),
+        )
+        db.add(flight_segment)
+        db.flush()
+        
+        # Store segment extensions
+        segment_extensions = flight_segment_data.get("extensions", [])
+        for ext_text in segment_extensions:
+            if ext_text:
+                ext = FlightExtension(
+                    segment_id=flight_segment.segment_id,
+                    extension_text=ext_text,
+                )
+                db.add(ext)
+    
+    # Store layovers
+    layovers_data = flight_option_data.get("layovers", [])
+    for idx, layover_data in enumerate(layovers_data):
+        layover_airport_iata = layover_data.get("id") or layover_data.get("airport_iata")
+        layover_airport_name = layover_data.get("name") or layover_data.get("airport_name")
+        
+        if layover_airport_iata:
+            # Ensure airport exists
+            layover_airport = _get_or_create_airport_auto(
+                db,
+                layover_airport_iata,
+                layover_airport_name or f"Airport {layover_airport_iata}",
+            )
+            
+            layover = Layover(
+                option_id=flight_option.option_id,
+                layover_order=idx + 1,  # 1-based ordering
+                airport_iata=layover_airport.iata,
+                airport_name=layover_airport_name or layover_airport.airport_name,
+                duration=layover_data.get("duration", 0),
+            )
+            db.add(layover)
+
+
+@router.post(
+    "/n8n-webhook",
+    status_code=status.HTTP_201_CREATED,
+    summary="Receive flight search data from n8n webhook",
+)
+async def receive_n8n_webhook_data(
+    request: Request,
+    departure_id: str = Query(..., description="Departure airport code"),
+    arrival_id: str = Query(..., description="Arrival airport code"),
+    airline: str = Query(..., description="Airline code"),
+):
+    """
+    Receive flight search data from n8n webhook and store it in the database.
+    
+    This endpoint is called by the n8n workflow after it completes a flight search.
+    No authentication required as it's called by n8n.
+    
+    Expected request format:
+    POST /n8n-webhook?departure_id=HKG&arrival_id=KIX&airline=CX
+    Body: [{"search_parameters": {...}, "best_flights": [...], ...}, ...]
+    """
+    try:
+        # Parse request body
+        body = await request.json()
+        log.info(
+            "Received n8n webhook data: departure_id=%s, arrival_id=%s, airline=%s, data_type=%s, data_length=%s",
+            departure_id,
+            arrival_id,
+            airline,
+            type(body).__name__,
+            len(body) if isinstance(body, (list, dict)) else "N/A",
+        )
+        
+        # Handle both list and single object
+        if isinstance(body, dict):
+            data = [body]
+        elif isinstance(body, list):
+            data = body
+        else:
+            log.error("Invalid data format received from n8n: %s", type(body))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Data must be a list or object",
+        )
+        
+        log.info("Processing %d search data items", len(data))
+    except Exception as e:
+        log.exception("Failed to parse n8n webhook request body: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to parse request body: {str(e)}",
+        )
+    
+    with get_db() as db:
+        try:
+            # Find the auto_search_airline_id based on departure, arrival, and airline
+            airline_upper = airline.upper()
+            auto_search_airline = db.query(AutoSearchAirline).join(AutoSearchConfig).filter(
+                AutoSearchConfig.departure_id == departure_id.upper(),
+                AutoSearchConfig.arrival_id == arrival_id.upper(),
+            ).join(Airline).filter(
+                Airline.code == airline_upper
+            ).first()
+            
+            auto_search_airline_id = auto_search_airline.auto_search_airline_id if auto_search_airline else None
+            
+            if auto_search_airline_id is None:
+                log.warning(
+                    "No matching auto_search_airline found for %s -> %s, airline=%s. Storing without link.",
+                    departure_id,
+                    arrival_id,
+                    airline,
+                )
+            
+            search_ids = []
+            for idx, search_data in enumerate(data):
+                try:
+                    log.info("Processing search data item %d/%d", idx + 1, len(data))
+                    search_id = _store_flight_search_data(db, search_data, auto_search_airline_id)
+                    search_ids.append(search_id)
+                    log.info("Successfully stored search with ID: %d", search_id)
+                except Exception as e:
+                    log.exception("Failed to store search data item %d: %s", idx + 1, str(e))
+                    # Continue with other items even if one fails
+                continue
+            
+            if search_ids:
+                db.commit()
+                log.info("Committed %d search records to database", len(search_ids))
+            else:
+                log.warning("No search records were successfully stored")
+                db.rollback()
+            
+            log.info(
+                "Stored %d flight searches from n8n webhook for %s -> %s, airline=%s",
+                len(search_ids),
+                departure_id,
+                arrival_id,
+                airline,
+            )
+            
+            return {"success": True, "search_ids": search_ids, "count": len(search_ids)}
+        except Exception as e:
+            db.rollback()
+            log.exception("Failed to store n8n webhook data: %s", str(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to store flight search data: {str(e)}",
+            )
 
 
 @router.get(
     "/auto-search",
-    response_model=List[AutoFlightSearchResponse],
-    status_code=status.HTTP_200_OK,
+    response_model=List[AutoSearchListResponse],
+    summary="List all auto flight searches",
 )
 async def list_auto_flight_searches(user=Depends(get_verified_user)):
-    auto_search_table = AutoSearchTable()
-    routes_table = FlightRoutesTable()
-    airlines_table = AirlinesTable()
-    auto_search_airlines_table = AutoSearchAirlinesTable()
-    prices_table = PricesTable()
-
-    auto_search_models = auto_search_table.list_all()
-    responses: List[AutoFlightSearchResponse] = []
-
-    for auto_search_model in auto_search_models:
-        route = routes_table.get(auto_search_model.departure_route_id)
-        if not route:
-            log.warning(
-                "Auto search %s skipped during listing; missing departure route %s",
-                auto_search_model.auto_search_id,
-                auto_search_model.departure_route_id,
-            )
-            continue
-
-        return_route: FlightRouteModel | None = None
-        if auto_search_model.return_route_id:
-            return_route = routes_table.get(auto_search_model.return_route_id)
-        if not return_route:
-            return_route = routes_table.get_or_create(route.to_place, route.from_place)
-
-        auto_search_airline_models = auto_search_airlines_table.list_for_auto_search(
-            auto_search_model.auto_search_id
-        )
-
-        airline_models: List[AirlineModel] = []
-        for link in auto_search_airline_models:
-            airline = airlines_table.get(link.airline_id)
-            if airline:
-                airline_models.append(airline)
-            else:
-                log.warning(
-                    "Auto search %s references missing airline %s during listing",
-                    auto_search_model.auto_search_id,
-                    link.airline_id,
-                )
-
-        price_models = prices_table.list_by_auto_search(auto_search_model.auto_search_id)
-
+    """List all auto flight searches for the current user"""
+    with get_db() as db:
         try:
-            responses.append(
-                _compose_auto_search_response(
-                    auto_search=auto_search_model,
-                    route=route,
-                    return_route=return_route,
+            auto_searches = db.query(AutoSearchConfig).order_by(AutoSearchConfig.created_at.desc()).all()
+            
+            results = []
+            for auto_search in auto_searches:
+                # Get associated airlines
+                auto_search_airlines = db.query(AutoSearchAirline).filter(
+                    AutoSearchAirline.auto_search_id == auto_search.auto_search_id
+                ).all()
+                
+                # Get airline models directly from database
+                airline_models = []
+                for asa in auto_search_airlines:
+                    airline_record = db.query(Airline).filter(Airline.airline_id == asa.airline_id).first()
+                    if airline_record:
+                        airline_models.append(AirlineModel.model_validate(airline_record))
+                
+                results.append(AutoSearchListResponse(
+                    auto_search_id=auto_search.auto_search_id,
+                    departure_id=auto_search.departure_id,
+                    arrival_id=auto_search.arrival_id,
+                    travel_class=auto_search.travel_class,
+                    is_direct=auto_search.is_direct,
+                    return_trip_duration=auto_search.return_trip_duration,
+                    created_at=auto_search.created_at,
+                    updated_at=auto_search.updated_at,
                     airlines=airline_models,
-                    auto_search_airlines=auto_search_airline_models,
-                    prices=price_models,
-                    travel_class=auto_search_model.travel_class,
-                    direct_flight=auto_search_model.direct_flight,
-                    message="Auto flight search loaded.",
-                )
+                ))
+            
+            return results
+        except Exception as e:
+            log.exception("Failed to list auto flight searches: %s", str(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to list auto flight searches: {str(e)}",
             )
-        except HTTPException as exc:
-            log.warning(
-                "Failed to compose auto search %s: %s",
-                auto_search_model.auto_search_id,
-                exc.detail if isinstance(exc.detail, str) else exc.detail,
-            )
-
-    log.debug("Listed %d auto flight searches for user %s", len(responses), user.id)
-    return responses
-
-
-@router.post(
-    "/auto-search/refresh-all",
-    response_model=List[AutoFlightSearchResponse],
-    status_code=status.HTTP_200_OK,
-)
-async def refresh_all_auto_flight_searches(user=Depends(get_verified_user)):
-    """
-    Manually trigger a refresh for all saved auto searches.
-
-    This mirrors the effect of pressing the refresh button on every saved search
-    card in the frontend.
-    """
-    auto_search_table = AutoSearchTable()
-    auto_search_models = auto_search_table.list_all()
-
-    responses: List[AutoFlightSearchResponse] = []
-    for auto_search_model in auto_search_models:
-        try:
-            responses.append(
-                _refresh_auto_flight_search_sync(auto_search_model.auto_search_id)
-            )
-        except HTTPException as exc:
-            log.warning(
-                "Failed to refresh auto search %s via /refresh-all: %s",
-                auto_search_model.auto_search_id,
-                exc.detail if isinstance(exc.detail, str) else exc.detail,
-            )
-        except Exception:
-            log.exception(
-                "Unexpected error refreshing auto search %s via /refresh-all",
-                auto_search_model.auto_search_id,
-            )
-
-    log.info(
-        "Manual /auto-search/refresh-all completed: %d of %d auto searches refreshed",
-        len(responses),
-        len(auto_search_models),
-    )
-    return responses
-
-
-@router.get(
-    "/auto-search/schedule",
-    response_model=AutoSearchScheduleModel,
-    status_code=status.HTTP_200_OK,
-)
-async def get_auto_search_schedule(user=Depends(get_verified_user)):
-    """
-    Return the current daily auto-search refresh time.
-    """
-    return AutoSearchScheduleModel(time=_AUTO_SEARCH_REFRESH_TIME.strftime("%H:%M"))
-
-
-@router.post(
-    "/auto-search/schedule",
-    response_model=AutoSearchScheduleModel,
-    status_code=status.HTTP_200_OK,
-)
-async def set_auto_search_schedule(
-    payload: AutoSearchScheduleModel, user=Depends(get_verified_user)
-):
-    """
-    Update the daily auto-search refresh time (HH:MM 24-hour format).
-
-    This immediately reschedules the in-process timer.
-    """
-    global _AUTO_SEARCH_REFRESH_TIME
-
-    new_time = _parse_time_string(payload.time)
-    _AUTO_SEARCH_REFRESH_TIME = new_time
-    _schedule_next_auto_search_refresh()
-
-    log.info(
-        "Updated auto-search refresh schedule to %s by user %s",
-        payload.time,
-        getattr(user, "id", "unknown"),
-    )
-
-    return AutoSearchScheduleModel(time=_AUTO_SEARCH_REFRESH_TIME.strftime("%H:%M"))
-
-
-def _refresh_auto_flight_search_sync(auto_search_id: str) -> AutoFlightSearchResponse:
-    auto_search_table = AutoSearchTable()
-    routes_table = FlightRoutesTable()
-    airlines_table = AirlinesTable()
-    auto_search_airlines_table = AutoSearchAirlinesTable()
-    prices_table = PricesTable()
-
-    auto_search_model = auto_search_table.get(auto_search_id)
-    if not auto_search_model:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Auto search {auto_search_id} not found.",
-        )
-
-    route = routes_table.get(auto_search_model.departure_route_id)
-    if not route:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Departure route is missing for this auto search.",
-        )
-
-    return_route: FlightRouteModel | None = None
-    if auto_search_model.return_route_id:
-        return_route = routes_table.get(auto_search_model.return_route_id)
-    if not return_route:
-        return_route = routes_table.get_or_create(route.to_place, route.from_place)
-
-    auto_search_airline_models = auto_search_airlines_table.list_for_auto_search(
-        auto_search_id
-    )
-    if not auto_search_airline_models:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This auto search does not have any airlines configured.",
-        )
-
-    airline_models: List[AirlineModel] = []
-    airline_codes: List[str] = []
-    missing_codes: List[str] = []
-
-    for link in auto_search_airline_models:
-        airline = airlines_table.get(link.airline_id)
-        if not airline:
-            log.warning(
-                "Auto search %s references missing airline %s",
-                auto_search_id,
-                link.airline_id,
-            )
-            continue
-        airline_models.append(airline)
-        if airline.code:
-            airline_codes.append(airline.code)
-        else:
-            missing_codes.append(airline.airline_id)
-
-    if missing_codes:
-        log.warning(
-            "Auto search %s has airlines without codes and will be skipped: %s",
-            auto_search_id,
-            missing_codes,
-        )
-
-    unique_airline_codes = list(dict.fromkeys(code.upper() for code in airline_codes))
-
-    if len(unique_airline_codes) < MIN_AIRLINES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"At least {MIN_AIRLINES} airlines with codes are required to refresh.",
-        )
-    if len(unique_airline_codes) > MAX_AIRLINES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Provide no more than {MAX_AIRLINES} airline codes.",
-        )
-
-    expected_pairs: set[tuple[str, str]] = set()
-    for airline in airline_models:
-        dep_link = auto_search_airlines_table.get_or_create(
-            auto_search_id=auto_search_model.auto_search_id,
-            airline_id=airline.airline_id,
-            route_id=route.route_id,
-        )
-        expected_pairs.add((dep_link.airline_id, dep_link.route_id))
-        if return_route and return_route.route_id:
-            ret_link = auto_search_airlines_table.get_or_create(
-                auto_search_id=auto_search_model.auto_search_id,
-                airline_id=airline.airline_id,
-                route_id=return_route.route_id,
-            )
-            expected_pairs.add((ret_link.airline_id, ret_link.route_id))
-
-    auto_search_airline_models = auto_search_airlines_table.list_for_auto_search(
-        auto_search_id
-    )
-
-    aggregated_price_map = _collect_calendar_prices_for_airlines(
-        route=route,
-        return_route=return_route,
-        airline_codes=unique_airline_codes,
-        travel_class=auto_search_model.travel_class,
-        direct_flight=auto_search_model.direct_flight,
-    )
-
-    prices_table.delete_for_auto_search(auto_search_model.auto_search_id)
-
-    price_models: List[PriceModel] = []
-    if aggregated_price_map:
-        airline_by_id = {airline.airline_id: airline for airline in airline_models}
-        link_by_pair: Dict[Tuple[str, str], AutoSearchAirlineModel] = {}
-        for link in auto_search_airline_models:
-            airline = airline_by_id.get(link.airline_id)
-            code_key = (
-                airline.code.upper()
-                if airline and airline.code
-                else airline.airline_id
-                if airline
-                else link.auto_search_airline_id
-            )
-            link_by_pair[(code_key, link.route_id)] = link
-
-        total_inserted = 0
-        for (code, route_id), entries in aggregated_price_map.items():
-            key = (code.upper(), route_id)
-            link = link_by_pair.get(key)
-            if not link:
-                log.warning(
-                    "Skipping price entries for airline code %s route %s; no matching auto_search_airline link",
-                    code,
-                    route_id,
-                )
-                continue
-            inserted = prices_table.bulk_insert(link.auto_search_airline_id, entries)
-            price_models.extend(inserted)
-            total_inserted += len(inserted)
-
-        if total_inserted:
-            log.info(
-                "Refreshed %d price points across %d airlines for auto_search %s",
-                total_inserted,
-                len(aggregated_price_map),
-                auto_search_model.auto_search_id,
-            )
-        else:
-            log.warning(
-                "No price entries inserted for auto_search %s during refresh.",
-                auto_search_model.auto_search_id,
-            )
-    else:
-        log.warning(
-            "No price entries aggregated for auto_search %s during refresh.",
-            auto_search_model.auto_search_id,
-        )
-
-    response_payload = _compose_auto_search_response(
-        auto_search=auto_search_model,
-        route=route,
-        return_route=return_route,
-        airlines=airline_models,
-        auto_search_airlines=auto_search_airline_models,
-        prices=price_models,
-        travel_class=auto_search_model.travel_class,
-        direct_flight=auto_search_model.direct_flight,
-        message="Auto flight search refreshed.",
-    )
-
-    return response_payload
-
-
-@router.post(
-    "/auto-search/{auto_search_id}/refresh",
-    response_model=AutoFlightSearchResponse,
-    status_code=status.HTTP_200_OK,
-)
-async def refresh_auto_flight_search(
-    auto_search_id: str, user=Depends(get_verified_user)
-):
-    """
-    HTTP endpoint wrapper that delegates to the synchronous core logic.
-    """
-    response_payload = _refresh_auto_flight_search_sync(auto_search_id)
-
-    log.debug(
-        "Auto flight search refresh response for user %s: %s",
-        user.id,
-        response_payload.model_dump(),
-    )
-
-    return response_payload
 
 
 @router.delete(
     "/auto-search/{auto_search_id}",
-    response_model=AutoFlightDeleteResponse,
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an auto flight search",
 )
 async def delete_auto_flight_search(
-    auto_search_id: str, user=Depends(get_verified_user)
+    auto_search_id: int,
+    user=Depends(get_verified_user),
 ):
-    auto_search_table = AutoSearchTable()
-    routes_table = FlightRoutesTable()
-    auto_search_airlines_table = AutoSearchAirlinesTable()
-    prices_table = PricesTable()
-
-    auto_search_model = auto_search_table.get(auto_search_id)
-    if not auto_search_model:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Auto search {auto_search_id} not found.",
-        )
-
-    departure_route_id = auto_search_model.departure_route_id
-    return_route_id = auto_search_model.return_route_id
-
-    prices_deleted = prices_table.delete_for_auto_search(auto_search_id)
-    auto_search_airlines_table.delete(auto_search_id)
-    auto_search_table.delete(auto_search_id)
-
-    for route_id in {departure_route_id, return_route_id}:
-        if not route_id:
-            continue
-        remaining = auto_search_table.list_by_route(route_id)
-        if not remaining:
-            deleted = routes_table.delete(route_id)
-            if deleted:
-                log.info(
-                    "Deleted unused flight route %s after removing auto_search %s",
-                    route_id,
-                    auto_search_id,
+    """
+    Delete an auto flight search and all associated data.
+    
+    This will delete:
+    - auto_search_config record
+    - auto_search_airline records (cascade)
+    - searches linked to those auto_search_airline records
+    - flight_options, flight_segments, layovers, extensions (cascade from searches)
+    - price_insights and price_history (cascade from searches)
+    - search_airports (cascade from searches)
+    """
+    with get_db() as db:
+        try:
+            auto_search = db.query(AutoSearchConfig).filter(
+                AutoSearchConfig.auto_search_id == auto_search_id
+            ).first()
+            
+            if not auto_search:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Auto flight search not found",
                 )
-
-    log.info(
-        "Deleted auto_search %s (prices=%d)", auto_search_id, prices_deleted
-    )
-
-    return AutoFlightDeleteResponse(
-        auto_search_id=auto_search_id,
-        prices_deleted=prices_deleted,
-        message="Auto flight search deleted.",
-    )
-
+            
+            # Get all auto_search_airline records for this auto_search
+            auto_search_airlines = db.query(AutoSearchAirline).filter(
+                AutoSearchAirline.auto_search_id == auto_search_id
+            ).all()
+            
+            # Get all search_ids linked to these auto_search_airline records
+            auto_search_airline_ids = [asa.auto_search_airline_id for asa in auto_search_airlines]
+            search_ids = []
+            
+            if auto_search_airline_ids:
+                # Find all searches linked to these auto_search_airline records
+                searches_to_delete = db.query(Search).filter(
+                    Search.auto_search_airline_id.in_(auto_search_airline_ids)
+                ).all()
+                
+                search_ids = [s.search_id for s in searches_to_delete]
+                
+                if search_ids:
+                    log.info(
+                        "Deleting %d searches and related data for auto search %d",
+                        len(search_ids),
+                        auto_search_id,
+                    )
+                    
+                    # Delete searches (cascades will handle related data):
+                    # - flight_options (CASCADE)
+                    # - flight_segments (CASCADE from flight_options)
+                    # - layovers (CASCADE from flight_options)
+                    # - option_extensions (CASCADE from flight_options)
+                    # - flight_extensions (CASCADE from flight_segments)
+                    # - price_insights (CASCADE)
+                    # - price_history (CASCADE from price_insights)
+                    # - search_airports (CASCADE)
+                    for search in searches_to_delete:
+                        db.delete(search)
+            
+            # Delete auto_search_config (this will cascade delete auto_search_airline records)
+            db.delete(auto_search)
+            db.commit()
+            
+            log.info(
+                "Deleted auto flight search %d and all associated data (%d searches, %d airlines)",
+                auto_search_id,
+                len(search_ids) if auto_search_airline_ids else 0,
+                len(auto_search_airlines),
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            db.rollback()
+            log.exception("Failed to delete auto flight search %d: %s", auto_search_id, str(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete auto flight search",
+            )

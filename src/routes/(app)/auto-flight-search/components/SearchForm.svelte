@@ -148,6 +148,12 @@ $: selectedAirlineSummary = selectedAirlineCodes.map((code) => codeToName.get(co
 				return;
 			}
 
+			// Validate return trip days
+			if (!returnTripDays || returnTripDays < 1 || returnTripDays > 365) {
+				searchError = 'Please enter a valid return trip duration (1-365 days).';
+				return;
+			}
+
 			const airlineNames = selectedAirlineCodes.map(
 				(code) => codeToName.get(code) ?? code
 			);
@@ -171,7 +177,7 @@ $: selectedAirlineSummary = selectedAirlineCodes.map((code) => codeToName.get(co
 
 			dispatch('addSearch', {
 				search: newSearch,
-				returnTripDays: returnTripDays || null
+				returnTripDays: returnTripDays
 			});
 			resetForm();
 		} catch (error) {
@@ -383,7 +389,7 @@ $: selectedAirlineSummary = selectedAirlineCodes.map((code) => codeToName.get(co
 			
 			<div>
 				<label for="return-trip-days" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-					Return Trip Days (optional)
+					Return Trip Days <span class="text-red-500">*</span>
 				</label>
 				<input
 					id="return-trip-days"
@@ -391,11 +397,12 @@ $: selectedAirlineSummary = selectedAirlineCodes.map((code) => codeToName.get(co
 					min="1"
 					max="365"
 					class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-					placeholder="e.g., 8"
+					placeholder="e.g., 7"
 					bind:value={returnTripDays}
+					required
 				/>
 				<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-					Number of days for return trip (leave empty to let AI decide)
+					Number of days for return trip (1-365 days)
 				</p>
 			</div>
 		</div>

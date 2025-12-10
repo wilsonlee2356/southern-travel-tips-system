@@ -152,22 +152,9 @@ const persistSavedSearches = () => {
 // --- Auto-search refresh schedule API helpers ---
 
 const loadAutoSearchSchedule = async () => {
-	try {
-		const response = await fetch(`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search/schedule`, {
-			method: 'GET',
-			credentials: 'include'
-		});
-		if (!response.ok) {
-			console.warn('Failed to load auto-search schedule', await response.text());
-			return;
-		}
-		const data = await response.json();
-		if (data?.time && typeof data.time === 'string') {
-			autoSearchRefreshTime = data.time;
-		}
-	} catch (err) {
-		console.warn('Error loading auto-search schedule', err);
-	}
+	// Schedule endpoint has been removed - using default schedule time
+	// This function is kept for compatibility but does nothing
+	return;
 };
 
 const updateAutoSearchSchedule = async () => {
@@ -178,41 +165,21 @@ const updateAutoSearchSchedule = async () => {
 		return;
 	}
 
+	// Schedule endpoint has been removed - just update local state
 	isUpdatingSchedule = true;
 	try {
-		const response = await fetch(`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search/schedule`, {
-			method: 'POST',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({ time: trimmed })
-		});
-
-		if (!response.ok) {
-			const text = await response.text();
-			console.error('Failed to update auto-search schedule', text);
-			alert('Failed to update auto-search refresh time.');
-			return;
-		}
-
-		const data = await response.json();
-		if (data?.time) {
-			autoSearchRefreshTime = data.time;
-		}
-	} catch (err) {
-		console.error('Error updating auto-search schedule', err);
-		alert('Error updating auto-search refresh time.');
+		autoSearchRefreshTime = trimmed;
+		// Note: Schedule functionality has been removed, this only updates local UI state
 	} finally {
 		isUpdatingSchedule = false;
 	}
 };
 
 const buildSavedSearchFromResponse = (data) => {
-	const autoSearchId = data?.auto_search?.auto_search_id;
-	const route = data?.route;
-
-	if (!autoSearchId || !route) {
+	// Handle both old format (with auto_search nested) and new format (flat)
+	const autoSearchId = data?.auto_search_id ?? data?.auto_search?.auto_search_id;
+	
+	if (!autoSearchId) {
 		return null;
 	}
 
@@ -231,16 +198,17 @@ const buildSavedSearchFromResponse = (data) => {
 
 	return {
 		id: autoSearchId,
-		departure: route.from_place ?? '',
-		departureDisplay: route.from_place ?? '',
-		destination: route.to_place ?? '',
-		destinationDisplay: route.to_place ?? '',
+		departure: data?.departure_id ?? '',
+		departureDisplay: data?.departure_id ?? '',
+		destination: data?.arrival_id ?? '',
+		destinationDisplay: data?.arrival_id ?? '',
 		travelClass: travelClassReverseMap[data?.travel_class] ?? 'ECONOMY',
-		nonStop: Boolean(data?.direct_flight),
+		nonStop: Boolean(data?.is_direct),
 		enabled: true,
 		airlines: uniqueAirlineCodes,
 		airlineNames,
-		lastSearched: data?.auto_search?.updated_at ?? data?.auto_search?.created_at ?? null,
+		returnTripDays: data?.return_trip_duration ?? null,
+		lastSearched: data?.updated_at ?? data?.created_at ?? null,
 		autoSearchResponse: data,
 		error: undefined,
 		results: null,
@@ -348,7 +316,8 @@ $: airlineCodeToName = new Map(
 			to_place: search.destination,
 			airlines: airlineCodes,
 			travel_class: travelClassMap[search.travelClass] ?? 0,
-			direct_flight: Boolean(search.nonStop)
+			direct_flight: Boolean(search.nonStop),
+			return_trip_duration: returnTripDays
 		};
 
 		const response = await fetch(`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search`, {
@@ -387,7 +356,7 @@ $: airlineCodeToName = new Map(
 
 			console.debug('Auto flight search response (add):', data);
 
-			backendId = data?.auto_search?.auto_search_id ?? newSearch.id;
+			backendId = data?.auto_search_id ?? data?.auto_search?.auto_search_id ?? newSearch.id;
 
 			const builtSearch = buildSavedSearchFromResponse(data);
 			if (builtSearch) {
@@ -508,32 +477,31 @@ $: airlineCodeToName = new Map(
 		if (searchIndex === -1) return;
 
 		const search = savedSearches[searchIndex];
-		const autoSearchId = search?.autoSearchResponse?.auto_search?.auto_search_id;
+		// Try new format first, then fall back to old format
+		const autoSearchId = search?.autoSearchResponse?.auto_search_id ?? 
+		                      search?.autoSearchResponse?.auto_search?.auto_search_id ?? 
+		                      searchId;
 
 		const loadingCopy = new Set(loadingSearches);
 		loadingCopy.add(searchId);
 		loadingSearches = loadingCopy;
 
 		try {
-			if (autoSearchId) {
-				const response = await fetch(
-					`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search/${autoSearchId}`,
-					{
-						method: 'DELETE',
-						credentials: 'include'
-					}
-				);
-
-				if (!response.ok) {
-					const errorText = await response.text();
-					throw new Error(errorText || `Auto search delete failed (${response.status})`);
+			const response = await fetch(
+				`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search/${autoSearchId}`,
+				{
+					method: 'DELETE',
+					credentials: 'include'
 				}
+			);
 
-				const data = await response.json();
-				console.debug('Auto search response (delete):', data);
-			} else {
-				console.warn('Deleting search without backend auto_search_id:', search);
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(errorText || `Auto search delete failed (${response.status})`);
 			}
+
+			// 204 No Content - no response body
+			console.debug('Auto search deleted successfully:', autoSearchId);
 
 			savedSearches = savedSearches.filter((s) => s.id !== searchId);
 			if (selectedSearchId === searchId) {
