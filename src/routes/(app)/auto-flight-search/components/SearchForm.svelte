@@ -8,8 +8,6 @@
 	export let availableAirlines = [];
 	export let airlinesLoading = false;
 	export let airlinesError = '';
-	export let availableModels = [];
-	export let selectedModel = null;
 
 	const MAX_AIRLINES = 10;
 
@@ -24,7 +22,6 @@ let codeToName = new Map();
 	};
 	
 	let returnTripDays = null;
-	let modelId = '';
 
 	let isAddingSearch = false;
 	let searchError = '';
@@ -111,7 +108,6 @@ $: selectedAirlineSummary = selectedAirlineCodes.map((code) => codeToName.get(co
 		selectedAirlineCodes = [];
 		airlineSelectionError = '';
 		returnTripDays = null;
-		modelId = '';
 	};
 
 	const handleAddSearch = async () => {
@@ -152,11 +148,6 @@ $: selectedAirlineSummary = selectedAirlineCodes.map((code) => codeToName.get(co
 				return;
 			}
 
-			if (!modelId) {
-				searchError = 'Please select an AI model to use for the search.';
-				return;
-			}
-
 			const airlineNames = selectedAirlineCodes.map(
 				(code) => codeToName.get(code) ?? code
 			);
@@ -180,7 +171,6 @@ $: selectedAirlineSummary = selectedAirlineCodes.map((code) => codeToName.get(co
 
 			dispatch('addSearch', {
 				search: newSearch,
-				modelId: modelId,
 				returnTripDays: returnTripDays || null
 			});
 			resetForm();
@@ -408,26 +398,6 @@ $: selectedAirlineSummary = selectedAirlineCodes.map((code) => codeToName.get(co
 					Number of days for return trip (leave empty to let AI decide)
 				</p>
 			</div>
-		</div>
-		
-		<div>
-			<label for="model-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-				AI Model <span class="text-red-500">*</span>
-			</label>
-			<select
-				id="model-select"
-				class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-				bind:value={modelId}
-				required
-			>
-				<option value="">Select a model...</option>
-				{#each availableModels as model}
-					<option value={model.id}>{model.name || model.id}</option>
-				{/each}
-			</select>
-			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-				Select the AI model to use for flight search (Gemini, Ollama, or OpenAI)
-			</p>
 		</div>
 
 		<div class="flex gap-4 pt-4">

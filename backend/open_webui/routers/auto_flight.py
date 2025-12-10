@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, time
 from typing import Any, Dict, List, Optional, Tuple
 import threading
 
+import requests
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, validator
 
@@ -204,6 +206,73 @@ def _build_date_range() -> tuple[str, str]:
     start = tomorrow.strftime("%Y-%m-%d")
     end = six_months_later.strftime("%Y-%m-%d")
     return start, end
+
+
+def _call_n8n_webhook_for_airlines(
+    departure_id: str,
+    arrival_id: str,
+    is_direct: bool,
+    airline_codes: List[str],
+    trip_duration: int = 7,
+) -> None:
+    """
+    Call n8n webhook API for each airline when a new auto search is created.
+    
+    URL format: https://n8n.ssl-labs.ai/webhook-test/f56d4963-08b0-4c21-97c7-be28249e32d8/auto_search/{departure_id}/{arrival_id}/{is_direct}/{airline}/{trip_duration}
+    
+    Args:
+        departure_id: Departure airport code (e.g., HKG)
+        arrival_id: Arrival airport code (e.g., KIX)
+        is_direct: Whether to search for direct flights only
+        airline_codes: List of airline codes to call webhook for
+        trip_duration: Trip duration in days (default: 7)
+    """
+    base_url = "https://n8n.ssl-labs.ai/webhook/f56d4963-08b0-4c21-97c7-be28249e32d8/auto_search"
+    
+    # Convert boolean to string for URL
+    is_direct_str = "true" if is_direct else "false"
+    
+    for airline_code in airline_codes:
+        airline_code_upper = airline_code.upper().strip()
+        if not airline_code_upper:
+            continue
+            
+        # Build the webhook URL
+        webhook_url = f"{base_url}/{departure_id}/{arrival_id}/{is_direct_str}/{airline_code_upper}/{trip_duration}"
+        
+        try:
+            log.info(
+                "Calling n8n webhook for airline %s: %s -> %s, direct=%s, duration=%d days",
+                airline_code_upper,
+                departure_id,
+                arrival_id,
+                is_direct_str,
+                trip_duration,
+            )
+            
+            response = requests.get(webhook_url, timeout=3600)  # 1 hour timeout
+            response.raise_for_status()
+            
+            # Log the response
+            log.info(
+                "n8n webhook response for airline %s: status=%d, response=%s",
+                airline_code_upper,
+                response.status_code,
+                response.text[:500] if response.text else "No response body",
+            )
+            
+        except requests.RequestException as e:
+            log.error(
+                "n8n webhook call failed for airline %s: %s",
+                airline_code_upper,
+                str(e),
+            )
+        except Exception as e:
+            log.exception(
+                "Unexpected error calling n8n webhook for airline %s: %s",
+                airline_code_upper,
+                str(e),
+            )
 
 
 def _parse_calendar_date(value: str) -> datetime | None:
@@ -692,74 +761,26 @@ async def create_auto_flight_search(
         airline_codes=airline_codes,
     )
 
-    aggregated_price_map = _collect_calendar_prices_for_airlines(
-        route=route,
-        return_route=return_route,
+    # Call n8n webhook for each airline (skip calendar fetching and price storage)
+    _call_n8n_webhook_for_airlines(
+        departure_id=payload.from_place.upper(),
+        arrival_id=payload.to_place.upper(),
+        is_direct=payload.direct_flight,
         airline_codes=airline_codes,
-        travel_class=payload.travel_class,
-        direct_flight=payload.direct_flight,
+        trip_duration=7,  # Default trip duration in days (can be made configurable)
     )
 
-    price_models: List[PriceModel] = []
-    if aggregated_price_map:
-        prices_table.delete_for_auto_search(auto_search_model.auto_search_id)
-
-        airline_by_id = {airline.airline_id: airline for airline in airline_models}
-        link_by_pair: Dict[Tuple[str, str], AutoSearchAirlineModel] = {}
-        for link in auto_search_airline_models:
-            airline = airline_by_id.get(link.airline_id)
-            code_key = (
-                airline.code.upper()
-                if airline and airline.code
-                else airline.airline_id
-                if airline
-                else link.auto_search_airline_id
-            )
-            link_by_pair[(code_key, link.route_id)] = link
-
-        total_inserted = 0
-        for (code, route_id), entries in aggregated_price_map.items():
-            key = (code.upper(), route_id)
-            link = link_by_pair.get(key)
-            if not link:
-                log.warning(
-                    "Skipping price entries for airline code %s route %s; no matching auto_search_airline link",
-                    code,
-                    route_id,
-                )
-                continue
-            inserted = prices_table.bulk_insert(link.auto_search_airline_id, entries)
-            price_models.extend(inserted)
-            total_inserted += len(inserted)
-
-        if total_inserted:
-            log.info(
-                "Stored %d price points across %d airlines for auto_search %s",
-                total_inserted,
-                len(aggregated_price_map),
-                auto_search_model.auto_search_id,
-            )
-        else:
-            log.warning(
-                "No price entries inserted for auto_search %s after aggregation.",
-                auto_search_model.auto_search_id,
-            )
-    else:
-        log.warning(
-            "No price entries aggregated for auto_search %s. Calendar responses may be empty.",
-            auto_search_model.auto_search_id,
-        )
-
+    # Return response with empty prices (n8n will handle the actual search)
     response_payload = _compose_auto_search_response(
         auto_search=auto_search_model,
         route=route,
         return_route=return_route,
         airlines=airline_models,
         auto_search_airlines=auto_search_airline_models,
-        prices=price_models,
+        prices=[],  # Empty prices - n8n workflow handles the search
         travel_class=payload.travel_class,
         direct_flight=payload.direct_flight,
-        message="Auto flight search initiated.",
+        message="Auto flight search initiated. n8n workflow will handle the search.",
     )
 
     log.debug(
@@ -1166,139 +1187,3 @@ async def delete_auto_flight_search(
         message="Auto flight search deleted.",
     )
 
-
-class MCPFlightSearchRequest(BaseModel):
-    """Request model for MCP flight search"""
-
-    departure: str = Field(..., min_length=3, max_length=10, description="Origin airport code")
-    destination: str = Field(..., min_length=3, max_length=10, description="Destination airport code")
-    airlines: List[str] = Field(..., description="Airline codes to search (1-10 airlines)")
-    return_trip_days: Optional[int] = Field(None, ge=1, le=365, description="Number of days for return trip")
-    travel_class: int = Field(0, ge=0, le=3, description="0=economy, 1=premium_economy, 2=business, 3=first_class")
-    direct_flight: bool = Field(False, description="Search direct flights only")
-    model_id: str = Field(..., description="Model ID to use (Gemini, Ollama, or OpenAI)")
-
-
-class MCPFlightSearchResponse(BaseModel):
-    """Response model for MCP flight search"""
-
-    success: bool
-    message: str
-    saved_flight_count: int = 0
-    tool_calls_count: int = 0
-    auto_search_id: Optional[str] = None
-    error: Optional[str] = None
-
-
-@router.post(
-    "/mcp-search",
-    response_model=MCPFlightSearchResponse,
-    status_code=status.HTTP_200_OK,
-    summary="AI-powered flight search using MCP",
-)
-async def mcp_flight_search(
-    request: Request,
-    payload: MCPFlightSearchRequest,
-    user=Depends(get_verified_user),
-):
-    """
-    Run AI-powered flight search using MCP (Model Context Protocol).
-
-    The AI will:
-    1. Use Google AI Mode to get initial insights about cheap periods
-    2. Use Google Flight Calendar to verify prices
-    3. Use Google Flight Search to get detailed flight data and store in database
-
-    Only Google Flight Search results are stored in the database.
-    """
-    from open_webui.ai_auto.context import MCPRequest
-    from open_webui.ai_auto.workflow import run_mcp_workflow
-
-    # Validate airlines
-    if len(payload.airlines) < MIN_AIRLINES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Provide at least {MIN_AIRLINES} airline codes.",
-        )
-
-    if len(payload.airlines) > MAX_AIRLINES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Provide no more than {MAX_AIRLINES} airline codes.",
-        )
-
-    # Normalize airline codes
-    airlines_table = AirlinesTable()
-    normalized_airlines = []
-    for airline_input in payload.airlines:
-        normalized = airline_input.strip().upper()
-        airline = airlines_table.get_by_code(normalized)
-        if airline and airline.code:
-            normalized_airlines.append(airline.code)
-        else:
-            # Try by name
-            airline = airlines_table.get_by_name(normalized)
-            if airline and airline.code:
-                normalized_airlines.append(airline.code)
-            elif len(normalized) in (2, 3):
-                normalized_airlines.append(normalized)
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Unrecognized airline: {normalized}",
-                )
-
-    normalized_airlines = list(dict.fromkeys(normalized_airlines))
-
-    # Create MCP request
-    mcp_request = MCPRequest(
-        departure=payload.departure.upper(),
-        destination=payload.destination.upper(),
-        airlines=normalized_airlines,
-        return_trip_days=payload.return_trip_days,
-        travel_class=payload.travel_class,
-        direct_flight=payload.direct_flight,
-        model_id=payload.model_id,
-        user_id=user.id,
-    )
-
-    # Run workflow
-    log.info(
-        "MCP flight search request from user %s: %s -> %s, airlines=%s, model=%s",
-        user.id,
-        payload.departure,
-        payload.destination,
-        normalized_airlines,
-        payload.model_id,
-    )
-    
-    try:
-        mcp_response = await run_mcp_workflow(request, mcp_request, user)
-        log.info(
-            "MCP workflow completed for user %s: success=%s, flights=%d, tool_calls=%d",
-            user.id,
-            mcp_response.success,
-            mcp_response.saved_flight_count,
-            len(mcp_response.tool_calls),
-        )
-
-        # Extract auto_search_id from workflow state
-        auto_search_id = None
-        if mcp_response.workflow_state:
-            auto_search_id = mcp_response.workflow_state.auto_search_id
-
-        return MCPFlightSearchResponse(
-            success=mcp_response.success,
-            message=mcp_response.message,
-            saved_flight_count=mcp_response.saved_flight_count,
-            tool_calls_count=len(mcp_response.tool_calls),
-            auto_search_id=auto_search_id,
-            error=mcp_response.error,
-        )
-
-    except Exception as e:
-        log.exception("MCP flight search failed: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"MCP flight search failed: {str(e)}",
-        )

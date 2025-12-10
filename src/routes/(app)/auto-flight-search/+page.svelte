@@ -1,5 +1,5 @@
 <script>
-import { mobile, showSidebar, user, showArchivedChats, models } from '$lib/stores';
+import { mobile, showSidebar, user, showArchivedChats } from '$lib/stores';
 import { getContext, onMount } from 'svelte';
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 import { goto } from '$app/navigation';
@@ -80,11 +80,7 @@ Output ONLY pure valid JSON — no extra text, no placeholders, no comments, all
 	let autoSearchRefreshTime = '03:00';
 	let isUpdatingSchedule = false;
 
-	
-// Model selection
-let selectedModel = null;
-
-// Airline metadata
+	// Airline metadata
 let availableAirlines = [];
 let airlinesError = '';
 let airlinesLoading = false;
@@ -336,74 +332,9 @@ $: airlineCodeToName = new Map(
 		.filter((airline) => airline?.code)
 		.map((airline) => [airline.code, airline.name ?? airline.code])
 );
-	
-	// Allowed model patterns (same as flight search page)
-	const allowedModelPatterns = [
-		/^gpt-4$/i,
-		/^gpt-?4o$/i,
-		/^gpt-?4\.1$/i,
-		/^gpt-?4\.1-?mini$/i,
-		/^gpt-?5$/i,
-		/^gemini-?2\.5-?flash$/i,
-		/^gemini-?2\.0-?flash$/i,
-		/^gemini-?2\.0-?flash-?live$/i
-	];
 
-	// Function to check if a model is allowed
-	const isAllowedModel = (model) => {
-		// Always allow Ollama models
-		if (model?.owned_by === 'ollama') {
-			return true;
-		}
-		// Fallback: if owned_by is missing/undefined, check for Ollama-specific properties
-		// Ollama models typically have: details, ollama property, or model property without external flag
-		if (!model?.owned_by) {
-			const hasOllamaProperties = model?.details || model?.ollama || (model?.model && model?.external === false);
-			if (hasOllamaProperties) {
-				return true;
-			}
-		}
-		
-		let modelId = (model?.id || '').toLowerCase().trim();
-		let modelName = (model?.name || '').toLowerCase().trim();
-		
-		// Strip 'models/' prefix if present
-		if (modelId.startsWith('models/')) {
-			modelId = modelId.substring(7);
-		}
-		if (modelName.startsWith('models/')) {
-			modelName = modelName.substring(7);
-		}
-		
-		// Check if model ID or name matches any of the allowed patterns
-		return allowedModelPatterns.some(pattern => {
-			return pattern.test(modelId) || pattern.test(modelName);
-		});
-	};
-
-	// Filtered models for dropdown
-	$: filteredModels = (() => {
-		const allModels = $models || [];
-		console.log('=== AUTO FLIGHT SEARCH MODEL FILTERING ===');
-		console.log('Total models:', allModels.length);
-		
-		const filtered = allModels.filter(model => {
-			const isAllowed = isAllowedModel(model);
-			if (model?.owned_by === 'ollama') {
-				console.log(`Ollama model: "${model?.id}" / "${model?.name}" - ${isAllowed ? '✅ ALLOWED' : '❌ FILTERED'}`);
-			}
-			return isAllowed;
-		});
-		
-		console.log('Filtered models count:', filtered.length);
-		console.log('Ollama models in filtered:', filtered.filter(m => m?.owned_by === 'ollama').length);
-		console.log('=== END FILTERING DEBUG ===');
-		
-		return filtered;
-	})();
-
-	// Handle adding a new search from the SearchForm component - now uses MCP
-	const callMCPFlightSearch = async (search, modelId, returnTripDays) => {
+	// Handle adding a new search from the SearchForm component
+	const callAutoFlightSearch = async (search, returnTripDays) => {
 		const airlineCodes = search.airlines ?? [];
 		if (airlineCodes.length < 1) {
 			throw new Error('Please select at least 1 airline before adding an auto search.');
@@ -412,21 +343,15 @@ $: airlineCodeToName = new Map(
 			throw new Error(`Please select no more than ${MAX_AIRLINES} airlines.`);
 		}
 
-		if (!modelId) {
-			throw new Error('Please select an AI model to use for the search.');
-		}
-
 		const payload = {
-			departure: search.departure,
-			destination: search.destination,
+			from_place: search.departure,
+			to_place: search.destination,
 			airlines: airlineCodes,
 			travel_class: travelClassMap[search.travelClass] ?? 0,
-			direct_flight: Boolean(search.nonStop),
-			model_id: modelId,
-			return_trip_days: returnTripDays || null
+			direct_flight: Boolean(search.nonStop)
 		};
 
-		const response = await fetch(`${WEBUI_API_BASE_URL}/auto-flight-search/mcp-search`, {
+		const response = await fetch(`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(payload),
@@ -435,14 +360,14 @@ $: airlineCodeToName = new Map(
 
 		if (!response.ok) {
 			const errorText = await response.text();
-			throw new Error(errorText || `MCP flight search failed (${response.status})`);
+			throw new Error(errorText || `Auto flight search failed (${response.status})`);
 		}
 
 		return await response.json();
 	};
 
 	const handleAddSearch = async (event) => {
-		const { search: newSearch, modelId, returnTripDays } = event.detail;
+		const { search: newSearch, returnTripDays } = event.detail;
 		let backendId = null;
 
 		// Add a loading state for this new search
@@ -458,25 +383,28 @@ $: airlineCodeToName = new Map(
 			selectedSearchId = newSearch.id;
 
 			const searchIndex = savedSearches.findIndex((s) => s.id === newSearch.id);
-			const data = await callMCPFlightSearch(newSearch, modelId, returnTripDays);
+			const data = await callAutoFlightSearch(newSearch, returnTripDays);
 
-			console.debug('MCP flight search response (add):', data);
+			console.debug('Auto flight search response (add):', data);
 
-			backendId = data?.auto_search_id ?? newSearch.id;
+			backendId = data?.auto_search?.auto_search_id ?? newSearch.id;
 
-			savedSearches[searchIndex] = {
-				...newSearch,
-				id: backendId,
-				lastSearched: new Date().toISOString(),
-				travelClass: newSearch.travelClass ?? 'ECONOMY',
-				nonStop: newSearch.nonStop,
-				airlines: newSearch.airlines,
-				airlineNames: newSearch.airlineNames,
-				mcpResponse: data,
-				savedFlightCount: data?.saved_flight_count ?? 0,
-				toolCallsCount: data?.tool_calls_count ?? 0,
-				error: data?.error || undefined
-			};
+			const builtSearch = buildSavedSearchFromResponse(data);
+			if (builtSearch) {
+				savedSearches[searchIndex] = builtSearch;
+			} else {
+				savedSearches[searchIndex] = {
+					...newSearch,
+					id: backendId,
+					lastSearched: new Date().toISOString(),
+					travelClass: newSearch.travelClass ?? 'ECONOMY',
+					nonStop: newSearch.nonStop,
+					airlines: newSearch.airlines,
+					airlineNames: newSearch.airlineNames,
+					autoSearchResponse: data,
+					error: undefined
+				};
+			}
 
 			savedSearches = [...savedSearches];
 			selectedSearchId = backendId;
@@ -854,8 +782,6 @@ $: airlineCodeToName = new Map(
 						availableAirlines={availableAirlines}
 						airlinesLoading={airlinesLoading}
 						airlinesError={airlinesError}
-						availableModels={filteredModels}
-						selectedModel={selectedModel}
 					/>
 
 					<!-- Auto-search daily refresh time configuration -->
@@ -914,71 +840,50 @@ $: airlineCodeToName = new Map(
 							/>
 						</div>
 						
-						<!-- Right Column: AI Run Log (2/3 width) -->
+						<!-- Right Column: Search Details (2/3 width) -->
 						<div class="lg:col-span-2">
 							{#if selectedSearchId}
 								{@const selectedSearch = savedSearches.find(s => s.id === selectedSearchId)}
 								{#if selectedSearch}
 									<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
 										<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
-											AI Search Results
+											Search Details
 										</h2>
 										
-										{#if selectedSearch.mcpResponse}
-											<div class="space-y-4">
-												<div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-													<div class="flex items-center gap-2 mb-2">
-														{#if selectedSearch.mcpResponse.success}
-															<svg class="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-																<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-															</svg>
-														{:else}
-															<svg class="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-																<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-															</svg>
-														{/if}
-														<span class="font-medium text-gray-900 dark:text-gray-100">
-															{selectedSearch.mcpResponse.message || 'Search completed'}
-														</span>
-													</div>
-													
-													<div class="grid grid-cols-2 gap-4 mt-4">
-														<div>
-															<div class="text-sm text-gray-600 dark:text-gray-400">Flights Found</div>
-															<div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-																{selectedSearch.savedFlightCount || 0}
-															</div>
-														</div>
-														<div>
-															<div class="text-sm text-gray-600 dark:text-gray-400">Tool Calls</div>
-															<div class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-																{selectedSearch.toolCallsCount || 0}
-															</div>
-														</div>
-													</div>
-													
-													{#if selectedSearch.mcpResponse.error}
-														<div class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded text-sm text-red-700 dark:text-red-300">
-															{selectedSearch.mcpResponse.error}
-														</div>
-													{/if}
-												</div>
-												
-												{#if selectedSearch.lastSearched}
-													<div class="text-sm text-gray-500 dark:text-gray-400">
-														Last searched: {new Date(selectedSearch.lastSearched).toLocaleString()}
-													</div>
-												{/if}
-											</div>
-										{:else if selectedSearch.error}
+										{#if selectedSearch.error}
 											<div class="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
 												<div class="text-red-700 dark:text-red-300">
 													{selectedSearch.error}
 												</div>
 											</div>
+										{:else if selectedSearch.autoSearchResponse}
+											<div class="space-y-4">
+												<div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+													<div class="grid grid-cols-2 gap-4">
+														<div>
+															<div class="text-sm text-gray-600 dark:text-gray-400">Route</div>
+															<div class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+																{selectedSearch.departure} → {selectedSearch.destination}
+															</div>
+														</div>
+														<div>
+															<div class="text-sm text-gray-600 dark:text-gray-400">Airlines</div>
+															<div class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+																{selectedSearch.airlineNames?.join(', ') || selectedSearch.airlines?.join(', ') || 'N/A'}
+															</div>
+														</div>
+													</div>
+													
+													{#if selectedSearch.lastSearched}
+														<div class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+															Last searched: {new Date(selectedSearch.lastSearched).toLocaleString()}
+														</div>
+													{/if}
+												</div>
+											</div>
 										{:else}
 											<div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center text-gray-500 dark:text-gray-400">
-												No search results yet. Click refresh to run the AI search.
+												No search details available yet.
 											</div>
 										{/if}
 									</div>
@@ -986,7 +891,7 @@ $: airlineCodeToName = new Map(
 							{:else}
 								<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-12 text-center">
 									<p class="text-gray-500 dark:text-gray-400">
-										Select a search from the list to view AI search results
+										Select a search from the list to view details
 									</p>
 								</div>
 							{/if}
@@ -997,4 +902,5 @@ $: airlineCodeToName = new Map(
 
 	</div>
 </div>
+
 
