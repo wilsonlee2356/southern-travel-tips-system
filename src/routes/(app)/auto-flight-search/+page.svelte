@@ -229,7 +229,11 @@ const buildSavedSearchFromResponse = (data) => {
 		}
 
 		const payload = await response.json();
+		console.log('=== Auto Flight Searches (from backend database) ===');
+		console.log('Total searches:', payload.length);
+		console.log('Full payload:', payload);
 		console.debug('Auto flight searches (initial load):', payload);
+		
 		const normalized = Array.isArray(payload)
 			? payload
 					.map((entry) => buildSavedSearchFromResponse(entry))
@@ -241,6 +245,14 @@ const buildSavedSearchFromResponse = (data) => {
 			normalized.find((entry) => entry.id === previousSelectedId)?.id ??
 			(normalized.length > 0 ? normalized[0].id : null);
 		selectedSearchId = preservedSelection;
+		
+		// Load flight search results for each saved search
+		for (const search of normalized) {
+			if (search?.id) {
+				await loadFlightSearchResults(search.id);
+			}
+		}
+		
 		persistSavedSearches();
 	} catch (error) {
 		console.error('Failed to load auto searches:', error);
@@ -264,6 +276,51 @@ const buildSavedSearchFromResponse = (data) => {
 		}
 	}
 };
+
+	// Load flight search results from database for a specific auto search
+	const loadFlightSearchResults = async (autoSearchId) => {
+		try {
+			const response = await fetch(
+				`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search/${autoSearchId}/results`,
+				{
+					credentials: 'include'
+				}
+			);
+
+			if (!response.ok) {
+				console.warn(`Failed to fetch flight search results for auto_search_id=${autoSearchId}: ${response.status}`);
+				return;
+			}
+
+			const data = await response.json();
+			console.log(`=== Flight Search Results for auto_search_id=${autoSearchId} ===`);
+			console.log(`Total searches: ${data.total_searches}`);
+			console.log(`Total flight options: ${data.total_flight_options}`);
+			console.log('Full results data:', data);
+			
+			// Log details for each search
+			if (data.searches && Array.isArray(data.searches)) {
+				data.searches.forEach((search, idx) => {
+					console.log(`\n--- Search ${idx + 1} (search_id=${search.search_id}) ---`);
+					console.log(`  Departure: ${search.departure_id} → Arrival: ${search.arrival_id}`);
+					console.log(`  Outbound Date: ${search.outbound_date}, Return Date: ${search.return_date || 'N/A'}`);
+					console.log(`  Flight Options: ${search.flight_options?.length || 0}`);
+					
+					if (search.flight_options && search.flight_options.length > 0) {
+						search.flight_options.forEach((option, optIdx) => {
+							console.log(`    Option ${optIdx + 1}: Price=$${option.price}, Best=${option.is_best_flight}, Segments=${option.segments?.length || 0}`);
+						});
+					}
+					
+					if (search.price_insight) {
+						console.log(`  Price Insight: Lowest=$${search.price_insight.lowest_price}, Level=${search.price_insight.price_level}`);
+					}
+				});
+			}
+		} catch (error) {
+			console.error(`Failed to load flight search results for auto_search_id=${autoSearchId}:`, error);
+		}
+	};
 
 onMount(async () => {
 	try {
@@ -354,9 +411,18 @@ $: airlineCodeToName = new Map(
 			const searchIndex = savedSearches.findIndex((s) => s.id === newSearch.id);
 			const data = await callAutoFlightSearch(newSearch, returnTripDays);
 
+			console.log('=== Auto Flight Search Created ===');
+			console.log('Full response:', data);
 			console.debug('Auto flight search response (add):', data);
 
 			backendId = data?.auto_search_id ?? data?.auto_search?.auto_search_id ?? newSearch.id;
+			
+			// Load flight search results after creation (wait for n8n to process)
+			if (backendId) {
+				setTimeout(async () => {
+					await loadFlightSearchResults(backendId);
+				}, 2000); // Wait 2 seconds for n8n to process
+			}
 
 			const builtSearch = buildSavedSearchFromResponse(data);
 			if (builtSearch) {
@@ -406,12 +472,15 @@ $: airlineCodeToName = new Map(
 		if (searchIndex === -1) return;
 
 		const search = savedSearches[searchIndex];
-		if (!search?.autoSearchResponse?.auto_search?.auto_search_id) {
+		// Handle both formats: flat (auto_search_id) and nested (auto_search.auto_search_id)
+		const autoSearchId = search?.id ?? 
+			search?.autoSearchResponse?.auto_search_id ?? 
+			search?.autoSearchResponse?.auto_search?.auto_search_id;
+		
+		if (!autoSearchId) {
 			console.error('Cannot refresh search: missing auto_search_id', search);
 			return;
 		}
-
-		const autoSearchId = search.autoSearchResponse.auto_search.auto_search_id;
 
 		const loadingCopy = new Set(loadingSearches);
 		loadingCopy.add(searchId);
@@ -432,27 +501,46 @@ $: airlineCodeToName = new Map(
 			}
 
 			const data = await response.json();
+			console.log('=== Auto Search Refresh Response ===');
+			console.log('Full response:', data);
 			console.debug('Auto search response (refresh):', data);
+			
+			// Load flight search results after refresh
+			if (autoSearchId) {
+				await loadFlightSearchResults(autoSearchId);
+			}
 
-			const backendAirlineModels = Array.isArray(data?.airlines) ? data.airlines : [];
-			const backendAirlineCodes = backendAirlineModels
-				.map((airline) => airline?.code)
-				.filter((code) => typeof code === 'string' && code.trim().length > 0);
-			const backendAirlineNames = backendAirlineModels.map(
-				(airline) => airline?.name ?? airline?.code ?? airline?.airline_id ?? 'Unknown Airline'
-			);
+			const builtSearch = buildSavedSearchFromResponse(data);
+			if (builtSearch) {
+				savedSearches[searchIndex] = {
+					...builtSearch,
+					...search,  // Preserve existing fields like lastSearched, etc.
+					lastSearched: new Date().toISOString(),
+					autoSearchResponse: data,
+					error: undefined
+				};
+			} else {
+				// Fallback if buildSavedSearchFromResponse returns null
+				const backendAirlineModels = Array.isArray(data?.airlines) ? data.airlines : [];
+				const backendAirlineCodes = backendAirlineModels
+					.map((airline) => airline?.code)
+					.filter((code) => typeof code === 'string' && code.trim().length > 0);
+				const backendAirlineNames = backendAirlineModels.map(
+					(airline) => airline?.name ?? airline?.code ?? airline?.airline_id ?? 'Unknown Airline'
+				);
 
-			savedSearches[searchIndex] = {
-				...search,
-				lastSearched: new Date().toISOString(),
-				travelClass:
-					travelClassReverseMap[data?.travel_class] ?? search.travelClass ?? 'ECONOMY',
-				nonStop: Boolean(data?.direct_flight),
-				airlines: backendAirlineCodes.length ? backendAirlineCodes : search.airlines,
-				airlineNames: backendAirlineNames.length ? backendAirlineNames : search.airlineNames,
-				autoSearchResponse: data,
-				error: undefined
-			};
+				savedSearches[searchIndex] = {
+					...search,
+					lastSearched: new Date().toISOString(),
+					travelClass:
+						travelClassReverseMap[data?.travel_class] ?? search.travelClass ?? 'ECONOMY',
+					nonStop: Boolean(data?.is_direct ?? data?.direct_flight ?? search.nonStop),
+					airlines: backendAirlineCodes.length ? backendAirlineCodes : search.airlines,
+					airlineNames: backendAirlineNames.length ? backendAirlineNames : search.airlineNames,
+					autoSearchResponse: data,
+					error: undefined
+				};
+			}
 			savedSearches = [...savedSearches];
 			persistSavedSearches();
 		} catch (error) {
