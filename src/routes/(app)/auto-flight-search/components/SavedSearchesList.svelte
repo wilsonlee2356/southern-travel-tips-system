@@ -19,13 +19,12 @@
 		dispatch('deleteSearch', searchId);
 	};
 
-const formatAirlineSummary = (search) => {
+const getAirlineCount = (search) => {
 	const names = search?.airlineNames ?? search?.airlines ?? [];
-	if (!names || names.length === 0) return 'No airlines selected';
+	if (!names || names.length === 0) return 0;
 	// Remove duplicates by converting to Set and back to array
 	const uniqueNames = [...new Set(names)];
-	if (uniqueNames.length <= 3) return uniqueNames.join(', ');
-	return `${uniqueNames.slice(0, 3).join(', ')} +${uniqueNames.length - 3} more`;
+	return uniqueNames.length;
 };
 </script>
 
@@ -51,9 +50,9 @@ const formatAirlineSummary = (search) => {
 					{search.departureDisplay} → {search.destinationDisplay}
 				</div>
 				
-				<!-- Time -->
+				<!-- Airlines Count -->
 				<div class="text-xs text-gray-600 dark:text-gray-400 mb-2">
-					✈️ Airlines: {formatAirlineSummary(search)}
+					✈️ Airlines: {getAirlineCount(search)} {getAirlineCount(search) === 1 ? 'airline' : 'airlines'}
 				</div>
 				
 				<!-- Actions -->

@@ -75,6 +75,11 @@ Output ONLY pure valid JSON — no extra text, no placeholders, no comments, all
 	// Track which search is currently selected for display
 	let selectedSearchId = null;
 	
+	// Store flight search results for each auto search
+	let flightSearchResults = new Map(); // Map<autoSearchId, results>
+	let loadingFlightResults = new Set(); // Set<autoSearchId>
+	let selectedAirlineTab = null; // Currently selected airline tab
+	
 
 	// Global auto-search refresh schedule (HH:MM, 24-hour)
 	let autoSearchRefreshTime = '03:00';
@@ -279,6 +284,13 @@ const buildSavedSearchFromResponse = (data) => {
 
 	// Load flight search results from database for a specific auto search
 	const loadFlightSearchResults = async (autoSearchId) => {
+		if (loadingFlightResults.has(autoSearchId)) {
+			return; // Already loading
+		}
+		
+		loadingFlightResults.add(autoSearchId);
+		loadingFlightResults = loadingFlightResults; // Trigger reactivity
+		
 		try {
 			const response = await fetch(
 				`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search/${autoSearchId}/results`,
@@ -297,6 +309,10 @@ const buildSavedSearchFromResponse = (data) => {
 			console.log(`Total searches: ${data.total_searches}`);
 			console.log(`Total flight options: ${data.total_flight_options}`);
 			console.log('Full results data:', data);
+			
+			// Store the results
+			flightSearchResults.set(autoSearchId, data);
+			flightSearchResults = flightSearchResults; // Trigger reactivity
 			
 			// Log details for each search
 			if (data.searches && Array.isArray(data.searches)) {
@@ -319,7 +335,154 @@ const buildSavedSearchFromResponse = (data) => {
 			}
 		} catch (error) {
 			console.error(`Failed to load flight search results for auto_search_id=${autoSearchId}:`, error);
+		} finally {
+			loadingFlightResults.delete(autoSearchId);
+			loadingFlightResults = loadingFlightResults; // Trigger reactivity
 		}
+	};
+	
+	// Function to aggregate flights by airline
+	const aggregateFlightsByAirline = (results) => {
+		if (!results || !results.searches || !Array.isArray(results.searches)) {
+			return {};
+		}
+		
+		const airlineMap = new Map();
+		
+		results.searches.forEach((search) => {
+			// Check if flight_options is null, undefined, or empty
+			if (!search || !search.flight_options || !Array.isArray(search.flight_options) || search.flight_options.length === 0) {
+				return;
+			}
+			
+			search.flight_options.forEach((option) => {
+				// Skip if option is null or doesn't have required fields
+				if (!option || option.price === null || option.price === undefined) {
+					return;
+				}
+				
+				// Get airline from first segment
+				let airlineCode = 'Unknown';
+				let airlineName = 'Unknown Airline';
+				
+				if (option.segments && option.segments.length > 0) {
+					const firstSegment = option.segments[0];
+					airlineCode = firstSegment.airline_id || firstSegment.airline || 'Unknown';
+					airlineName = firstSegment.airline || airlineCode;
+				}
+				
+				if (!airlineMap.has(airlineCode)) {
+					airlineMap.set(airlineCode, {
+						code: airlineCode,
+						name: airlineName,
+						bestFlights: [],
+						otherFlights: []
+					});
+				}
+				
+				const airlineData = airlineMap.get(airlineCode);
+				const flightData = {
+					...option,
+					search_id: search.search_id,
+					outbound_date: search.outbound_date,
+					return_date: search.return_date,
+					departure_id: search.departure_id,
+					arrival_id: search.arrival_id,
+					// Get departure date from first segment
+					departure_date: option.segments && option.segments.length > 0 
+						? option.segments[0].departure_date 
+						: search.outbound_date
+				};
+				
+				if (option.is_best_flight) {
+					airlineData.bestFlights.push(flightData);
+				} else {
+					airlineData.otherFlights.push(flightData);
+				}
+			});
+		});
+		
+		// Sort flights by departure date
+		airlineMap.forEach((airlineData) => {
+			airlineData.bestFlights.sort((a, b) => {
+				const dateA = new Date(a.departure_date || a.outbound_date || '');
+				const dateB = new Date(b.departure_date || b.outbound_date || '');
+				return dateA - dateB;
+			});
+			
+			airlineData.otherFlights.sort((a, b) => {
+				const dateA = new Date(a.departure_date || a.outbound_date || '');
+				const dateB = new Date(b.departure_date || b.outbound_date || '');
+				return dateA - dateB;
+			});
+		});
+		
+		return Object.fromEntries(airlineMap);
+	};
+	
+	// Function to get aggregated flights for selected search
+	$: selectedSearchFlights = selectedSearchId && flightSearchResults.has(selectedSearchId)
+		? aggregateFlightsByAirline(flightSearchResults.get(selectedSearchId))
+		: {};
+	
+	$: airlineTabs = Object.keys(selectedSearchFlights).sort();
+	
+	// Reset selected airline tab when search changes
+	$: if (selectedSearchId) {
+		if (airlineTabs.length > 0 && (!selectedAirlineTab || !airlineTabs.includes(selectedAirlineTab))) {
+			selectedAirlineTab = airlineTabs[0];
+		}
+	}
+	
+	// Load flight results when a search is selected
+	$: if (selectedSearchId && !flightSearchResults.has(selectedSearchId) && !loadingFlightResults.has(selectedSearchId)) {
+		loadFlightSearchResults(selectedSearchId);
+	}
+	
+	// Track expanded flight rows
+	let expandedFlightRows = new Set();
+	
+	const toggleFlightRowExpansion = (flightId) => {
+		const next = new Set(expandedFlightRows);
+		if (next.has(flightId)) {
+			next.delete(flightId);
+		} else {
+			next.add(flightId);
+		}
+		expandedFlightRows = next;
+	};
+	
+	// Helper functions for formatting
+	const formatTimeDisplay = (value) => {
+		if (!value) return '—';
+		return String(value).trim();
+	};
+	
+	const formatDateDisplay = (value) => {
+		if (!value) return null;
+		const date = new Date(value);
+		if (!Number.isNaN(date.getTime())) {
+			return date.toLocaleDateString();
+		}
+		return String(value).trim();
+	};
+	
+	const formatDuration = (minutes) => {
+		if (!minutes || isNaN(minutes)) return 'N/A';
+		const hours = Math.floor(minutes / 60);
+		const mins = minutes % 60;
+		if (hours > 0 && mins > 0) {
+			return `${hours}h ${mins}m`;
+		} else if (hours > 0) {
+			return `${hours}h`;
+		} else {
+			return `${mins}m`;
+		}
+	};
+	
+	// Generate unique flight ID for expansion tracking
+	const getFlightId = (flight, index) => {
+		return `flight-${selectedAirlineTab}-${index}-${flight.search_id}-${flight.option_id || index}`;
 	};
 
 onMount(async () => {
@@ -841,6 +1004,7 @@ $: airlineCodeToName = new Map(
 					/>
 
 					<!-- Auto-search daily refresh time configuration -->
+					<!--
 					<div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
 						<div>
 							<div class="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -866,6 +1030,7 @@ $: airlineCodeToName = new Map(
 							</button>
 						</div>
 					</div>
+					-->
 				</div>
 
 				<!-- 2-Column Layout: Searches List + Results -->
@@ -883,8 +1048,8 @@ $: airlineCodeToName = new Map(
 						</p>
 					</div>
 				{:else}
-					<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-						<!-- Left Column: Saved Searches List (1/3 width) -->
+					<div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+						<!-- Left Column: Saved Searches List (1/5 width) -->
 						<div class="lg:col-span-1">
 							<SavedSearchesList 
 								{savedSearches}
@@ -896,8 +1061,8 @@ $: airlineCodeToName = new Map(
 							/>
 						</div>
 						
-						<!-- Right Column: Search Details (2/3 width) -->
-						<div class="lg:col-span-2">
+						<!-- Right Column: Search Details (4/5 width) -->
+						<div class="lg:col-span-4">
 							{#if selectedSearchId}
 								{@const selectedSearch = savedSearches.find(s => s.id === selectedSearchId)}
 								{#if selectedSearch}
@@ -912,8 +1077,17 @@ $: airlineCodeToName = new Map(
 													{selectedSearch.error}
 												</div>
 											</div>
-										{:else if selectedSearch.autoSearchResponse}
+										{:else if loadingFlightResults.has(selectedSearchId)}
+											<div class="p-8 text-center">
+												<svg class="animate-spin mx-auto h-8 w-8 text-blue-500 mb-4" fill="none" viewBox="0 0 24 24">
+													<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+													<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+												</svg>
+												<p class="text-gray-500 dark:text-gray-400">Loading flight data...</p>
+											</div>
+										{:else if airlineTabs.length > 0}
 											<div class="space-y-4">
+												<!-- Route Info -->
 												<div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
 													<div class="grid grid-cols-2 gap-4">
 														<div>
@@ -936,10 +1110,403 @@ $: airlineCodeToName = new Map(
 														</div>
 													{/if}
 												</div>
+												
+												<!-- Airline Tabs -->
+												<div class="border-b border-gray-200 dark:border-gray-700">
+													<nav class="-mb-px flex space-x-8">
+														{#each airlineTabs as airlineCode}
+															{@const airlineData = selectedSearchFlights[airlineCode]}
+															<button
+																on:click={() => selectedAirlineTab = airlineCode}
+																class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {
+																	selectedAirlineTab === airlineCode
+																		? 'border-blue-500 text-blue-600 dark:text-blue-400'
+																		: 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+																}"
+															>
+																{airlineData.name} ({airlineCode})
+																<span class="ml-2 text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+																	{airlineData.bestFlights.length + airlineData.otherFlights.length}
+																</span>
+															</button>
+														{/each}
+													</nav>
+												</div>
+												
+												<!-- Flight Lists for Selected Airline -->
+												{#if selectedAirlineTab && selectedSearchFlights[selectedAirlineTab]}
+													{@const airlineData = selectedSearchFlights[selectedAirlineTab]}
+													
+													<!-- Best Flights Table -->
+													{#if airlineData.bestFlights && airlineData.bestFlights.length > 0}
+														<div class="space-y-4">
+															<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+																Best Flights ({airlineData.bestFlights.length})
+															</h3>
+															<div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+																<div class="overflow-x-auto">
+																	<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+																		<thead class="bg-gray-50 dark:bg-gray-700">
+																			<tr>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Airline</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">From</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">To</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Price</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Class</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Duration</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Stops</th>
+																				<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Details</th>
+																			</tr>
+																		</thead>
+																		<tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+																			{#each airlineData.bestFlights as flight, idx}
+																				{@const flightId = getFlightId(flight, idx)}
+																				{@const firstSegment = flight.segments && flight.segments.length > 0 ? flight.segments[0] : null}
+																				{@const lastSegment = flight.segments && flight.segments.length > 0 ? flight.segments[flight.segments.length - 1] : null}
+																				{@const stopsCount = flight.segments && flight.segments.length > 0 ? flight.segments.length - 1 : 0}
+																				{@const travelClassMap = {0: 'Economy', 1: 'Premium Economy', 2: 'Business', 3: 'First'}}
+																				{@const travelClass = firstSegment?.travel_class !== undefined ? (travelClassMap[firstSegment.travel_class] || 'Economy') : 'Economy'}
+																				<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						<div class="flex items-center gap-3">
+																							{#if firstSegment && firstSegment.airline_logo}
+																								<img src={firstSegment.airline_logo} alt="Airline logo" class="h-6 w-6 object-contain rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900" loading="lazy" />
+																							{/if}
+																							<div>
+																								<div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+																									{firstSegment?.airline || airlineData.name || 'N/A'}
+																								</div>
+																								{#if firstSegment?.airline_id}
+																									<div class="text-xs text-gray-500 dark:text-gray-400">
+																										{firstSegment.airline_id}
+																									</div>
+																								{/if}
+																							</div>
+																						</div>
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						<div class="text-sm text-gray-900 dark:text-gray-100">
+																							{firstSegment?.departure_airport_name || flight.departure_id || 'N/A'}
+																						</div>
+																						{#if firstSegment?.departure_airport_iata}
+																							<div class="text-xs text-gray-500 dark:text-gray-400">
+																								{firstSegment.departure_airport_iata}
+																							</div>
+																						{/if}
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						<div class="text-sm text-gray-900 dark:text-gray-100">
+																							{lastSegment?.arrival_airport_name || flight.arrival_id || 'N/A'}
+																						</div>
+																						{#if lastSegment?.arrival_airport_iata}
+																							<div class="text-xs text-gray-500 dark:text-gray-400">
+																								{lastSegment.arrival_airport_iata}
+																							</div>
+																						{/if}
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						<div class="text-sm font-semibold text-green-600 dark:text-green-400">
+																							${flight.price || 0}
+																						</div>
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						{#if firstSegment?.travel_class !== undefined}
+																							<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {travelClass.toLowerCase() === 'business' || travelClass.toLowerCase() === 'first' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}">
+																								{travelClass}
+																							</span>
+																						{:else}
+																							<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">N/A</span>
+																						{/if}
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						<div class="text-sm text-gray-900 dark:text-gray-100">
+																							{formatDuration(flight.total_duration)}
+																						</div>
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {stopsCount > 0 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'}">
+																							{stopsCount > 0 ? `${stopsCount} stop${stopsCount > 1 ? 's' : ''}` : 'Direct'}
+																						</span>
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap text-right">
+																						<button
+																							type="button"
+																							class="inline-flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+																							on:click={() => toggleFlightRowExpansion(flightId)}
+																							aria-expanded={expandedFlightRows.has(flightId)}
+																						>
+																							<span class={`transform transition-transform ${expandedFlightRows.has(flightId) ? 'rotate-180' : ''}`}>
+																								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+																								</svg>
+																							</span>
+																						</button>
+																					</td>
+																				</tr>
+																				{#if expandedFlightRows.has(flightId)}
+																					<tr class="bg-gray-50 dark:bg-gray-900/60">
+																						<td colspan="8" class="px-6 py-4">
+																							<div class="flex items-start justify-between gap-6">
+																								<div class="flex flex-col items-center justify-between text-gray-300 dark:text-gray-600 self-stretch ml-70">
+																									<span class="h-2 w-2 rounded-full bg-current transform translate-y-2"></span>
+																									<div class="w-px flex-1 border-l border-dashed border-current"></div>
+																									<span class="h-2 w-2 rounded-full bg-current transform -translate-y-2"></span>
+																								</div>
+																								<div class="flex flex-col items-start gap-6 flex-1">
+																									{#if firstSegment}
+																										<div class="flex flex-col">
+																											<div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+																												{formatTimeDisplay(firstSegment.departure_time)}
+																												{#if firstSegment.departure_airport_name}
+																													<span class="text-xs text-gray-500 dark:text-gray-400">{firstSegment.departure_airport_name}</span>
+																												{/if}
+																											</div>
+																											<div class="text-xs text-gray-500 dark:text-gray-400">
+																												{formatDateDisplay(firstSegment.departure_date) ?? '—'}
+																											</div>
+																										</div>
+																									{/if}
+																									{#if flight.total_duration}
+																										<div class="text-sm font-medium text-gray-700 dark:text-gray-300">
+																											路程時間：{formatDuration(flight.total_duration)}
+																										</div>
+																									{/if}
+																									{#if lastSegment}
+																										<div class="flex flex-col">
+																											<div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+																												{formatTimeDisplay(lastSegment.arrival_time)}
+																												{#if lastSegment.arrival_airport_name}
+																													<span class="text-xs text-gray-500 dark:text-gray-400">{lastSegment.arrival_airport_name}</span>
+																												{/if}
+																											</div>
+																											<div class="text-xs text-gray-500 dark:text-gray-400">
+																												{formatDateDisplay(lastSegment.arrival_date) ?? '—'}
+																											</div>
+																										</div>
+																									{/if}
+																								</div>
+																								<div class="flex flex-col items-start text-sm text-gray-600 dark:text-gray-300 min-w-[200px]">
+																									<div class="flex flex-col gap-3">
+																										{#if firstSegment?.flight_number}
+																											<div class="flex items-center gap-3">
+																												<div class="flex items-center justify-center w-6 h-6">
+																													<img src="/flight.png" alt="Flight number" class="w-6 h-6 object-contain" loading="lazy" />
+																												</div>
+																												<span>{firstSegment.flight_number}</span>
+																											</div>
+																										{/if}
+																										{#if firstSegment?.travel_class !== undefined}
+																											<div class="flex items-center gap-3">
+																												<div class="flex items-center justify-center w-6 h-6">
+																													<img src="/seat.png" alt="Travel class" class="w-6 h-6 object-contain" loading="lazy" />
+																												</div>
+																												<span>{travelClass}</span>
+																											</div>
+																										{/if}
+																									</div>
+																								</div>
+																							</div>
+																						</td>
+																					</tr>
+																				{/if}
+																			{/each}
+																		</tbody>
+																	</table>
+																</div>
+															</div>
+														</div>
+													{/if}
+													
+													<!-- Other Flights Table -->
+													{#if airlineData.otherFlights && airlineData.otherFlights.length > 0}
+														<div class="space-y-4 mt-6">
+															<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+																Other Flights ({airlineData.otherFlights.length})
+															</h3>
+															<div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+																<div class="overflow-x-auto">
+																	<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+																		<thead class="bg-gray-50 dark:bg-gray-700">
+																			<tr>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Airline</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">From</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">To</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Price</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Class</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Duration</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Stops</th>
+																				<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Details</th>
+																			</tr>
+																		</thead>
+																		<tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+																			{#each airlineData.otherFlights as flight, idx}
+																				{@const flightId = getFlightId(flight, idx)}
+																				{@const firstSegment = flight.segments && flight.segments.length > 0 ? flight.segments[0] : null}
+																				{@const lastSegment = flight.segments && flight.segments.length > 0 ? flight.segments[flight.segments.length - 1] : null}
+																				{@const stopsCount = flight.segments && flight.segments.length > 0 ? flight.segments.length - 1 : 0}
+																				{@const travelClassMap = {0: 'Economy', 1: 'Premium Economy', 2: 'Business', 3: 'First'}}
+																				{@const travelClass = firstSegment?.travel_class !== undefined ? (travelClassMap[firstSegment.travel_class] || 'Economy') : 'Economy'}
+																				<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						<div class="flex items-center gap-3">
+																							{#if firstSegment && firstSegment.airline_logo}
+																								<img src={firstSegment.airline_logo} alt="Airline logo" class="h-6 w-6 object-contain rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900" loading="lazy" />
+																							{/if}
+																							<div>
+																								<div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+																									{firstSegment?.airline || airlineData.name || 'N/A'}
+																								</div>
+																								{#if firstSegment?.airline_id}
+																									<div class="text-xs text-gray-500 dark:text-gray-400">
+																										{firstSegment.airline_id}
+																									</div>
+																								{/if}
+																							</div>
+																						</div>
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						<div class="text-sm text-gray-900 dark:text-gray-100">
+																							{firstSegment?.departure_airport_name || flight.departure_id || 'N/A'}
+																						</div>
+																						{#if firstSegment?.departure_airport_iata}
+																							<div class="text-xs text-gray-500 dark:text-gray-400">
+																								{firstSegment.departure_airport_iata}
+																							</div>
+																						{/if}
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						<div class="text-sm text-gray-900 dark:text-gray-100">
+																							{lastSegment?.arrival_airport_name || flight.arrival_id || 'N/A'}
+																						</div>
+																						{#if lastSegment?.arrival_airport_iata}
+																							<div class="text-xs text-gray-500 dark:text-gray-400">
+																								{lastSegment.arrival_airport_iata}
+																							</div>
+																						{/if}
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						<div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+																							${flight.price || 0}
+																						</div>
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						{#if firstSegment?.travel_class !== undefined}
+																							<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {travelClass.toLowerCase() === 'business' || travelClass.toLowerCase() === 'first' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}">
+																								{travelClass}
+																							</span>
+																						{:else}
+																							<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">N/A</span>
+																						{/if}
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						<div class="text-sm text-gray-900 dark:text-gray-100">
+																							{formatDuration(flight.total_duration)}
+																						</div>
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap">
+																						<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {stopsCount > 0 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'}">
+																							{stopsCount > 0 ? `${stopsCount} stop${stopsCount > 1 ? 's' : ''}` : 'Direct'}
+																						</span>
+																					</td>
+																					<td class="px-4 py-4 whitespace-nowrap text-right">
+																						<button
+																							type="button"
+																							class="inline-flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+																							on:click={() => toggleFlightRowExpansion(flightId)}
+																							aria-expanded={expandedFlightRows.has(flightId)}
+																						>
+																							<span class={`transform transition-transform ${expandedFlightRows.has(flightId) ? 'rotate-180' : ''}`}>
+																								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+																								</svg>
+																							</span>
+																						</button>
+																					</td>
+																				</tr>
+																				{#if expandedFlightRows.has(flightId)}
+																					<tr class="bg-gray-50 dark:bg-gray-900/60">
+																						<td colspan="8" class="px-6 py-4">
+																							<div class="flex items-start justify-between gap-6">
+																								<div class="flex flex-col items-center justify-between text-gray-300 dark:text-gray-600 self-stretch ml-70">
+																									<span class="h-2 w-2 rounded-full bg-current transform translate-y-2"></span>
+																									<div class="w-px flex-1 border-l border-dashed border-current"></div>
+																									<span class="h-2 w-2 rounded-full bg-current transform -translate-y-2"></span>
+																								</div>
+																								<div class="flex flex-col items-start gap-6 flex-1">
+																									{#if firstSegment}
+																										<div class="flex flex-col">
+																											<div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+																												{formatTimeDisplay(firstSegment.departure_time)}
+																												{#if firstSegment.departure_airport_name}
+																													<span class="text-xs text-gray-500 dark:text-gray-400">{firstSegment.departure_airport_name}</span>
+																												{/if}
+																											</div>
+																											<div class="text-xs text-gray-500 dark:text-gray-400">
+																												{formatDateDisplay(firstSegment.departure_date) ?? '—'}
+																											</div>
+																										</div>
+																									{/if}
+																									{#if flight.total_duration}
+																										<div class="text-sm font-medium text-gray-700 dark:text-gray-300">
+																											路程時間：{formatDuration(flight.total_duration)}
+																										</div>
+																									{/if}
+																									{#if lastSegment}
+																										<div class="flex flex-col">
+																											<div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+																												{formatTimeDisplay(lastSegment.arrival_time)}
+																												{#if lastSegment.arrival_airport_name}
+																													<span class="text-xs text-gray-500 dark:text-gray-400">{lastSegment.arrival_airport_name}</span>
+																												{/if}
+																											</div>
+																											<div class="text-xs text-gray-500 dark:text-gray-400">
+																												{formatDateDisplay(lastSegment.arrival_date) ?? '—'}
+																											</div>
+																										</div>
+																									{/if}
+																								</div>
+																								<div class="flex flex-col items-start text-sm text-gray-600 dark:text-gray-300 min-w-[200px]">
+																									<div class="flex flex-col gap-3">
+																										{#if firstSegment?.flight_number}
+																											<div class="flex items-center gap-3">
+																												<div class="flex items-center justify-center w-6 h-6">
+																													<img src="/flight.png" alt="Flight number" class="w-6 h-6 object-contain" loading="lazy" />
+																												</div>
+																												<span>{firstSegment.flight_number}</span>
+																											</div>
+																										{/if}
+																		{#if firstSegment?.travel_class !== undefined}
+																			<div class="flex items-center gap-3">
+																				<div class="flex items-center justify-center w-6 h-6">
+																					<img src="/seat.png" alt="Travel class" class="w-6 h-6 object-contain" loading="lazy" />
+																				</div>
+																				<span>{travelClass}</span>
+																			</div>
+																		{/if}
+																									</div>
+																								</div>
+																							</div>
+																						</td>
+																					</tr>
+																				{/if}
+																			{/each}
+																		</tbody>
+																	</table>
+																</div>
+															</div>
+														</div>
+													{/if}
+													
+													{#if (!airlineData.bestFlights || airlineData.bestFlights.length === 0) && (!airlineData.otherFlights || airlineData.otherFlights.length === 0)}
+														<div class="p-8 text-center text-gray-500 dark:text-gray-400">
+															No flight options available for this airline.
+														</div>
+													{/if}
+												{/if}
 											</div>
 										{:else}
 											<div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center text-gray-500 dark:text-gray-400">
-												No search details available yet.
+												No flight data available yet. Flight search results will appear here once data is loaded.
 											</div>
 										{/if}
 									</div>
