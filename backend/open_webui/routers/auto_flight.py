@@ -100,18 +100,38 @@ class N8nWebhookData(BaseModel):
     price_history: Optional[List[Dict[str, Any]]] = None
 
 
+def _travel_class_to_n8n_format(travel_class: int) -> str:
+    """
+    Convert travel class integer to n8n URL format string.
+    
+    Args:
+        travel_class: Integer travel class (0=economy, 1=premium_economy, 2=business, 3=first_class)
+    
+    Returns:
+        String in n8n format: economy, premium_economy, business, first_class
+    """
+    travel_class_map = {
+        0: "economy",
+        1: "premium_economy",
+        2: "business",
+        3: "first_class"
+    }
+    return travel_class_map.get(travel_class, "economy")
+
+
 def _call_n8n_webhook_for_airlines(
     departure_id: str,
     arrival_id: str,
     is_direct: bool,
     airline_codes: List[str],
     trip_duration: int,
+    travel_class: int,
     auto_search_id: Optional[int] = None,
 ) -> None:
     """
     Call n8n webhook API for each airline when a new auto search is created or refreshed.
     
-    URL format: https://n8n.ssl-labs.ai/webhook/f56d4963-08b0-4c21-97c7-be28249e32d8/auto_search/{departure_id}/{arrival_id}/{is_direct}/{airline}/{trip_duration}
+    URL format: https://n8n.ssl-labs.ai/webhook/f56d4963-08b0-4c21-97c7-be28249e32d8/auto_search/{departure_id}/{arrival_id}/{is_direct}/{airline}/{trip_duration}/{travel_class}
     
     Args:
         departure_id: Departure airport code (e.g., HKG)
@@ -119,6 +139,7 @@ def _call_n8n_webhook_for_airlines(
         is_direct: Whether to search for direct flights only
         airline_codes: List of airline codes to call webhook for
         trip_duration: Trip duration in days (required, 1-365)
+        travel_class: Travel class integer (0=economy, 1=premium_economy, 2=business, 3=first_class)
         auto_search_id: Optional auto_search_id to use for finding auto_search_airline_id
     """
     base_url = "https://n8n.ssl-labs.ai/webhook/f56d4963-08b0-4c21-97c7-be28249e32d8/auto_search"
@@ -126,22 +147,26 @@ def _call_n8n_webhook_for_airlines(
     # Convert boolean to string for URL
     is_direct_str = "true" if is_direct else "false"
     
+    # Convert travel class to n8n format
+    travel_class_str = _travel_class_to_n8n_format(travel_class)
+    
     for airline_code in airline_codes:
         airline_code_upper = airline_code.upper().strip()
         if not airline_code_upper:
                         continue
             
-        # Build the webhook URL
-        webhook_url = f"{base_url}/{departure_id}/{arrival_id}/{is_direct_str}/{airline_code_upper}/{trip_duration}"
+        # Build the webhook URL with travel_class at the end
+        webhook_url = f"{base_url}/{departure_id}/{arrival_id}/{is_direct_str}/{airline_code_upper}/{trip_duration}/{travel_class_str}"
         
         try:
             log.info(
-                "Calling n8n webhook for airline %s: %s -> %s, direct=%s, duration=%d days",
+                "Calling n8n webhook for airline %s: %s -> %s, direct=%s, duration=%d days, travel_class=%s",
                 airline_code_upper,
                 departure_id,
                 arrival_id,
                 is_direct_str,
                 trip_duration,
+                travel_class_str,
             )
             
             response = requests.get(webhook_url, timeout=3600)  # 1 hour timeout
@@ -580,6 +605,7 @@ async def create_auto_flight_search(
         is_direct=payload.direct_flight,
         airline_codes=airline_codes,
         trip_duration=payload.return_trip_duration,
+        travel_class=payload.travel_class,
         auto_search_id=auto_search_id,
     )
 
@@ -1556,6 +1582,7 @@ async def refresh_auto_flight_search(
         is_direct=auto_search.is_direct,
         airline_codes=airline_codes,
         trip_duration=auto_search.return_trip_duration,
+        travel_class=auto_search.travel_class,
         auto_search_id=auto_search_id,
     )
     
