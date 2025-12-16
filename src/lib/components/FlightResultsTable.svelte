@@ -417,8 +417,100 @@ const toggleRowExpansion = (flightId) => {
 		</div>
 	</div>
 
-	<!-- Table -->
-	<div class="overflow-x-auto">
+	<!-- Mobile Layout - visible on screens < 768px -->
+	<div class="block md:hidden space-y-3">
+		{#each paginatedFlights as flight (flight.id)}
+			<div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700">
+				<!-- Checkbox -->
+				<div class="mb-3">
+					<label class="flex items-center gap-2 cursor-pointer">
+						<input
+							type="checkbox"
+							class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+							checked={selectedFlights.has(flight.id)}
+							on:change={() => onToggleFlight(flight.id)}
+						/>
+						<span class="text-xs text-gray-500 dark:text-gray-400">Select flight</span>
+					</label>
+				</div>
+				
+				<!-- Top Row: Departure → Arrival | Price -->
+				<div class="flex items-start justify-between mb-3">
+					<div class="flex items-center gap-2 flex-1 min-w-0">
+						<!-- Departure -->
+						<div class="flex flex-col items-start">
+							<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
+								{formatTimeDisplay(flight.departureTime) || '—'}
+							</div>
+							<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+								{flight.startingPlaceCode || '—'}
+							</div>
+						</div>
+						
+						<!-- Arrow -->
+						<svg class="w-4 h-4 text-gray-400 flex-shrink-0 mt-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+						</svg>
+						
+						<!-- Arrival -->
+						<div class="flex flex-col items-start">
+							<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
+								{formatTimeDisplay(flight.arrivalTime) || '—'}
+							</div>
+							<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+								{flight.destinationCode || '—'}
+							</div>
+						</div>
+					</div>
+					
+					<!-- Price -->
+					<div class="ml-3 flex-shrink-0">
+						<div class="text-lg font-semibold text-green-600 dark:text-green-400">
+							{#if flight.displayPrice}
+								{flight.displayPrice}
+							{:else if flight.cost != null}
+								{flight.currency || '$'}{flight.cost}
+							{:else}
+								—
+							{/if}
+						</div>
+					</div>
+				</div>
+				
+				<!-- Bottom Row: Airline Icon with Duration and Airline Name -->
+				<div class="flex items-start gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+					<!-- Airline Icon -->
+					<div class="flex-shrink-0">
+						{#if flight.airlineLogo}
+							<img src={flight.airlineLogo} alt="Airline logo" class="h-8 w-8 object-contain rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900" loading="lazy" />
+						{:else}
+							<div class="h-8 w-8 rounded-full border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+								<span class="text-xs text-gray-500 dark:text-gray-400">{flight.airlineCode || '—'}</span>
+							</div>
+						{/if}
+					</div>
+					
+					<!-- Duration, Stops, and Airline Name - aligned left with icon -->
+					<div class="flex flex-col items-start">
+						<div class="flex items-center gap-2 mb-1">
+							<span class="text-sm text-gray-600 dark:text-gray-400">
+								{flight.duration || 'N/A'}
+							</span>
+							<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {flight.segments > 1 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'}">
+								{flight.segments > 1 ? `${flight.segments - 1} stop${flight.segments > 2 ? 's' : ''}` : 'Direct'}
+							</span>
+						</div>
+						<div class="text-xs text-gray-500 dark:text-gray-400">
+							{flight.airline || 'N/A'}
+						</div>
+					</div>
+				</div>
+			</div>
+		{/each}
+	</div>
+	
+	<!-- Desktop Table Layout - visible on screens >= 768px -->
+	<div class="hidden md:block overflow-x-auto">
 		<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
 			<thead class="bg-gray-50 dark:bg-gray-700">
 				<tr>
@@ -670,11 +762,14 @@ const toggleRowExpansion = (flightId) => {
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-2">
 					<button
-						class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+						class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
 						disabled={currentPage === 1}
 						on:click={() => handlePageChange(currentPage - 1)}
+						aria-label={$i18n.t('Previous')}
 					>
-						{$i18n.t('Previous')}
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+						</svg>
 					</button>
 					
 					{#each Array.from({length: Math.min(5, totalPages)}, (_, i) => {
@@ -690,11 +785,14 @@ const toggleRowExpansion = (flightId) => {
 					{/each}
 					
 					<button
-						class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+						class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
 						disabled={currentPage === totalPages}
 						on:click={() => handlePageChange(currentPage + 1)}
+						aria-label={$i18n.t('Next')}
 					>
-						{$i18n.t('Next')}
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+						</svg>
 					</button>
 				</div>
 				

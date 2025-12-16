@@ -260,9 +260,9 @@
 	let minPrice = 0;
 let chartTicks = [];
 let chartMaxValue = 0;
-const CHART_HEIGHT = 280;
-const AXIS_GAP = 72;
-const TOP_GAP = 40;
+const CHART_HEIGHT = 200;
+const AXIS_GAP = 56;
+const TOP_GAP = 32;
 const MIN_BAR_HEIGHT = 4;
 let sortedTicks = [];
 
@@ -481,15 +481,48 @@ const handleBarClick = (bar, event) => {
 	}
 };
 
+const constrainTooltipPosition = (x, y, tooltipWidth = 200, tooltipHeight = 80) => {
+	const padding = 8; // Minimum distance from screen edge
+	const viewportWidth = window.innerWidth;
+	const viewportHeight = window.innerHeight;
+	
+	// Constrain horizontal position
+	let constrainedX = x;
+	const halfWidth = tooltipWidth / 2;
+	
+	if (x - halfWidth < padding) {
+		// Too close to left edge
+		constrainedX = padding + halfWidth;
+	} else if (x + halfWidth > viewportWidth - padding) {
+		// Too close to right edge
+		constrainedX = viewportWidth - padding - halfWidth;
+	}
+	
+	// Constrain vertical position
+	let constrainedY = y;
+	if (y - tooltipHeight < padding) {
+		// Too close to top edge, show below instead
+		constrainedY = y + 30;
+	} else if (y > viewportHeight - padding) {
+		// Too close to bottom edge
+		constrainedY = viewportHeight - padding;
+	}
+	
+	return { x: constrainedX, y: constrainedY };
+};
+
 const updateSelectedTooltipPosition = (bar, element) => {
 	if (!element) {
 		selectedTooltipPosition.visible = false;
 		return;
 	}
 	const rect = element.getBoundingClientRect();
+	const baseX = rect.left + rect.width / 2;
+	const baseY = rect.top - 24;
+	const constrained = constrainTooltipPosition(baseX, baseY, 200, 100);
 	selectedTooltipPosition = {
-		x: rect.left + rect.width / 2,
-		y: rect.top - 24,
+		x: constrained.x,
+		y: constrained.y,
 		visible: true
 	};
 	selectedTooltipBar = bar;
@@ -501,9 +534,12 @@ const updateHoveredTooltipPosition = (bar, element) => {
 		return;
 	}
 	const rect = element.getBoundingClientRect();
+	const baseX = rect.left + rect.width / 2;
+	const baseY = rect.top - 24;
+	const constrained = constrainTooltipPosition(baseX, baseY, 200, 100);
 	hoveredTooltipPosition = {
-		x: rect.left + rect.width / 2,
-		y: rect.top - 24,
+		x: constrained.x,
+		y: constrained.y,
 		visible: true
 	};
 	hoveredTooltipBar = bar;
@@ -582,64 +618,64 @@ $: {
 			on:click={close}
 		></button>
 		<div
-			class="relative z-[1520] w-full max-w-4xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-visible"
+			class="relative z-[1520] w-full max-w-3xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-visible"
 			on:pointerdown|stopPropagation
 		>
-			<header class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+			<header class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
 				<div>
-					<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+					<h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
 						Flight Price Trend
 					</h2>
 					{#if isOneWay}
-						<p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+						<p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
 							One-way flights based on Google Flights calendar data
 						</p>
 					{:else if tripLengthDays != null}
-						<p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+						<p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
 							{tripLengthDays === 1 ? '1-day' : `${tripLengthDays}-day`} itineraries based on Google Flights calendar data
 						</p>
 					{/if}
 				</div>
 				<button
 					type="button"
-					class="inline-flex items-center justify-center w-9 h-9 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+					class="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
 					on:click={close}
 					aria-label="Close"
 				>
-					<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+					<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
 						<line x1="18" y1="6" x2="6" y2="18"></line>
 						<line x1="6" y1="6" x2="18" y2="18"></line>
 					</svg>
 				</button>
 			</header>
 
-			<section class="px-6 py-4">
+			<section class="px-4 py-3">
 				{#if bars.length === 0}
 					<div class="py-20 text-center text-sm text-gray-500 dark:text-gray-400">
 						No matching itinerary combinations were found for this trip length.
 					</div>
 				{:else}
-					<div class="flex flex-col gap-3">
+					<div class="flex flex-col gap-2">
 						<div class="flex justify-between items-center">
-							<div class="text-sm text-gray-600 dark:text-gray-400">
+							<div class="text-xs text-gray-600 dark:text-gray-400">
 								Showing {bars.length} itineraries • Prices in {calendarData?.search_parameters?.currency ?? 'HKD'}
 							</div>
 							{#if maxPrice}
-								<div class="text-sm text-gray-600 dark:text-gray-400">
+								<div class="text-xs text-gray-600 dark:text-gray-400">
 									Highest price: <span class="font-semibold text-gray-900 dark:text-gray-200">{formatCurrency(maxPrice)}</span>
 								</div>
 							{/if}
 						</div>
 
-						<div class="space-y-4">
-							<div class="flex gap-4 items-end">
+						<div class="space-y-2">
+							<div class="flex gap-3 items-end">
 								<div
-									class="hidden sm:flex flex-col justify-between text-xs text-gray-500 dark:text-gray-400 pr-6 relative z-0"
+									class="hidden sm:flex flex-col justify-between text-[10px] text-gray-500 dark:text-gray-400 pr-4 relative z-0"
 									style={`height: ${CHART_HEIGHT + AXIS_GAP + TOP_GAP}px; padding: ${TOP_GAP}px 0 ${AXIS_GAP}px`}
 								>
 									{#each [...sortedTicks].reverse() as tick}
-										<div class="flex items-center gap-3">
-											<span class="w-16 text-right font-medium">{formatCurrency(tick)}</span>
+										<div class="flex items-center gap-2">
+											<span class="w-12 text-right font-medium">{formatCurrency(tick)}</span>
 											<div class="flex-1 h-px border-dashed border-gray-300 dark:border-gray-700"></div>
 										</div>
 									{/each}
@@ -648,7 +684,7 @@ $: {
 									class="flex sm:hidden flex-col relative z-0"
 									style={`height: ${CHART_HEIGHT + AXIS_GAP + TOP_GAP}px; padding: ${TOP_GAP}px 0 ${AXIS_GAP}px`}
 								>
-									<div class="flex flex-col justify-between text-xs text-gray-500 dark:text-gray-400 h-full">
+									<div class="flex flex-col justify-between text-[10px] text-gray-500 dark:text-gray-400 h-full">
 										{#each [...sortedTicks].reverse() as tick}
 											<span class="font-medium">{formatCurrency(tick)}</span>
 										{/each}
@@ -680,8 +716,8 @@ $: {
 										{#each bars as bar (getBarKey(bar))}
 											<div
 												data-bar-key={getBarKey(bar)}
-												class="flex flex-none flex-col items-center gap-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
-												style={`width: ${isOneWay ? '24px' : '28px'};`}
+												class="flex flex-none flex-col items-center gap-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+												style={`width: ${isOneWay ? '20px' : '24px'};`}
 												on:mouseenter={(e) => handleBarMouseEnter(bar, e)}
 												on:mouseleave={() => handleBarMouseLeave(bar)}
 												on:click={(event) => {
@@ -721,22 +757,23 @@ $: {
 {#if selectedTooltipPosition.visible && selectedTooltipBar}
 	<div
 		class="pointer-events-none fixed flex flex-col items-center gap-1"
-		style={`z-index: 10001; left: ${selectedTooltipPosition.x}px; top: ${selectedTooltipPosition.y}px; transform: translate(-50%, -100%);`}
+		style={`z-index: 10001; left: ${selectedTooltipPosition.x}px; top: ${selectedTooltipPosition.y}px; transform: translate(-50%, -100%); max-width: calc(100vw - 16px);`}
 	>
-		<div class="rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700 flex flex-col gap-2 min-w-[180px] border-2 border-blue-500">
+		<div class="rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700 flex flex-col gap-2 min-w-[180px] max-w-[200px] border-2 border-blue-500">
 			{#if !isOneWay}
 				<div class="flex items-center justify-between text-[11px] tracking-wide opacity-80">
 					<span class="font-semibold">行程時長</span>
 					<span>{tripLengthDays === 1 ? '1 天' : `${tripLengthDays} 天`}</span>
 				</div>
 			{/if}
-			<div class="flex items-center justify-between gap-3">
-				<div class="font-semibold whitespace-nowrap">{formatCurrency(selectedTooltipBar.price)} 起</div>
-				<div class="opacity-80 whitespace-nowrap">
+			<div class="flex flex-col gap-1">
+				<div class="font-semibold">{formatCurrency(selectedTooltipBar.price)} 起</div>
+				<div class="opacity-80 text-[11px] flex flex-col">
 					{#if isOneWay}
-						{formatShortDate(selectedTooltipBar.departure)}
+						<span>{formatShortDate(selectedTooltipBar.departure)}</span>
 					{:else}
-						{formatShortDateRange(selectedTooltipBar.departure, selectedTooltipBar.return)}
+						<span>{formatShortDate(selectedTooltipBar.departure)}</span>
+						<span>{formatShortDate(selectedTooltipBar.return)}</span>
 					{/if}
 				</div>
 			</div>
@@ -749,22 +786,23 @@ $: {
 {#if hoveredTooltipPosition.visible && hoveredTooltipBar && hoveredBarKey !== selectedBarKey}
 	<div
 		class="pointer-events-none fixed flex flex-col items-center gap-1"
-		style={`z-index: 10002; left: ${hoveredTooltipPosition.x}px; top: ${hoveredTooltipPosition.y}px; transform: translate(-50%, -100%);`}
+		style={`z-index: 10002; left: ${hoveredTooltipPosition.x}px; top: ${hoveredTooltipPosition.y}px; transform: translate(-50%, -100%); max-width: calc(100vw - 16px);`}
 	>
-		<div class="rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700 flex flex-col gap-2 min-w-[180px]">
+		<div class="rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700 flex flex-col gap-2 min-w-[180px] max-w-[200px]">
 			{#if !isOneWay}
 				<div class="flex items-center justify-between text-[11px] tracking-wide opacity-80">
 					<span class="font-semibold">行程時長</span>
 					<span>{tripLengthDays === 1 ? '1 天' : `${tripLengthDays} 天`}</span>
 				</div>
 			{/if}
-			<div class="flex items-center justify-between gap-3">
-				<div class="font-semibold whitespace-nowrap">{formatCurrency(hoveredTooltipBar.price)} 起</div>
-				<div class="opacity-80 whitespace-nowrap">
+			<div class="flex flex-col gap-1">
+				<div class="font-semibold">{formatCurrency(hoveredTooltipBar.price)} 起</div>
+				<div class="opacity-80 text-[11px] flex flex-col">
 					{#if isOneWay}
-						{formatShortDate(hoveredTooltipBar.departure)}
+						<span>{formatShortDate(hoveredTooltipBar.departure)}</span>
 					{:else}
-						{formatShortDateRange(hoveredTooltipBar.departure, hoveredTooltipBar.return)}
+						<span>{formatShortDate(hoveredTooltipBar.departure)}</span>
+						<span>{formatShortDate(hoveredTooltipBar.return)}</span>
 					{/if}
 				</div>
 			</div>

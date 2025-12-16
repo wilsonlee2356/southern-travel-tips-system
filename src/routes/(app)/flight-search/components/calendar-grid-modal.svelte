@@ -476,13 +476,13 @@ const getEntryDurationLabel = (entry) => {
   on:keydown={handleOverlayInteraction}
   tabindex="0"
 ></button>
-<div class="relative z-[1330] w-full max-w-5xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden" on:pointerdown|stopPropagation>
-<header class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+<div class="relative z-[1330] w-full max-w-4xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden" on:pointerdown|stopPropagation>
+<header class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
 <div>
-<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+<h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
 {translate('Price Calendar', 'Price Calendar')}
 </h2>
-<p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+<p class="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
 {#if calendarData?.search_parameters}
 {translate('Route', 'Route')}: {primaryLabel('departure_id', 'departure')} → {primaryLabel('arrival_id', 'arrival')}
 {:else}
@@ -492,30 +492,30 @@ const getEntryDurationLabel = (entry) => {
 </div>
 <button
   type="button"
-  class="inline-flex items-center justify-center w-9 h-9 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+  class="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
   on:click={close}
   aria-label={translate('Close', 'Close')}
 >
-  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
     <line x1="18" y1="6" x2="6" y2="18"></line>
     <line x1="6" y1="6" x2="18" y2="18"></line>
   </svg>
 </button>
 </header>
 
-<section class="px-6 py-5 overflow-auto max-h-[70vh]">
+<section class="px-4 py-3 overflow-auto max-h-[75vh]">
 {#if !hasCalendarMatrix}
 <div class="py-16 text-center text-sm text-gray-500 dark:text-gray-400">
 {translate('No calendar data available for this search yet.', 'No calendar data available for this search yet.')}
 </div>
 {:else}
-<div class="space-y-4">
-<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+<div class="space-y-2">
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+<h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
 {translate('Price Grid', 'Price Grid')}
 </h3>
 {#if priceRange.min != null && priceRange.max != null}
-<div class="text-sm text-gray-600 dark:text-gray-400">
+<div class="text-xs text-gray-600 dark:text-gray-400">
 {translate('Price range', 'Price range')}: 
 <span class="font-semibold text-green-600 dark:text-green-400">{formatPriceValue(priceRange.min)}</span>
 <span class="mx-1">-</span>
@@ -536,12 +536,12 @@ const getEntryDurationLabel = (entry) => {
 <thead>
 <tr>
 {#each outboundDates as outbound}
-<th class={`px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 text-center border border-gray-300 dark:border-gray-600 ${isSelectedOutbound(outbound) ? 'bg-gray-100 dark:bg-gray-800' : ''}`}>
+<th class={`px-1 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 text-center border border-gray-300 dark:border-gray-600 whitespace-nowrap ${isSelectedOutbound(outbound) ? 'bg-gray-100 dark:bg-gray-800' : ''}`}>
 {formatDateLabel(outbound)}
 </th>
 {/each}
 {#if !(returnDates.length === 1 && returnDates[0] === 'ONE_WAY')}
-<th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 text-center border border-gray-300 dark:border-gray-600 w-32"></th>
+<th class="px-1 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 text-center border border-gray-300 dark:border-gray-600 w-20"></th>
 {/if}
 </tr>
 </thead>
@@ -550,23 +550,23 @@ const getEntryDurationLabel = (entry) => {
 <tr class="border-b border-gray-200/70 dark:border-gray-700/60 last:border-0">
 {#each outboundDates as outbound}
 {@const entry = priceMatrix.get(returnDate)?.get(outbound)}
-<td class={`px-3 py-2 text-sm text-center align-middle border border-gray-300 dark:border-gray-600 ${getCellHighlightClasses(outbound, returnDate, entry)}`}>
+<td class={`px-1 py-1.5 text-[11px] text-center align-middle border border-gray-300 dark:border-gray-600 whitespace-nowrap ${getCellHighlightClasses(outbound, returnDate, entry)}`}>
 {#if entry && (entry.priceValue != null || entry.priceDisplay)}
-<div class={`text-xs ${getPriceTextClasses(entry)}`}>
+<div class={`text-[11px] ${getPriceTextClasses(entry)} whitespace-nowrap`}>
 {formatPriceLabel(entry, defaultCurrency())}
 </div>
 {#if getEntryDurationLabel(entry)}
-<div class="text-xs text-gray-600 dark:text-gray-300 mt-1">
+<div class="text-[10px] text-gray-600 dark:text-gray-300 mt-0.5 whitespace-nowrap">
 {getEntryDurationLabel(entry)}
 </div>
 {/if}
 {:else}
-<span class="text-gray-400">—</span>
+<span class="text-gray-400 text-[10px]">—</span>
 {/if}
 </td>
 {/each}
 {#if !(returnDates.length === 1 && returnDates[0] === 'ONE_WAY')}
-<td class={`px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 text-center align-middle border border-gray-300 dark:border-gray-600 w-32 ${isSelectedReturn(returnDate) ? 'bg-gray-100 dark:bg-gray-800' : ''}`}>
+<td class={`px-1 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 text-center align-middle border border-gray-300 dark:border-gray-600 w-20 whitespace-nowrap ${isSelectedReturn(returnDate) ? 'bg-gray-100 dark:bg-gray-800' : ''}`}>
 {formatDateLabel(returnDate)}
 </td>
 {/if}
@@ -576,7 +576,7 @@ const getEntryDurationLabel = (entry) => {
 </table>
 </div>
 
-<p class="text-xs text-gray-500 dark:text-gray-400">
+<p class="text-[10px] text-gray-500 dark:text-gray-400">
 {translate('Tip: Adjust your dates to compare fare combinations. Prices reflect cached calendar data and may change when booking.', 'Tip: Adjust your dates to compare fare combinations. Prices reflect cached calendar data and may change when booking.')}
 </p>
 </div>
