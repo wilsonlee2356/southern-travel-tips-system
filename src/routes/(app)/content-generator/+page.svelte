@@ -39,6 +39,9 @@
 	let contentSaved = false;
 	let currentContentId = null;
 	
+	// Mobile preview panel state
+	let showMobilePreview = false;
+	
 	// Allowed model patterns (exact matches or starts with)
 	const allowedModelPatterns = [
 		/^gpt-4$/i,
@@ -539,9 +542,9 @@ Output your response as a JSON object with a single key "post" containing the ge
 	</nav>
 
 	<div class="pb-1 flex-1 max-h-full overflow-y-auto @container">
-		<div class="flex h-full">
+		<div class="flex flex-col md:flex-row h-full">
 			<!-- Left Column - Input Form -->
-			<div class="w-1/2 p-6 border-r border-gray-200 dark:border-gray-700">
+			<div class="w-full md:w-1/2 p-6 md:border-r border-gray-200 dark:border-gray-700">
 				<div class="max-w-lg mx-auto">
 					<h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">
 						{$i18n.t('Content Generator')}
@@ -732,8 +735,8 @@ Output your response as a JSON object with a single key "post" containing the ge
 				</div>
 			</div>
 
-			<!-- Right Column - Generated Post Preview -->
-			<div class="w-1/2 p-6 bg-gray-50 dark:bg-gray-900">
+			<!-- Right Column - Generated Post Preview (Desktop) -->
+			<div class="hidden md:block w-1/2 p-6 bg-gray-50 dark:bg-gray-900">
 				<div class="max-w-sm mx-auto">
 					<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Generated Post</h2>
 					
@@ -855,6 +858,172 @@ Output your response as a JSON object with a single key "post" containing the ge
 				</div>
 			</div>
 		</div>
+		
+		<!-- Mobile Preview Button (Fixed Bottom Right) -->
+		<button
+			class="fixed bottom-6 right-6 md:hidden z-40 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110"
+			on:click={() => showMobilePreview = true}
+			aria-label="Show preview"
+		>
+			<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+			</svg>
+		</button>
+		
+		<!-- Mobile Preview Slide-out Panel -->
+		{#if showMobilePreview}
+			<!-- Backdrop -->
+			<div
+				class="fixed inset-0 bg-black/50 z-50 md:hidden transition-opacity duration-300"
+				on:click={() => showMobilePreview = false}
+				on:keydown={(e) => e.key === 'Escape' && (showMobilePreview = false)}
+				role="button"
+				tabindex="0"
+				aria-label="Close preview"
+			></div>
+			
+			<!-- Slide-out Panel -->
+			<div
+				class="fixed top-0 right-0 h-full w-full max-w-sm bg-gray-50 dark:bg-gray-900 z-50 md:hidden shadow-2xl transform transition-transform duration-300 ease-out overflow-y-auto"
+				role="dialog"
+				aria-modal="true"
+				aria-label="Generated post preview"
+			>
+				<!-- Panel Header -->
+				<div class="sticky top-0 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between z-10">
+					<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Generated Post</h2>
+					<button
+						class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+						on:click={() => showMobilePreview = false}
+						aria-label="Close preview"
+					>
+						<svg class="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				</div>
+				
+				<!-- Panel Content - Same preview content as desktop -->
+				<div class="p-6">
+					{#if generatedPost.content}
+						<!-- Instagram-style Post Preview -->
+						<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+							<!-- Post Header -->
+							<div class="flex items-center p-3 border-b border-gray-200 dark:border-gray-700">
+								<img
+									src={$user?.profile_image_url}
+									class="w-8 h-8 object-cover rounded-full"
+									alt="User profile"
+									draggable="false"
+								/>
+								<div class="ml-3">
+									<p class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+										{$user?.username || 'username'}
+									</p>
+								</div>
+							</div>
+
+							<!-- Post Image -->
+							{#if generatedPost.image}
+								<div class="aspect-square bg-gray-200 dark:bg-gray-700">
+									<img
+										src={URL.createObjectURL(generatedPost.image)}
+										alt="Generated post image"
+										class="w-full h-full object-cover"
+									/>
+								</div>
+							{:else}
+								<div class="aspect-square bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+									<svg
+										class="h-12 w-12 text-gray-400"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+										/>
+									</svg>
+								</div>
+							{/if}
+
+							<!-- Post Actions -->
+							<div class="p-3">
+								<div class="flex items-center space-x-4 mb-3">
+									<svg
+										class="h-6 w-6 text-gray-900 dark:text-gray-100"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+										/>
+									</svg>
+									<svg
+										class="h-6 w-6 text-gray-900 dark:text-gray-100"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+										/>
+									</svg>
+									<svg
+										class="h-6 w-6 text-gray-900 dark:text-gray-100"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"
+										/>
+									</svg>
+								</div>
+
+								<!-- Post Content -->
+								<div class="text-sm text-gray-900 dark:text-gray-100">
+									<p class="font-semibold mb-1">{$user?.username || 'username'}</p>
+									<p class="text-gray-700 dark:text-gray-300 mb-2 whitespace-pre-wrap">
+										{generatedPost.caption}
+									</p>
+									{#if generatedPost.hashtags}
+										<p class="text-blue-600 dark:text-blue-400">{generatedPost.hashtags}</p>
+									{/if}
+								</div>
+							</div>
+						</div>
+					{:else}
+						<!-- Empty State -->
+						<div class="text-center py-12">
+							<svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+							</svg>
+							<h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+								No content generated yet
+							</h3>
+							<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+								Add URLs and photos, then click "Generate Post" to create content
+							</p>
+						</div>
+					{/if}
+				</div>
+			</div>
+		{/if}
 	</div>
 </div>
 

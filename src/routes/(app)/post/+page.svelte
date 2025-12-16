@@ -1001,7 +1001,7 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 						</svg>
 					</button>
-				</div>
+	</div>
 				
 				<!-- Panel Content - Same preview content as desktop -->
 				<div class="p-6">
