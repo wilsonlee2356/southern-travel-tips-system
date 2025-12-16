@@ -14,16 +14,11 @@ class GoogleFlightsApiService {
 
 	/**
 	 * Initialize configuration
+	 * Note: API key validation is not needed on client side since API calls go through server proxy
 	 */
 	initializeConfig() {
-		try {
-			// Try to get production config first
-			this.config = getGoogleFlightsConfig();
-		} catch (error) {
-			// Fall back to development config with warnings
-			console.warn('Using development configuration for Google Flights API:', error.message);
-			this.config = getDevConfig();
-		}
+		// Always use dev config - API key is handled server-side
+		this.config = getDevConfig();
 	}
 
 	/**

@@ -80,15 +80,14 @@ export function isConfigAvailable() {
 
 /**
  * Get configuration for development (with fallback values)
+ * Note: API key is not needed on client side since API calls go through server proxy
  */
 export function getDevConfig() {
 	const config = getConfig();
 	
-	// For development, provide fallback values if not configured
-	if (!config.API_KEY) {
-		console.warn('GOOGLE_FLIGHTS_API_KEY not found in environment variables. Using fallback for development.');
-		config.API_KEY = ''; // No fallback - must be set
-	}
+	// API key is handled server-side, so no validation needed on client
+	// Just return config with empty API key (not used on client anyway)
+	config.API_KEY = '';
 	
 	return config;
 }

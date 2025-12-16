@@ -67,6 +67,7 @@ from open_webui.routers import (
     ollama,
     openai,
     googleai,
+    google_flights,
     pollinations,
     retrieval,
     pipelines,
@@ -1246,6 +1247,7 @@ app.include_router(audio.router, prefix="/api/v1/audio", tags=["audio"])
 app.include_router(
     auto_flight.router, prefix="/api/v1/auto-flight-search", tags=["auto-flight-search"]
 )
+app.include_router(google_flights.router, tags=["google-flights"])
 app.include_router(retrieval.router, prefix="/api/v1/retrieval", tags=["retrieval"])
 
 app.include_router(configs.router, prefix="/api/v1/configs", tags=["configs"])
