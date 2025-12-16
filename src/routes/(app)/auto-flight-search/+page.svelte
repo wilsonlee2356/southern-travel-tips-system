@@ -455,7 +455,12 @@ const buildSavedSearchFromResponse = (data) => {
 	// Helper functions for formatting
 	const formatTimeDisplay = (value) => {
 		if (!value) return '—';
-		return String(value).trim();
+		const sanitized = String(value).trim();
+		// If time includes seconds (HH:MM:SS), remove seconds
+		if (sanitized.includes(':') && sanitized.split(':').length === 3) {
+			return sanitized.substring(0, 5); // Return HH:MM
+		}
+		return sanitized;
 	};
 	
 	const formatDateDisplay = (value) => {
@@ -1143,7 +1148,86 @@ $: airlineCodeToName = new Map(
 															<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
 																Best Flights ({airlineData.bestFlights.length})
 															</h3>
-															<div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+															
+															<!-- Mobile Layout -->
+															<div class="block md:hidden space-y-3">
+																{#each airlineData.bestFlights as flight, idx}
+																	{@const flightId = getFlightId(flight, idx)}
+																	{@const firstSegment = flight.segments && flight.segments.length > 0 ? flight.segments[0] : null}
+																	{@const lastSegment = flight.segments && flight.segments.length > 0 ? flight.segments[flight.segments.length - 1] : null}
+																	{@const stopsCount = flight.segments && flight.segments.length > 0 ? flight.segments.length - 1 : 0}
+																	<div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700">
+																		<!-- Top Row: Departure → Arrival | Price -->
+																		<div class="flex items-start justify-between mb-3">
+																			<div class="flex items-center gap-2 flex-1 min-w-0">
+																				<!-- Departure -->
+																				<div class="flex flex-col items-start">
+																					<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
+																						{formatTimeDisplay(firstSegment?.departure_time) || '—'}
+																					</div>
+																					<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+																						{firstSegment?.departure_airport_iata || flight.departure_id || '—'}
+																					</div>
+																				</div>
+																				
+																				<!-- Arrow -->
+																				<svg class="w-4 h-4 text-gray-400 flex-shrink-0 mt-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+																				</svg>
+																				
+																				<!-- Arrival -->
+																				<div class="flex flex-col items-start">
+																					<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
+																						{formatTimeDisplay(lastSegment?.arrival_time) || '—'}
+																					</div>
+																					<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+																						{lastSegment?.arrival_airport_iata || flight.arrival_id || '—'}
+																					</div>
+																				</div>
+																			</div>
+																			
+																			<!-- Price -->
+																			<div class="ml-3 flex-shrink-0">
+																				<div class="text-lg font-semibold text-green-600 dark:text-green-400">
+																					${flight.price || 0}
+																				</div>
+																			</div>
+																		</div>
+																		
+																		<!-- Bottom Row: Airline Icon with Duration and Airline Name -->
+																		<div class="flex items-start gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+																			<!-- Airline Icon -->
+																			<div class="flex-shrink-0">
+																				{#if firstSegment && firstSegment.airline_logo}
+																					<img src={firstSegment.airline_logo} alt="Airline logo" class="h-8 w-8 object-contain rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900" loading="lazy" />
+																				{:else}
+																					<div class="h-8 w-8 rounded-full border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+																						<span class="text-xs text-gray-500 dark:text-gray-400">{firstSegment?.airline_id || '—'}</span>
+																					</div>
+																				{/if}
+																			</div>
+																			
+																			<!-- Duration, Stops, and Airline Name - aligned left with icon -->
+																			<div class="flex flex-col items-start">
+																				<div class="flex items-center gap-2 mb-1">
+																					<span class="text-sm text-gray-600 dark:text-gray-400">
+																						{formatDuration(flight.total_duration)}
+																					</span>
+																					<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {stopsCount > 0 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'}">
+																						{stopsCount > 0 ? `${stopsCount} stop${stopsCount > 1 ? 's' : ''}` : 'Direct'}
+																					</span>
+																				</div>
+																				<div class="text-xs text-gray-500 dark:text-gray-400">
+																					{firstSegment?.airline || airlineData.name || 'N/A'}
+																				</div>
+																			</div>
+																		</div>
+																	</div>
+																{/each}
+															</div>
+															
+															<!-- Desktop Table Layout -->
+															<div class="hidden md:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
 																<div class="overflow-x-auto">
 																	<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
 																		<thead class="bg-gray-50 dark:bg-gray-700">
@@ -1323,7 +1407,86 @@ $: airlineCodeToName = new Map(
 															<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
 																Other Flights ({airlineData.otherFlights.length})
 															</h3>
-															<div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+															
+															<!-- Mobile Layout -->
+															<div class="block md:hidden space-y-3">
+																{#each airlineData.otherFlights as flight, idx}
+																	{@const flightId = getFlightId(flight, idx)}
+																	{@const firstSegment = flight.segments && flight.segments.length > 0 ? flight.segments[0] : null}
+																	{@const lastSegment = flight.segments && flight.segments.length > 0 ? flight.segments[flight.segments.length - 1] : null}
+																	{@const stopsCount = flight.segments && flight.segments.length > 0 ? flight.segments.length - 1 : 0}
+																	<div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700">
+																		<!-- Top Row: Departure → Arrival | Price -->
+																		<div class="flex items-start justify-between mb-3">
+																			<div class="flex items-center gap-2 flex-1 min-w-0">
+																				<!-- Departure -->
+																				<div class="flex flex-col items-start">
+																					<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
+																						{formatTimeDisplay(firstSegment?.departure_time) || '—'}
+																					</div>
+																					<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+																						{firstSegment?.departure_airport_iata || flight.departure_id || '—'}
+																					</div>
+																				</div>
+																				
+																				<!-- Arrow -->
+																				<svg class="w-4 h-4 text-gray-400 flex-shrink-0 mt-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+																				</svg>
+																				
+																				<!-- Arrival -->
+																				<div class="flex flex-col items-start">
+																					<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
+																						{formatTimeDisplay(lastSegment?.arrival_time) || '—'}
+																					</div>
+																					<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+																						{lastSegment?.arrival_airport_iata || flight.arrival_id || '—'}
+																					</div>
+																				</div>
+																			</div>
+																			
+																			<!-- Price -->
+																			<div class="ml-3 flex-shrink-0">
+																				<div class="text-lg font-semibold text-green-600 dark:text-green-400">
+																					${flight.price || 0}
+																				</div>
+																			</div>
+																		</div>
+																		
+																		<!-- Bottom Row: Airline Icon with Duration and Airline Name -->
+																		<div class="flex items-start gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+																			<!-- Airline Icon -->
+																			<div class="flex-shrink-0">
+																				{#if firstSegment && firstSegment.airline_logo}
+																					<img src={firstSegment.airline_logo} alt="Airline logo" class="h-8 w-8 object-contain rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900" loading="lazy" />
+																				{:else}
+																					<div class="h-8 w-8 rounded-full border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+																						<span class="text-xs text-gray-500 dark:text-gray-400">{firstSegment?.airline_id || '—'}</span>
+																					</div>
+																				{/if}
+																			</div>
+																			
+																			<!-- Duration, Stops, and Airline Name - aligned left with icon -->
+																			<div class="flex flex-col items-start">
+																				<div class="flex items-center gap-2 mb-1">
+																					<span class="text-sm text-gray-600 dark:text-gray-400">
+																						{formatDuration(flight.total_duration)}
+																					</span>
+																					<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {stopsCount > 0 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'}">
+																						{stopsCount > 0 ? `${stopsCount} stop${stopsCount > 1 ? 's' : ''}` : 'Direct'}
+																					</span>
+																				</div>
+																				<div class="text-xs text-gray-500 dark:text-gray-400">
+																					{firstSegment?.airline || airlineData.name || 'N/A'}
+																				</div>
+																			</div>
+																		</div>
+																	</div>
+																{/each}
+															</div>
+															
+															<!-- Desktop Table Layout -->
+															<div class="hidden md:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
 																<div class="overflow-x-auto">
 																	<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
 																		<thead class="bg-gray-50 dark:bg-gray-700">

@@ -209,8 +209,11 @@ const showNextMonth = () => {
 							class="nav-button"
 							on:click={showPreviousMonth}
 							disabled={currentMonthIndex === 0}
+							aria-label="Previous month"
 						>
-							←
+							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+							</svg>
 						</button>
 						<div class="calendar-month-label">
 							{calendarMonths[currentMonthIndex]?.label}
@@ -220,8 +223,11 @@ const showNextMonth = () => {
 							class="nav-button"
 							on:click={showNextMonth}
 							disabled={currentMonthIndex === calendarMonths.length - 1}
+							aria-label="Next month"
 						>
-							→
+							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+							</svg>
 						</button>
 					</div>
 					<div class="calendar-grid">

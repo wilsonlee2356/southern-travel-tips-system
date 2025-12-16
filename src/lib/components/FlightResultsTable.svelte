@@ -38,6 +38,10 @@ const formatDateDisplay = (value) => {
 const formatTimeDisplay = (value) => {
 	const sanitized = sanitizeString(value);
 	if (!sanitized) return '—';
+	// If time includes seconds (HH:MM:SS), remove seconds
+	if (sanitized.includes(':') && sanitized.split(':').length === 3) {
+		return sanitized.substring(0, 5); // Return HH:MM
+	}
 	return sanitized;
 };
 
