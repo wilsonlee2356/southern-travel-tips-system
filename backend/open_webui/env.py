@@ -107,9 +107,7 @@ for source in log_sources:
 
 log.setLevel(SRC_LOG_LEVELS["CONFIG"])
 
-WEBUI_NAME = os.environ.get("WEBUI_NAME", "Travel Tip System")
-if WEBUI_NAME != "Travel Tip System":
-    WEBUI_NAME += " (Travel Tip System)"
+WEBUI_NAME = os.environ.get("WEBUI_NAME", "fly-again-la system")
 # WEBUI_NAME = os.environ.get("WEBUI_NAME", "Open WebUI")
 # if WEBUI_NAME != "Open WebUI":
 #     WEBUI_NAME += " (Open WebUI)"

@@ -10,7 +10,7 @@
 </script>
 
 <svelte:head>
-    <title>Fine-tuned Models Manager - Southern Travel Tips</title>
+    <title>Fine-tuned Models Manager - fly-again-la</title>
 </svelte:head>
 
 <div

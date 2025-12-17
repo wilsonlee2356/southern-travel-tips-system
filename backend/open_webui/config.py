@@ -999,7 +999,7 @@ if CUSTOM_NAME:
                         shutil.copyfileobj(r.raw, f)
 
             # WEBUI_NAME = data["name"]
-            WEBUI_NAME = "Travel Tip System"
+            WEBUI_NAME = "fly-again-la system"
     except Exception as e:
         log.exception(e)
         pass

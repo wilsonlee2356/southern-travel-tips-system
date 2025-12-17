@@ -689,7 +689,7 @@
 
 <svelte:head>
 	<title>{$WEBUI_NAME}</title>
-	<!-- <title>Travel Tip System</title> -->
+	<!-- <title>fly-again-la system</title> -->
 	<link crossorigin="anonymous" rel="icon" href="{WEBUI_BASE_URL}/static/favicon.png" />
 </svelte:head>
 
