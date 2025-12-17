@@ -116,6 +116,17 @@ def openai_reasoning_model_handler(payload):
         else:
             payload["messages"][0]["role"] = "developer"
 
+    # Enforce temperature=1 and remove top_p for gpt-5 models
+    model_lower = payload["model"].lower()
+    if model_lower.startswith("gpt-5"):
+        payload["temperature"] = 1
+        # Remove top_p as it's not supported by gpt-5 models
+        if "top_p" in payload:
+            del payload["top_p"]
+        log.debug(
+            f"Enforcing temperature=1 and removing top_p for gpt-5 model {payload['model']}"
+        )
+
     return payload
 
 
@@ -816,6 +827,17 @@ async def generate_chat_completion(
         if "max_completion_tokens" in payload:
             payload["max_tokens"] = payload["max_completion_tokens"]
             del payload["max_completion_tokens"]
+
+    # Ensure temperature=1 and remove top_p for gpt-5 models (enforce even if not handled by reasoning model handler)
+    model_lower = payload["model"].lower()
+    if model_lower.startswith("gpt-5"):
+        payload["temperature"] = 1
+        # Remove top_p as it's not supported by gpt-5 models
+        if "top_p" in payload:
+            del payload["top_p"]
+        log.debug(
+            f"Enforcing temperature=1 and removing top_p for gpt-5 model {payload['model']}"
+        )
 
     if "max_tokens" in payload and "max_completion_tokens" in payload:
         del payload["max_tokens"]

@@ -128,6 +128,9 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 			if (savedPost) {
 				console.log('Loading saved post:', savedPost);
 				
+				// Load flight data first
+				const flightData = savedPost.flight_data;
+				
 				// Populate all fields from saved post
 				header = formatHeaderWithDestination(
 					savedPost.ai_analysis?.header || savedPost.title || '',
@@ -137,9 +140,6 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 				firstComment = savedPost.ai_analysis?.content || '';
 				summary = savedPost.ai_analysis?.summary || '';
 				postContent = savedPost.post_content || '';
-				
-				// Load flight data
-				const flightData = savedPost.flight_data;
 				if (flightData) {
 					airlineName = flightData.airline || '';
 					returnPrice = flightData.returnPrice?.toString() || '';

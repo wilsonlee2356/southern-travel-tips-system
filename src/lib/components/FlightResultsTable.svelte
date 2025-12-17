@@ -78,10 +78,9 @@ const formatDateTimeInline = (label, dateValue, timeValue) => {
 	// Allowed model patterns (exact matches or starts with)
 	const allowedModelPatterns = [
 		/^gpt-4$/i,
-		/^gpt-?4o$/i,
 		/^gpt-?4\.1$/i,
-		/^gpt-?4\.1-?mini$/i,
-		/^gpt-?5$/i,
+		/^gpt-?5\.1$/i,
+		/^gpt-?5\.2$/i,
 		/^gemini-?2\.5-?flash$/i,
 		/^gemini-?2\.0-?flash$/i,
 		/^gemini-?2\.0-?flash-?live$/i
