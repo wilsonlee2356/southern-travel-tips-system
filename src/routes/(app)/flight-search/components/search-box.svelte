@@ -191,6 +191,13 @@ input[type='range'] {
       emitFiltersChange({ excludedAirlines: [] });
     }
   };
+
+  // Watch for departure date changes and update return date if needed
+  $: if (searchForm.departureDate && searchForm.returnDate) {
+    if (new Date(searchForm.returnDate) < new Date(searchForm.departureDate)) {
+      searchForm.returnDate = searchForm.departureDate;
+    }
+  }
   $: priceThumbPosition = priceRange.max === priceRange.min
     ? 0
     : Math.min(
@@ -674,6 +681,7 @@ input[type='range'] {
           type="date"
           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
           bind:value={searchForm.departureDate}
+          min={new Date().toISOString().split('T')[0]}
         />
       </div>
 
@@ -687,6 +695,7 @@ input[type='range'] {
             type="date"
             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
             bind:value={searchForm.returnDate}
+            min={searchForm.departureDate || new Date().toISOString().split('T')[0]}
           />
         </div>
       {/if}
