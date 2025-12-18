@@ -82,9 +82,13 @@ async def send_get_request(url, key=None, user: UserModel = None):
                 ssl=AIOHTTP_CLIENT_SESSION_SSL,
             ) as response:
                 return await response.json()
+    except (asyncio.TimeoutError, aiohttp.ServerTimeoutError) as e:
+        # Handle timeout errors gracefully
+        log.warning(f"Timeout error fetching from {url}: {str(e)}")
+        return None
     except Exception as e:
         # Handle connection error here
-        log.error(f"Connection error: {e}")
+        log.warning(f"Connection error fetching from {url}: {str(e)}")
         return None
 
 
@@ -548,16 +552,28 @@ async def get_models(
                             ]
 
                         models = response_data
+            except (asyncio.TimeoutError, aiohttp.ServerTimeoutError) as e:
+                # Handle timeout errors gracefully - return empty models list instead of failing
+                log.warning(f"Timeout error fetching models from {url}: {str(e)}")
+                models = {
+                    "data": [],
+                    "object": "list",
+                }
             except aiohttp.ClientError as e:
                 # ClientError covers all aiohttp requests issues
-                log.exception(f"Client error: {str(e)}")
-                raise HTTPException(
-                    status_code=500, detail="Open WebUI: Server Connection Error"
-                )
+                log.warning(f"Client error fetching models from {url}: {str(e)}")
+                # Return empty models list instead of raising exception to allow website to load
+                models = {
+                    "data": [],
+                    "object": "list",
+                }
             except Exception as e:
-                log.exception(f"Unexpected error: {e}")
-                error_detail = f"Unexpected error: {str(e)}"
-                raise HTTPException(status_code=500, detail=error_detail)
+                log.warning(f"Unexpected error fetching models from {url}: {str(e)}")
+                # Return empty models list instead of raising exception to allow website to load
+                models = {
+                    "data": [],
+                    "object": "list",
+                }
 
     if user.role == "user" and not BYPASS_MODEL_ACCESS_CONTROL:
         models["data"] = await get_filtered_models(models, user)

@@ -143,11 +143,13 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 				if (flightData) {
 					airlineName = flightData.airline || '';
 					returnPrice = flightData.returnPrice?.toString() || '';
-					departureDate = flightData.departureDate || '';
+					// Use departureDates if available (for multiple flights), otherwise use departureDate
+					departureDate = flightData.departureDates || (flightData.departureDate ? new Date(flightData.departureDate).toLocaleDateString() : '');
 					flightTime = flightData.flightTime || '';
 					luggageInfo = flightData.luggageInfo || '';
 					ticketValidity = flightData.ticketValidDate || '';
-					extraComment = `Departure: ${new Date(flightData.departureDate).toLocaleDateString()}\nFlight Time: ${flightData.flightTime}\nPrice: $${flightData.returnPrice}`;
+					const departureDateForComment = flightData.departureDates || (flightData.departureDate ? new Date(flightData.departureDate).toLocaleDateString() : '');
+					extraComment = `Departure: ${departureDateForComment}\nFlight Time: ${flightData.flightTime}\nPrice: $${flightData.returnPrice}`;
 					
 					// For editing
 					editDestination = flightData.destination || '';
@@ -190,7 +192,8 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 			// Populate form fields with flight data
 			airlineName = flightData.airline;
 			returnPrice = flightData.returnPrice.toString();
-			departureDate = flightData.departureDate;
+			// Use departureDates if available (for multiple flights), otherwise use departureDate
+			departureDate = flightData.departureDates || (flightData.departureDate ? new Date(flightData.departureDate).toLocaleDateString() : '');
 			flightTime = flightData.flightTime;
 			luggageInfo = flightData.luggageInfo;
 			
@@ -246,7 +249,9 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 			}
 			
 			// Set other fields
-			extraComment = `Departure: ${new Date(flightData.departureDate).toLocaleDateString()}\nFlight Time: ${flightData.flightTime}\nPrice: $${flightData.returnPrice}`;
+			// Use departureDates if available (for multiple flights), otherwise format single date
+			const departureDateForComment = flightData.departureDates || (flightData.departureDate ? new Date(flightData.departureDate).toLocaleDateString() : '');
+			extraComment = `Departure: ${departureDateForComment}\nFlight Time: ${flightData.flightTime}\nPrice: $${flightData.returnPrice}`;
 			ticketValidity = flightData.ticketValidDate;
 			
 			// Auto-generate post content for social media
@@ -764,10 +769,10 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 								{#if departureDate}
 									<p class="text-sm mt-2">{departureDate}</p>
 								{/if}<br>
-								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">參考航班時間（航班時間或會有變，以預訂時為準）：</p>
+								<!-- <p class="text-sm mb-2 font-bold" style="color: #d47a60;">參考航班時間（航班時間或會有變，以預訂時為準）：</p>
 								{#if flightTime}
 									<p class="text-sm mt-2">{flightTime}</p>
-								{/if}<br>
+								{/if}<br> -->
 								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">機票有效期：</p>
 								{#if ticketValidity}
 									<p class="text-sm mt-2">{ticketValidity}</p>
@@ -1037,10 +1042,10 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 								{#if departureDate}
 									<p class="text-sm mt-2">{departureDate}</p>
 								{/if}<br>
-								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">參考航班時間（航班時間或會有變，以預訂時為準）：</p>
+								<!-- <p class="text-sm mb-2 font-bold" style="color: #d47a60;">參考航班時間（航班時間或會有變，以預訂時為準）：</p>
 								{#if flightTime}
 									<p class="text-sm mt-2">{flightTime}</p>
-								{/if}<br>
+								{/if}<br> -->
 								<p class="text-sm mb-2 font-bold" style="color: #d47a60;">機票有效期：</p>
 								{#if ticketValidity}
 									<p class="text-sm mt-2">{ticketValidity}</p>

@@ -341,9 +341,10 @@ async def generate_scenic_image(
                                         all_places.add(flight.get("destination"))
                                     
                                     if len(all_places) == 2:
-                                        # Total price for round trip with 2 places
-                                        total_cost = sum(f.get("cost", 0) for f in flights_list)
-                                        flight_price = f"{total_cost:,}" if total_cost else None
+                                        # Cheapest price for round trip with 2 places
+                                        valid_costs = [f.get("cost", 0) for f in flights_list if f.get("cost", 0) > 0]
+                                        cheapest_cost = min(valid_costs) if valid_costs else 0
+                                        flight_price = f"{cheapest_cost:,}" if cheapest_cost else None
                                     else:
                                         # First flight price for 3+ places
                                         cost = first_flight.get("cost")
@@ -1572,9 +1573,12 @@ def _parse_flight_data_for_display(flight_data: dict) -> dict:
                 "destination": second_flight.get("destination", outbound["place"])
             }
             
-            price = str(sum(f.get("cost", 0) for f in flights_list))
+            # Use cheapest price instead of sum
+            valid_costs = [f.get("cost", 0) for f in flights_list if f.get("cost", 0) > 0]
+            cheapest_cost = min(valid_costs) if valid_costs else 0
+            price = str(cheapest_cost)
         else:
-            # 3+ places: use only first flight
+            # 3+ places: use only first flight for display, but use cheapest price
             log.info(f"3+ places detected ({len(all_places)} places) - using first flight only")
             first_flight = flights_list[0]
             
@@ -1594,7 +1598,10 @@ def _parse_flight_data_for_display(flight_data: dict) -> dict:
                 "destination": outbound["place"]
             }
             
-            price = str(first_flight.get("cost", 3500))
+            # Use cheapest price from all flights
+            valid_costs = [f.get("cost", 0) for f in flights_list if f.get("cost", 0) > 0]
+            cheapest_cost = min(valid_costs) if valid_costs else first_flight.get("cost", 3500)
+            price = str(cheapest_cost)
     else:
         # Single flight scenario - treat as round trip
         log.info("Processing single flight as round trip")

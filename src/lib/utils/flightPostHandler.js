@@ -31,14 +31,25 @@ export function formatFlightDataForPost(selectedFlights) {
  * @returns {Object} Formatted post data
  */
 function formatSingleFlightPost(flight) {
-	const departureTime = generateFlightTime();
+	// Use actual departure time if available, otherwise generate one
+	const departureTime = flight.departureTime 
+		? (flight.departureTime.includes(':') && flight.departureTime.split(':').length === 3 
+			? flight.departureTime.substring(0, 5) 
+			: flight.departureTime)
+		: generateFlightTime();
+	
+	// Format departure date
+	const departureDate = flight.departureDate || flight.departureLocalDate;
+	const departureDateDisplay = departureDate ? new Date(departureDate).toLocaleDateString() : '';
+	
 	const returnPrice = flight.cost;
 	const luggageInfo = generateLuggageInfo(flight.seatClass);
 
 	return {
 		airline: flight.airline,
 		returnPrice: returnPrice,
-		departureDate: flight.departureDate,
+		departureDate: departureDate,
+		departureDates: departureDateDisplay, // For consistency with multiple flights
 		flightTime: departureTime,
 		luggageInfo: luggageInfo,
 		startingPlace: flight.startingPlace,
@@ -54,24 +65,49 @@ function formatSingleFlightPost(flight) {
  * @returns {Object} Formatted post data
  */
 function formatMultipleFlightsPost(flights) {
-	const totalPrice = flights.reduce((sum, flight) => sum + flight.cost, 0);
+	// Find the cheapest price instead of summing
+	const cheapestPrice = Math.min(...flights.map(flight => flight.cost || 0));
 	const airlines = [...new Set(flights.map(flight => flight.airline))];
 	const routes = flights.map(flight => `${flight.startingPlace} → ${flight.destination}`).join(', ');
 	
-	// Use the earliest departure date
-	const earliestDate = flights.reduce((earliest, flight) => 
-		new Date(flight.departureDate) < new Date(earliest) ? flight.departureDate : earliest, 
-		flights[0].departureDate
-	);
+	// Collect all departure dates and times
+	const allDepartureDates = flights
+		.map(flight => {
+			const date = flight.departureDate || flight.departureLocalDate;
+			return date ? new Date(date).toLocaleDateString() : null;
+		})
+		.filter(date => date !== null);
+	
+	const allDepartureTimes = flights
+		.map(flight => {
+			const time = flight.departureTime;
+			if (!time) return null;
+			// Format time to HH:MM if it includes seconds
+			return time.includes(':') && time.split(':').length === 3 
+				? time.substring(0, 5) 
+				: time;
+		})
+		.filter(time => time !== null);
+	
+	// Use the earliest departure date for single date display (backward compatibility)
+	const earliestDate = flights.reduce((earliest, flight) => {
+		const date = flight.departureDate || flight.departureLocalDate;
+		if (!date) return earliest;
+		return new Date(date) < new Date(earliest) ? date : earliest;
+	}, flights[0].departureDate || flights[0].departureLocalDate);
 
-	const departureTime = generateFlightTime();
+	// Combine all departure dates and times
+	const departureDatesDisplay = [...new Set(allDepartureDates)].join(', ');
+	const departureTimesDisplay = [...new Set(allDepartureTimes)].join(', ');
+
 	const luggageInfo = generateLuggageInfo('Mixed'); // Mixed for multiple flights
 
 	return {
 		airline: airlines.join(', '),
-		returnPrice: totalPrice,
+		returnPrice: cheapestPrice,
 		departureDate: earliestDate,
-		flightTime: departureTime,
+		departureDates: departureDatesDisplay, // All departure dates
+		flightTime: departureTimesDisplay || generateFlightTime(), // All departure times
 		luggageInfo: luggageInfo,
 		startingPlace: flights[0].startingPlace, // First flight's starting place
 		destination: flights[flights.length - 1].destination, // Last flight's destination

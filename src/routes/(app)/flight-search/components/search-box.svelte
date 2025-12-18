@@ -48,7 +48,7 @@ input[type='range'] {
   }
 </style>
  <script>
-  import { getContext, createEventDispatcher, tick, onMount } from 'svelte';
+  import { getContext, createEventDispatcher } from 'svelte';
   import { airlineOptions } from '$lib/utils/airlines';
 
   const i18n = getContext('i18n');
@@ -74,8 +74,10 @@ input[type='range'] {
    export let onSelectDestination = () => {};
 
   let showPassengerDropdown = false;
-  let showAdvancedFilters = false;
   let showAirlineDropdown = false;
+  let showDurationDropdown = false;
+  let showPriceDropdown = false;
+  let airlineSearchQuery = '';
   let currentAdults = 1;
   let currentChildren = 0;
   let passengerSummary = '';
@@ -85,7 +87,8 @@ input[type='range'] {
  let isPriceDragging = false;
  let isDurationDragging = false;
   let airlineButtonRef;
-  let airlineDropdownRect = { top: 0, left: 0, width: 0, maxHeight: 360 };
+  let priceDropdownRef;
+  let durationDropdownRef;
 
   const closePassengerDropdown = () => {
      showPassengerDropdown = false;
@@ -95,42 +98,8 @@ input[type='range'] {
      showPassengerDropdown = !showPassengerDropdown;
    };
 
-  const toggleAdvancedFilters = () => {
-    showAdvancedFilters = !showAdvancedFilters;
-  };
-
-  const updateAirlineDropdownPosition = () => {
-    if (typeof window === 'undefined' || !airlineButtonRef) return;
-    const rect = airlineButtonRef.getBoundingClientRect();
-    const minWidth = 280;
-    const gutter = 12;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const maxWidth = Math.min(viewportWidth - gutter * 2, Math.max(rect.width, minWidth));
-    let left = rect.left;
-    if (left + maxWidth > viewportWidth - gutter) {
-      left = viewportWidth - gutter - maxWidth;
-    }
-
-    const top = rect.bottom + 8;
-    const availableBelow = Math.max(0, viewportHeight - rect.bottom - 16);
-    const desiredHeight = availableBelow * (4 / 3);
-    const maxHeight = Math.max(320, Math.min(desiredHeight || viewportHeight * 0.6, viewportHeight - 80));
-
-    airlineDropdownRect = {
-      top,
-      left,
-      width: maxWidth,
-      maxHeight
-    };
-  };
-
-  const toggleAirlineDropdown = async () => {
+  const toggleAirlineDropdown = () => {
     showAirlineDropdown = !showAirlineDropdown;
-    if (showAirlineDropdown) {
-      await tick();
-      updateAirlineDropdownPosition();
-    }
   };
 
   const emitPassengerChange = (adults, children) => {
@@ -194,11 +163,28 @@ input[type='range'] {
   $: durationDisplay = hasDurationFilter ? `${currentMaxDuration}h` : (i18n?.t?.('Any') ?? 'Any');
   $: totalAirlines = airlineOptions.length;
   $: selectedAirlineCount = totalAirlines - excludedAirlines.size;
+  $: allAirlinesSelected = excludedAirlines.size === 0;
   $: airlineSummary = excludedAirlines.size === 0
     ? (i18n?.t?.('All airlines') ?? 'All airlines')
     : selectedAirlineCount === 0
       ? (i18n?.t?.('None selected') ?? 'None selected')
       : `${selectedAirlineCount} ${(i18n?.t?.('selected') ?? 'selected')}`;
+  $: filteredAirlines = airlineSearchQuery
+    ? airlineOptions.filter(airline => 
+        airline.name.toLowerCase().includes(airlineSearchQuery.toLowerCase()) ||
+        airline.code.toLowerCase().includes(airlineSearchQuery.toLowerCase())
+      )
+    : airlineOptions;
+
+  const handleSelectAllAirlines = () => {
+    if (allAirlinesSelected) {
+      // Deselect all - exclude all airlines
+      emitFiltersChange({ excludedAirlines: airlineOptions.map(a => a.code) });
+    } else {
+      // Select all - exclude none
+      emitFiltersChange({ excludedAirlines: [] });
+    }
+  };
   $: priceThumbPosition = priceRange.max === priceRange.min
     ? 0
     : Math.min(
@@ -242,27 +228,13 @@ input[type='range'] {
     if (!event.target.closest('[data-airline-dropdown]')) {
       showAirlineDropdown = false;
     }
-  };
-  const handleWindowScroll = () => {
-    if (showAirlineDropdown) {
-      updateAirlineDropdownPosition();
+    if (!event.target.closest('[data-price-dropdown]')) {
+      showPriceDropdown = false;
+    }
+    if (!event.target.closest('[data-duration-dropdown]')) {
+      showDurationDropdown = false;
     }
   };
-
-  const handleDocumentScrollCapture = () => {
-    if (showAirlineDropdown) {
-      updateAirlineDropdownPosition();
-    }
-  };
-
-  onMount(() => {
-    document.addEventListener('scroll', handleDocumentScrollCapture, true);
-    window.addEventListener('resize', handleWindowScroll);
-    return () => {
-      document.removeEventListener('scroll', handleDocumentScrollCapture, true);
-      window.removeEventListener('resize', handleWindowScroll);
-    };
-  });
 
   const handleWindowKeydown = (event) => {
     if (event.key === 'Escape') {
@@ -284,8 +256,6 @@ input[type='range'] {
   on:pointerup={handleWindowPointerUp}
   on:touchend={handleWindowPointerUp}
   on:touchcancel={handleWindowPointerUp}
-  on:scroll={handleWindowScroll}
-  on:resize={handleWindowScroll}
 />
 
 <div class="bg-white dark:bg-gray-800 rounded-t-lg rounded-b-none shadow-lg p-6 border border-gray-200 dark:border-gray-700 border-b border-b-gray-200 dark:border-b-gray-700">
@@ -373,6 +343,218 @@ input[type='range'] {
          <option value="first class">{$i18n.t('First Class')}</option>
        </select>
      </div>
+
+    <!-- Stops Dropdown -->
+    <div class="flex flex-col min-w-[180px]">
+      <label for="stops" class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">
+         {$i18n.t('Stops')}
+       </label>
+       <select
+        id="stops"
+         class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 text-sm"
+         bind:value={searchForm.stops}
+         on:change={(e) => handleStopsChange(e.target.value)}
+       >
+         <option value="any">{$i18n.t('Any')}</option>
+         <option value="direct">{$i18n.t('Direct')}</option>
+         <option value="one-or-less">{$i18n.t('One stop or fewer')}</option>
+         <option value="two-or-less">{$i18n.t('Two stops or fewer')}</option>
+       </select>
+     </div>
+
+    <!-- Airlines Searchable Checklist -->
+    <div class="flex flex-col min-w-[200px] relative" data-airline-dropdown>
+      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">
+         {$i18n.t('Airlines')}
+      </span>
+      <button
+        type="button"
+        class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-left text-sm text-gray-900 dark:text-gray-100 flex items-center justify-between gap-2"
+        on:click={toggleAirlineDropdown}
+        data-airline-dropdown
+        bind:this={airlineButtonRef}
+      >
+        <span class="truncate">{airlineSummary}</span>
+        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {#if showAirlineDropdown}
+        <div
+          class="absolute z-50 mt-2 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-3 max-h-80 overflow-hidden flex flex-col"
+          data-airline-dropdown
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-gray-500 dark:text-gray-400">{airlineSummary}</span>
+            <button
+              type="button"
+              class="text-xs font-medium text-gray-600 dark:text-gray-300 hover:underline"
+              on:click={handleSelectAllAirlines}
+            >
+              {allAirlinesSelected ? $i18n.t('Deselect all') : $i18n.t('Select all')}
+            </button>
+          </div>
+          
+          <input
+            type="text"
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 text-sm"
+            placeholder={$i18n.t('Search airlines...')}
+            bind:value={airlineSearchQuery}
+          />
+          
+          <div class="flex-1 overflow-y-auto space-y-2 pr-1">
+            {#each filteredAirlines as airline}
+              <label class="flex items-center gap-3 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 appearance-none border border-gray-600 dark:border-gray-300 rounded-sm checked:bg-black checked:border-black dark:checked:bg-gray-100 dark:checked:border-gray-100 focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-gray-100 transition"
+                  checked={!excludedAirlines.has(airline.code)}
+                  on:change={() => handleAirlineToggle(airline.code)}
+                />
+                <span class="truncate">{airline.name}</span>
+              </label>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    </div>
+
+    <!-- Price Dropdown with Draggable -->
+    <div class="flex flex-col min-w-[200px] relative" data-price-dropdown>
+      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">
+         {$i18n.t('Price')}
+      </span>
+      <button
+        type="button"
+        class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-left text-sm text-gray-900 dark:text-gray-100 flex items-center justify-between gap-2"
+        on:click={() => showPriceDropdown = !showPriceDropdown}
+        data-price-dropdown
+        bind:this={priceDropdownRef}
+      >
+        <span>{priceDisplay}</span>
+        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {#if showPriceDropdown}
+        <div
+          class="absolute z-50 mt-2 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-3"
+          data-price-dropdown
+        >
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{$i18n.t('Price')}</h3>
+            <span class="text-xs text-gray-500 dark:text-gray-400">{priceDisplay}</span>
+          </div>
+          <div class="relative pt-6 overflow-visible">
+            {#if isPriceDragging}
+              <div
+                class="absolute top-0 pointer-events-none"
+                style={`left: ${priceThumbPosition}%;`}
+              >
+                <div
+                  class="relative -top-2 inline-flex items-center justify-center px-3 py-1 bg-black text-white text-xs font-semibold rounded-full shadow whitespace-nowrap"
+                  style="transform: translate(-50%, -130%); min-width: 2.75rem; z-index: 9999;"
+                >
+                  {hasPriceFilter ? `$${currentMaxPrice}` : (i18n?.t?.('Any') ?? 'Any')}
+                </div>
+              </div>
+            {/if}
+            <input
+              type="range"
+              min={priceRange.min}
+              max={priceRange.max}
+              step={priceRange.step}
+              value={currentMaxPrice}
+              class="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 appearance-none cursor-pointer"
+              on:input={(event) => handlePriceChange(event.target.value)}
+              on:focus={() => (isPriceDragging = true)}
+              on:blur={() => (isPriceDragging = false)}
+              on:pointerdown={() => (isPriceDragging = true)}
+              on:pointerup={() => (isPriceDragging = false)}
+              on:mousedown={() => (isPriceDragging = true)}
+              on:mouseup={() => (isPriceDragging = false)}
+              on:touchstart={() => (isPriceDragging = true)}
+              on:touchend={() => (isPriceDragging = false)}
+              style="accent-color: black;"
+            />
+          </div>
+          <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+            <span>${priceRange.min}</span>
+            <span>${priceRange.max}</span>
+          </div>
+        </div>
+      {/if}
+    </div>
+
+    <!-- Duration Dropdown with Draggable -->
+    <div class="flex flex-col min-w-[200px] relative" data-duration-dropdown>
+      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">
+         {$i18n.t('Duration')}
+      </span>
+      <button
+        type="button"
+        class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-left text-sm text-gray-900 dark:text-gray-100 flex items-center justify-between gap-2"
+        on:click={() => showDurationDropdown = !showDurationDropdown}
+        data-duration-dropdown
+        bind:this={durationDropdownRef}
+      >
+        <span>{durationDisplay}</span>
+        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {#if showDurationDropdown}
+        <div
+          class="absolute z-50 mt-2 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-3"
+          data-duration-dropdown
+        >
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{$i18n.t('Duration')}</h3>
+            <span class="text-xs text-gray-500 dark:text-gray-400">{durationDisplay}</span>
+          </div>
+          <div class="relative pt-6 overflow-visible">
+            {#if isDurationDragging}
+              <div
+                class="absolute top-0 pointer-events-none"
+                style={`left: ${durationThumbPosition}%;`}
+              >
+                <div
+                  class="relative -top-2 inline-flex items-center justify-center px-3 py-1 bg-black text-white text-xs font-semibold rounded-full shadow whitespace-nowrap"
+                  style="transform: translate(-50%, -130%); min-width: 2.75rem; z-index: 9999;"
+                >
+                  {hasDurationFilter ? `${currentMaxDuration}h` : (i18n?.t?.('Any') ?? 'Any')}
+                </div>
+              </div>
+            {/if}
+            <input
+              type="range"
+              min={durationRange.min}
+              max={durationRange.max}
+              step={durationRange.step}
+              value={currentMaxDuration}
+              class="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 appearance-none cursor-pointer"
+              on:input={(event) => handleDurationChange(event.target.value)}
+              on:focus={() => (isDurationDragging = true)}
+              on:blur={() => (isDurationDragging = false)}
+              on:pointerdown={() => (isDurationDragging = true)}
+              on:pointerup={() => (isDurationDragging = false)}
+              on:mousedown={() => (isDurationDragging = true)}
+              on:mouseup={() => (isDurationDragging = false)}
+              on:touchstart={() => (isDurationDragging = true)}
+              on:touchend={() => (isDurationDragging = false)}
+              style="accent-color: black;"
+            />
+          </div>
+          <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+            <span>{durationRange.min}h</span>
+            <span>{durationRange.max}h</span>
+          </div>
+        </div>
+      {/if}
+    </div>
    </div>
 
   {#if searchError}
@@ -456,20 +638,6 @@ input[type='range'] {
       </div>
 
       <div>
-        <label for="cost" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          {$i18n.t('Max Cost ($)')}
-        </label>
-        <input
-          id="cost"
-          type="number"
-          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-          placeholder="e.g., 500"
-          bind:value={searchForm.cost}
-          min="0"
-        />
-      </div>
-
-      <div>
         <label for="departure-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           {$i18n.t('Departure Date')}
         </label>
@@ -527,206 +695,5 @@ input[type='range'] {
     </div>
   </form>
 
-</div>
-
-<div class="-mt-px mb-10 relative">
-  <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 border-t-0 rounded-b-lg rounded-t-none shadow-lg px-4 py-3 relative z-10">
-    <button
-      type="button"
-      class="w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-      on:click={toggleAdvancedFilters}
-      aria-expanded={showAdvancedFilters}
-    >
-      <span>{$i18n.t('Additional Filters')}</span>
-      <svg class={`w-5 h-5 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-      </svg>
-    </button>
-
-    {#if showAdvancedFilters}
-      <div class="absolute inset-x-0 top-full z-30 mt-3">
-        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
-          <div class={`p-4 sm:p-6 space-y-6 max-h-[70vh] ${showAirlineDropdown ? 'overflow-visible' : 'overflow-y-auto'}`}>
-            <div class="space-y-2">
-              <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{$i18n.t('Stops')}</h3>
-              <div class="flex flex-wrap gap-2">
-                {#each [
-                  { value: 'any', label: $i18n.t('Any') },
-                  { value: 'direct', label: $i18n.t('Direct') },
-                  { value: 'one-or-less', label: $i18n.t('One stop or fewer') },
-                  { value: 'two-or-less', label: $i18n.t('Two stops or fewer') }
-                ] as option}
-                  {#key option.value}
-                    <label
-                      class={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition border 
-                        ${searchForm.stops === option.value 
-                          ? 'bg-black text-white border-black dark:bg-white dark:text-black dark:border-white'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600'}`}
-                    >
-                      <input
-                        type="radio"
-                        name="stops-filter"
-                        class="sr-only"
-                        value={option.value}
-                        checked={searchForm.stops === option.value}
-                        on:change={() => handleStopsChange(option.value)}
-                      />
-                      <span>{option.label}</span>
-                    </label>
-                  {/key}
-                {/each}
-              </div>
-            </div>
-
-            <div class="space-y-3 relative" data-airline-dropdown>
-              <div class="flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{$i18n.t('Airlines')}</h3>
-                <span class="text-xs text-gray-500 dark:text-gray-400">{airlineSummary}</span>
-              </div>
-
-              <button
-                type="button"
-                class="w-full flex items-center justify-between gap-3 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-                on:click={toggleAirlineDropdown}
-                aria-expanded={showAirlineDropdown}
-                data-airline-dropdown
-                bind:this={airlineButtonRef}
-              >
-                <span class="truncate text-left">{airlineSummary}</span>
-                <svg class={`w-4 h-4 transition-transform ${showAirlineDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {#if showAirlineDropdown}
-                <div
-                  class="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl p-4 space-y-4 z-[1100]"
-                  style={`top: ${airlineDropdownRect.top}px; left: ${airlineDropdownRect.left}px; width: ${airlineDropdownRect.width}px; max-height: ${airlineDropdownRect.maxHeight}px; overflow-y: auto;`}
-                  data-airline-dropdown
-                >
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs text-gray-500 dark:text-gray-400">{airlineSummary}</span>
-                    <button
-                      type="button"
-                      class="text-xs font-medium text-gray-600 dark:text-gray-300 hover:underline"
-                      on:click={() => emitFiltersChange({ excludedAirlines: [] })}
-                    >
-                      {$i18n.t('Select all')}
-                    </button>
-                  </div>
-
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
-                    {#each airlineOptions as airline}
-                      <label class="flex items-center gap-3 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                        <input
-                          type="checkbox"
-                          class="h-4 w-4 appearance-none border border-gray-600 dark:border-gray-300 rounded-sm checked:bg-black checked:border-black dark:checked:bg-gray-100 dark:checked:border-gray-100 focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-gray-100 transition"
-                          checked={!excludedAirlines.has(airline.code)}
-                          on:change={() => handleAirlineToggle(airline.code)}
-                        />
-                        <span class="truncate">{airline.name}</span>
-                      </label>
-                    {/each}
-                  </div>
-                </div>
-              {/if}
-            </div>
-
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{$i18n.t('Price')}</h3>
-                <span class="text-xs text-gray-500 dark:text-gray-400">{priceDisplay}</span>
-              </div>
-              <div class="relative pt-6 overflow-visible">
-                {#if isPriceDragging}
-                  <div
-                    class="absolute top-0 pointer-events-none"
-                    style={`left: ${priceThumbPosition}%;`}
-                  >
-                    <div
-                      class="relative -top-2 inline-flex items-center justify-center px-3 py-1 bg-black text-white text-xs font-semibold rounded-full shadow whitespace-nowrap"
-                      style="transform: translate(-50%, -130%); min-width: 2.75rem; z-index: 9999;"
-                    >
-                      {hasPriceFilter ? `$${currentMaxPrice}` : (i18n?.t?.('Any') ?? 'Any')}
-                    </div>
-                  </div>
-                {/if}
-                <input
-                  type="range"
-                  min={priceRange.min}
-                  max={priceRange.max}
-                  step={priceRange.step}
-                  value={currentMaxPrice}
-                  class="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 appearance-none cursor-pointer"
-                  on:input={(event) => handlePriceChange(event.target.value)}
-                  on:focus={() => (isPriceDragging = true)}
-                  on:blur={() => (isPriceDragging = false)}
-                  on:pointerdown={() => (isPriceDragging = true)}
-                  on:pointerup={() => (isPriceDragging = false)}
-                  on:mousedown={() => (isPriceDragging = true)}
-                  on:mouseup={() => (isPriceDragging = false)}
-                  on:touchstart={() => (isPriceDragging = true)}
-                  on:touchend={() => (isPriceDragging = false)}
-                  style="
-                    accent-color: black;
-                  "
-                />
-              </div>
-              <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                <span>${priceRange.min}</span>
-                <span>${priceRange.max}</span>
-              </div>
-            </div>
-
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{$i18n.t('Duration')}</h3>
-                <span class="text-xs text-gray-500 dark:text-gray-400">{durationDisplay}</span>
-              </div>
-              <div class="relative pt-6 overflow-visible">
-                {#if isDurationDragging}
-                  <div
-                    class="absolute top-0 pointer-events-none"
-                    style={`left: ${durationThumbPosition}%;`}
-                  >
-                    <div
-                      class="relative -top-2 inline-flex items-center justify-center px-3 py-1 bg-black text-white text-xs font-semibold rounded-full shadow whitespace-nowrap"
-                      style="transform: translate(-50%, -130%); min-width: 2.75rem; z-index: 9999;"
-                    >
-                      {hasDurationFilter ? `${currentMaxDuration}h` : (i18n?.t?.('Any') ?? 'Any')}
-                    </div>
-                  </div>
-                {/if}
-                <input
-                  type="range"
-                  min={durationRange.min}
-                  max={durationRange.max}
-                  step={durationRange.step}
-                  value={currentMaxDuration}
-                  class="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 appearance-none cursor-pointer"
-                  on:input={(event) => handleDurationChange(event.target.value)}
-                  on:focus={() => (isDurationDragging = true)}
-                  on:blur={() => (isDurationDragging = false)}
-                  on:pointerdown={() => (isDurationDragging = true)}
-                  on:pointerup={() => (isDurationDragging = false)}
-                  on:mousedown={() => (isDurationDragging = true)}
-                  on:mouseup={() => (isDurationDragging = false)}
-                  on:touchstart={() => (isDurationDragging = true)}
-                  on:touchend={() => (isDurationDragging = false)}
-                  style="
-                    accent-color: black;
-                  "
-                />
-              </div>
-              <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                <span>{durationRange.min}h</span>
-                <span>{durationRange.max}h</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    {/if}
-  </div>
 </div>
 

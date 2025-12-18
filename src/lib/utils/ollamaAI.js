@@ -688,8 +688,9 @@ Use your knowledge base to provide accurate airline information and route insigh
 			// Combine airlines with comma
 			const airlines = [...new Set(group.airlines)].join(', ');
 			
-			// Calculate total price or use first price if only one
-			const totalPrice = group.prices.reduce((sum, p) => sum + p, 0);
+			// Use the cheapest price instead of summing
+			const validPrices = group.prices.filter(p => p != null && p > 0);
+			const cheapestPrice = validPrices.length > 0 ? Math.min(...validPrices) : group.prices[0] || 0;
 			
 			// Use first values for other fields, or "Mixed" if multiple different values
 			const seatClass = new Set(group.seatClasses).size > 1 ? 'Mixed' : group.seatClasses[0];
@@ -697,7 +698,7 @@ Use your knowledge base to provide accurate airline information and route insigh
 			const departureTime = group.departureTimes[0]; // Use first time
 			const luggage = new Set(group.luggageInfos).size > 1 ? 'Varies by airline and class - check individual bookings' : group.luggageInfos[0];
 			
-			return `[航空公司：${airlines} 出發地點：${group.startingPlace} 目的地：${group.destination} 來回價錢：$${totalPrice} 艙等：${seatClass} 出發日期：${departureDate} 出發時間：${departureTime} 行李資訊：${luggage}]`;
+			return `[航空公司：${airlines} 出發地點：${group.startingPlace} 目的地：${group.destination} 來回價錢：$${cheapestPrice} 艙等：${seatClass} 出發日期：${departureDate} 出發時間：${departureTime} 行李資訊：${luggage}]`;
 		}).join(', ');
 		
 		// Get starting place and destination from the first ticket

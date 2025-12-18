@@ -43,6 +43,8 @@ export const airlineOptions: AirlineOption[] = [
   { code: 'ZE', name: '東海航空' },
   { code: 'BX', name: '釜山航空' },
   { code: 'RS', name: '首爾航空' },
+  { code: 'TW', name: '德威航空' },
+  { code: 'YP', name: 'Air Premia' },
   { code: 'SQ', name: '新加坡航空' },
   { code: 'TR', name: '酷航' },
   { code: 'TG', name: '泰國航空' },
