@@ -78,6 +78,7 @@ input[type='range'] {
   let showDurationDropdown = false;
   let showPriceDropdown = false;
   let airlineSearchQuery = '';
+  let airlineDropdownExpanded = false;
   let currentAdults = 1;
   let currentChildren = 0;
   let passengerSummary = '';
@@ -100,6 +101,10 @@ input[type='range'] {
 
   const toggleAirlineDropdown = () => {
     showAirlineDropdown = !showAirlineDropdown;
+    if (!showAirlineDropdown) {
+      // Reset expanded state when closing dropdown
+      airlineDropdownExpanded = false;
+    }
   };
 
   const emitPassengerChange = (adults, children) => {
@@ -169,12 +174,13 @@ input[type='range'] {
     : selectedAirlineCount === 0
       ? (i18n?.t?.('None selected') ?? 'None selected')
       : `${selectedAirlineCount} ${(i18n?.t?.('selected') ?? 'selected')}`;
-  $: filteredAirlines = airlineSearchQuery
+  $: filteredAirlines = (airlineSearchQuery
     ? airlineOptions.filter(airline => 
         airline.name.toLowerCase().includes(airlineSearchQuery.toLowerCase()) ||
         airline.code.toLowerCase().includes(airlineSearchQuery.toLowerCase())
       )
-    : airlineOptions;
+    : airlineOptions
+  ).sort((a, b) => a.code.localeCompare(b.code));
 
   const handleSelectAllAirlines = () => {
     if (allAirlinesSelected) {
@@ -226,7 +232,9 @@ input[type='range'] {
       closePassengerDropdown();
     }
     if (!event.target.closest('[data-airline-dropdown]')) {
+      // Close dropdown when clicking outside, even if expanded
       showAirlineDropdown = false;
+      airlineDropdownExpanded = false;
     }
     if (!event.target.closest('[data-price-dropdown]')) {
       showPriceDropdown = false;
@@ -382,18 +390,38 @@ input[type='range'] {
 
       {#if showAirlineDropdown}
         <div
-          class="absolute z-50 mt-2 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-3 max-h-80 overflow-hidden flex flex-col"
+          class="z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-3 overflow-hidden flex flex-col {airlineDropdownExpanded ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[45vw] h-[45vh]' : 'absolute top-full left-0 mt-2 w-[133.33%] md:w-full max-h-80'}"
           data-airline-dropdown
         >
           <div class="flex items-center justify-between">
             <span class="text-xs text-gray-500 dark:text-gray-400">{airlineSummary}</span>
-            <button
-              type="button"
-              class="text-xs font-medium text-gray-600 dark:text-gray-300 hover:underline"
-              on:click={handleSelectAllAirlines}
-            >
-              {allAirlinesSelected ? $i18n.t('Deselect all') : $i18n.t('Select all')}
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="text-xs font-medium text-gray-600 dark:text-gray-300 hover:underline"
+                on:click={handleSelectAllAirlines}
+              >
+                {allAirlinesSelected ? $i18n.t('Deselect all') : $i18n.t('Select all')}
+              </button>
+              <!-- Expand button - hidden on mobile, visible on desktop -->
+              <button
+                type="button"
+                class="hidden md:block p-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition"
+                on:click|stopPropagation={() => airlineDropdownExpanded = !airlineDropdownExpanded}
+                aria-label={airlineDropdownExpanded ? 'Minimize' : 'Expand'}
+                title={airlineDropdownExpanded ? 'Minimize' : 'Expand'}
+              >
+                {#if airlineDropdownExpanded}
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                  </svg>
+                {:else}
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                {/if}
+              </button>
+            </div>
           </div>
           
           <input
@@ -412,7 +440,7 @@ input[type='range'] {
                   checked={!excludedAirlines.has(airline.code)}
                   on:change={() => handleAirlineToggle(airline.code)}
                 />
-                <span class="truncate">{airline.name}</span>
+                <span class="truncate">{airline.name} ({airline.code})</span>
               </label>
             {/each}
           </div>
@@ -554,7 +582,7 @@ input[type='range'] {
           </div>
         </div>
       {/if}
-    </div>
+     </div>
    </div>
 
   {#if searchError}

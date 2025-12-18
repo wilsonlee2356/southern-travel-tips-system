@@ -342,34 +342,19 @@ const buildSavedSearchFromResponse = (data) => {
 	};
 	
 	// Function to aggregate flights by airline
-	const aggregateFlightsByAirline = (results) => {
-		if (!results || !results.searches || !Array.isArray(results.searches)) {
-			return {};
-		}
-		
+	const aggregateFlightsByAirline = (results, selectedSearch) => {
 		const airlineMap = new Map();
 		
-		results.searches.forEach((search) => {
-			// Check if flight_options is null, undefined, or empty
-			if (!search || !search.flight_options || !Array.isArray(search.flight_options) || search.flight_options.length === 0) {
-				return;
-			}
+		// First, initialize all airlines from the search configuration
+		if (selectedSearch && selectedSearch.airlines && Array.isArray(selectedSearch.airlines)) {
+			const airlineModels = Array.isArray(selectedSearch.autoSearchResponse?.airlines) 
+				? selectedSearch.autoSearchResponse.airlines 
+				: [];
 			
-			search.flight_options.forEach((option) => {
-				// Skip if option is null or doesn't have required fields
-				if (!option || option.price === null || option.price === undefined) {
-					return;
-				}
-				
-				// Get airline from first segment
-				let airlineCode = 'Unknown';
-				let airlineName = 'Unknown Airline';
-				
-				if (option.segments && option.segments.length > 0) {
-					const firstSegment = option.segments[0];
-					airlineCode = firstSegment.airline_id || firstSegment.airline || 'Unknown';
-					airlineName = firstSegment.airline || airlineCode;
-				}
+			selectedSearch.airlines.forEach((airlineCode) => {
+				// Find the airline model to get the name
+				const airlineModel = airlineModels.find(a => a?.code === airlineCode);
+				const airlineName = airlineModel?.name || airlineCodeToName.get(airlineCode) || airlineCode;
 				
 				if (!airlineMap.has(airlineCode)) {
 					airlineMap.set(airlineCode, {
@@ -379,28 +364,64 @@ const buildSavedSearchFromResponse = (data) => {
 						otherFlights: []
 					});
 				}
-				
-				const airlineData = airlineMap.get(airlineCode);
-				const flightData = {
-					...option,
-					search_id: search.search_id,
-					outbound_date: search.outbound_date,
-					return_date: search.return_date,
-					departure_id: search.departure_id,
-					arrival_id: search.arrival_id,
-					// Get departure date from first segment
-					departure_date: option.segments && option.segments.length > 0 
-						? option.segments[0].departure_date 
-						: search.outbound_date
-				};
-				
-				if (option.is_best_flight) {
-					airlineData.bestFlights.push(flightData);
-				} else {
-					airlineData.otherFlights.push(flightData);
-				}
 			});
-		});
+		}
+		
+		// Then, populate flights from results
+		if (results && results.searches && Array.isArray(results.searches)) {
+			results.searches.forEach((search) => {
+				// Check if flight_options is null, undefined, or empty
+				if (!search || !search.flight_options || !Array.isArray(search.flight_options) || search.flight_options.length === 0) {
+					return;
+				}
+				
+				search.flight_options.forEach((option) => {
+					// Skip if option is null or doesn't have required fields
+					if (!option || option.price === null || option.price === undefined) {
+						return;
+					}
+					
+					// Get airline from first segment
+					let airlineCode = 'Unknown';
+					let airlineName = 'Unknown Airline';
+					
+					if (option.segments && option.segments.length > 0) {
+						const firstSegment = option.segments[0];
+						airlineCode = firstSegment.airline_id || firstSegment.airline || 'Unknown';
+						airlineName = firstSegment.airline || airlineCode;
+					}
+					
+					if (!airlineMap.has(airlineCode)) {
+						airlineMap.set(airlineCode, {
+							code: airlineCode,
+							name: airlineName,
+							bestFlights: [],
+							otherFlights: []
+						});
+					}
+					
+					const airlineData = airlineMap.get(airlineCode);
+					const flightData = {
+						...option,
+						search_id: search.search_id,
+						outbound_date: search.outbound_date,
+						return_date: search.return_date,
+						departure_id: search.departure_id,
+						arrival_id: search.arrival_id,
+						// Get departure date from first segment
+						departure_date: option.segments && option.segments.length > 0 
+							? option.segments[0].departure_date 
+							: search.outbound_date
+					};
+					
+					if (option.is_best_flight) {
+						airlineData.bestFlights.push(flightData);
+					} else {
+						airlineData.otherFlights.push(flightData);
+					}
+				});
+			});
+		}
 		
 		// Sort flights by departure date
 		airlineMap.forEach((airlineData) => {
@@ -421,16 +442,38 @@ const buildSavedSearchFromResponse = (data) => {
 	};
 	
 	// Function to get aggregated flights for selected search
-	$: selectedSearchFlights = selectedSearchId && flightSearchResults.has(selectedSearchId)
-		? aggregateFlightsByAirline(flightSearchResults.get(selectedSearchId))
+	$: selectedSearch = selectedSearchId ? savedSearches.find(s => s.id === selectedSearchId) : null;
+	$: selectedSearchFlights = selectedSearchId
+		? aggregateFlightsByAirline(
+			flightSearchResults.has(selectedSearchId) ? flightSearchResults.get(selectedSearchId) : null,
+			selectedSearch
+		)
 		: {};
 	
-	$: airlineTabs = Object.keys(selectedSearchFlights).sort();
+	$: airlineTabs = Object.keys(selectedSearchFlights).sort((a, b) => {
+		const dataA = selectedSearchFlights[a];
+		const dataB = selectedSearchFlights[b];
+		const flightCountA = (dataA?.bestFlights?.length || 0) + (dataA?.otherFlights?.length || 0);
+		const flightCountB = (dataB?.bestFlights?.length || 0) + (dataB?.otherFlights?.length || 0);
+		
+		// Sort by flight count (descending - largest to smallest)
+		if (flightCountA !== flightCountB) {
+			return flightCountB - flightCountA;
+		}
+		
+		// If flight counts are equal, sort alphabetically
+		return a.localeCompare(b);
+	});
 	
 	// Reset selected airline tab when search changes
 	$: if (selectedSearchId) {
 		if (airlineTabs.length > 0 && (!selectedAirlineTab || !airlineTabs.includes(selectedAirlineTab))) {
-			selectedAirlineTab = airlineTabs[0];
+			// Select first airline tab that has flights, or first tab if none have flights
+			const firstTabWithFlights = airlineTabs.find(code => {
+				const data = selectedSearchFlights[code];
+				return data && (data.bestFlights.length > 0 || data.otherFlights.length > 0);
+			});
+			selectedAirlineTab = firstTabWithFlights || airlineTabs[0];
 		}
 	}
 	
@@ -1090,7 +1133,7 @@ $: airlineCodeToName = new Map(
 												</svg>
 												<p class="text-gray-500 dark:text-gray-400">Loading flight data...</p>
 											</div>
-										{:else if airlineTabs.length > 0}
+										{:else if airlineTabs.length > 0 || (selectedSearch && selectedSearch.airlines && selectedSearch.airlines.length > 0)}
 											<div class="space-y-4">
 												<!-- Route Info -->
 												<div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
@@ -1121,17 +1164,24 @@ $: airlineCodeToName = new Map(
 													<nav class="-mb-px flex space-x-8">
 														{#each airlineTabs as airlineCode}
 															{@const airlineData = selectedSearchFlights[airlineCode]}
+															{@const flightCount = airlineData.bestFlights.length + airlineData.otherFlights.length}
+															{@const hasFlights = flightCount > 0}
 															<button
 																on:click={() => selectedAirlineTab = airlineCode}
+																disabled={!hasFlights}
 																class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {
 																	selectedAirlineTab === airlineCode
-																		? 'border-blue-500 text-blue-600 dark:text-blue-400'
-																		: 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+																		? hasFlights
+																			? 'border-blue-500 text-blue-600 dark:text-blue-400'
+																			: 'border-gray-300 text-gray-400 dark:text-gray-500'
+																		: hasFlights
+																			? 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+																			: 'border-transparent text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-60'
 																}"
 															>
 																{airlineData.name} ({airlineCode})
 																<span class="ml-2 text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-																	{airlineData.bestFlights.length + airlineData.otherFlights.length}
+																	{flightCount}
 																</span>
 															</button>
 														{/each}
@@ -1141,6 +1191,7 @@ $: airlineCodeToName = new Map(
 												<!-- Flight Lists for Selected Airline -->
 												{#if selectedAirlineTab && selectedSearchFlights[selectedAirlineTab]}
 													{@const airlineData = selectedSearchFlights[selectedAirlineTab]}
+													{@const flightCount = airlineData.bestFlights.length + airlineData.otherFlights.length}
 													
 													<!-- Best Flights Table -->
 													{#if airlineData.bestFlights && airlineData.bestFlights.length > 0}
@@ -1157,16 +1208,16 @@ $: airlineCodeToName = new Map(
 																	{@const lastSegment = flight.segments && flight.segments.length > 0 ? flight.segments[flight.segments.length - 1] : null}
 																	{@const stopsCount = flight.segments && flight.segments.length > 0 ? flight.segments.length - 1 : 0}
 																	<div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700">
-																		<!-- Top Row: Departure → Arrival | Price -->
+																		<!-- Top Row: Departure Date → Return Date | Price -->
 																		<div class="flex items-start justify-between mb-3">
 																			<div class="flex items-center gap-2 flex-1 min-w-0">
-																				<!-- Departure -->
+																				<!-- Departure Date -->
 																				<div class="flex flex-col items-start">
-																					<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
-																						{formatTimeDisplay(firstSegment?.departure_time) || '—'}
+																					<div class="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
+																						Departure
 																					</div>
-																					<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-																						{firstSegment?.departure_airport_iata || flight.departure_id || '—'}
+																					<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
+																						{formatDateDisplay(flight.outbound_date) || '—'}
 																					</div>
 																				</div>
 																				
@@ -1175,13 +1226,13 @@ $: airlineCodeToName = new Map(
 																					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 																				</svg>
 																				
-																				<!-- Arrival -->
+																				<!-- Return Date -->
 																				<div class="flex flex-col items-start">
-																					<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
-																						{formatTimeDisplay(lastSegment?.arrival_time) || '—'}
+																					<div class="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
+																						Return
 																					</div>
-																					<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-																						{lastSegment?.arrival_airport_iata || flight.arrival_id || '—'}
+																					<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
+																						{formatDateDisplay(flight.return_date) || '—'}
 																					</div>
 																				</div>
 																			</div>
@@ -1233,8 +1284,8 @@ $: airlineCodeToName = new Map(
 																		<thead class="bg-gray-50 dark:bg-gray-700">
 																			<tr>
 																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Airline</th>
-																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">From</th>
-																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">To</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Departure Date</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Return Date</th>
 																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Price</th>
 																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Class</th>
 																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Duration</th>
@@ -1270,23 +1321,13 @@ $: airlineCodeToName = new Map(
 																					</td>
 																					<td class="px-4 py-4 whitespace-nowrap">
 																						<div class="text-sm text-gray-900 dark:text-gray-100">
-																							{firstSegment?.departure_airport_name || flight.departure_id || 'N/A'}
+																							{formatDateDisplay(flight.outbound_date) || 'N/A'}
 																						</div>
-																						{#if firstSegment?.departure_airport_iata}
-																							<div class="text-xs text-gray-500 dark:text-gray-400">
-																								{firstSegment.departure_airport_iata}
-																							</div>
-																						{/if}
 																					</td>
 																					<td class="px-4 py-4 whitespace-nowrap">
 																						<div class="text-sm text-gray-900 dark:text-gray-100">
-																							{lastSegment?.arrival_airport_name || flight.arrival_id || 'N/A'}
+																							{formatDateDisplay(flight.return_date) || 'N/A'}
 																						</div>
-																						{#if lastSegment?.arrival_airport_iata}
-																							<div class="text-xs text-gray-500 dark:text-gray-400">
-																								{lastSegment.arrival_airport_iata}
-																							</div>
-																						{/if}
 																					</td>
 																					<td class="px-4 py-4 whitespace-nowrap">
 																						<div class="text-sm font-semibold text-green-600 dark:text-green-400">
@@ -1416,16 +1457,16 @@ $: airlineCodeToName = new Map(
 																	{@const lastSegment = flight.segments && flight.segments.length > 0 ? flight.segments[flight.segments.length - 1] : null}
 																	{@const stopsCount = flight.segments && flight.segments.length > 0 ? flight.segments.length - 1 : 0}
 																	<div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700">
-																		<!-- Top Row: Departure → Arrival | Price -->
+																		<!-- Top Row: Departure Date → Return Date | Price -->
 																		<div class="flex items-start justify-between mb-3">
 																			<div class="flex items-center gap-2 flex-1 min-w-0">
-																				<!-- Departure -->
+																				<!-- Departure Date -->
 																				<div class="flex flex-col items-start">
-																					<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
-																						{formatTimeDisplay(firstSegment?.departure_time) || '—'}
+																					<div class="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
+																						Departure
 																					</div>
-																					<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-																						{firstSegment?.departure_airport_iata || flight.departure_id || '—'}
+																					<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
+																						{formatDateDisplay(flight.outbound_date) || '—'}
 																					</div>
 																				</div>
 																				
@@ -1434,13 +1475,13 @@ $: airlineCodeToName = new Map(
 																					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 																				</svg>
 																				
-																				<!-- Arrival -->
+																				<!-- Return Date -->
 																				<div class="flex flex-col items-start">
-																					<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
-																						{formatTimeDisplay(lastSegment?.arrival_time) || '—'}
+																					<div class="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
+																						Return
 																					</div>
-																					<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-																						{lastSegment?.arrival_airport_iata || flight.arrival_id || '—'}
+																					<div class="text-base font-semibold text-gray-900 dark:text-gray-100">
+																						{formatDateDisplay(flight.return_date) || '—'}
 																					</div>
 																				</div>
 																			</div>
@@ -1492,8 +1533,8 @@ $: airlineCodeToName = new Map(
 																		<thead class="bg-gray-50 dark:bg-gray-700">
 																			<tr>
 																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Airline</th>
-																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">From</th>
-																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">To</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Departure Date</th>
+																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Return Date</th>
 																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Price</th>
 																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Class</th>
 																				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Duration</th>
@@ -1529,23 +1570,13 @@ $: airlineCodeToName = new Map(
 																					</td>
 																					<td class="px-4 py-4 whitespace-nowrap">
 																						<div class="text-sm text-gray-900 dark:text-gray-100">
-																							{firstSegment?.departure_airport_name || flight.departure_id || 'N/A'}
+																							{formatDateDisplay(flight.outbound_date) || 'N/A'}
 																						</div>
-																						{#if firstSegment?.departure_airport_iata}
-																							<div class="text-xs text-gray-500 dark:text-gray-400">
-																								{firstSegment.departure_airport_iata}
-																							</div>
-																						{/if}
 																					</td>
 																					<td class="px-4 py-4 whitespace-nowrap">
 																						<div class="text-sm text-gray-900 dark:text-gray-100">
-																							{lastSegment?.arrival_airport_name || flight.arrival_id || 'N/A'}
+																							{formatDateDisplay(flight.return_date) || 'N/A'}
 																						</div>
-																						{#if lastSegment?.arrival_airport_iata}
-																							<div class="text-xs text-gray-500 dark:text-gray-400">
-																								{lastSegment.arrival_airport_iata}
-																							</div>
-																						{/if}
 																					</td>
 																					<td class="px-4 py-4 whitespace-nowrap">
 																						<div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -1660,7 +1691,7 @@ $: airlineCodeToName = new Map(
 														</div>
 													{/if}
 													
-													{#if (!airlineData.bestFlights || airlineData.bestFlights.length === 0) && (!airlineData.otherFlights || airlineData.otherFlights.length === 0)}
+													{#if flightCount === 0}
 														<div class="p-8 text-center text-gray-500 dark:text-gray-400">
 															No flight options available for this airline.
 														</div>
