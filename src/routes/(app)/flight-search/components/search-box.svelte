@@ -274,7 +274,7 @@ input[type='range'] {
 />
 
 <div class="bg-white dark:bg-gray-800 rounded-t-lg rounded-b-none shadow-lg p-6 border border-gray-200 dark:border-gray-700 border-b border-b-gray-200 dark:border-b-gray-700">
-   <div class="flex flex-wrap gap-4 mb-6">
+   <div class="md:flex flex-wrap gap-4 mb-6">
     <div class="flex flex-col min-w-[160px]">
       <label for="trip-type" class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">
          {$i18n.t('Trip Type')}
@@ -397,7 +397,7 @@ input[type='range'] {
 
       {#if showAirlineDropdown}
         <div
-          class="z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-3 overflow-hidden flex flex-col {airlineDropdownExpanded ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[45vw] h-[45vh]' : 'absolute top-full left-0 mt-2 w-[133.33%] md:w-full max-h-80'}"
+          class="w-full z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-3 flex flex-col {airlineDropdownExpanded ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[45vw] h-[45vh]' : 'absolute top-full left-0 mt-2 w-[133.33%] md:w-full max-h-80'}"
           data-airline-dropdown
         >
           <div class="flex items-center justify-between">
