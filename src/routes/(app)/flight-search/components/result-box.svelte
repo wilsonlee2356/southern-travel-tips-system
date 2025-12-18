@@ -27,6 +27,17 @@ export let otherFlights = [];
 
   // Popup state
   let showSelectedFlightsPopup = false;
+  let expandedPopupRows = new Set();
+
+  const togglePopupRowExpansion = (flightId) => {
+    const next = new Set(expandedPopupRows);
+    if (next.has(flightId)) {
+      next.delete(flightId);
+    } else {
+      next.add(flightId);
+    }
+    expandedPopupRows = next;
+  };
 
   // Helper functions for formatting
   const sanitizeString = (value) => (typeof value === 'string' ? value.trim() : null);
@@ -261,7 +272,7 @@ export let otherFlights = [];
 <!-- Selected Flights Popup Modal -->
 {#if showSelectedFlightsPopup && selectedFlights && selectedFlights.size > 0}
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 dark:bg-gray-900/50 backdrop-blur-sm"
     on:click={handleBackdropClick}
     role="dialog"
     aria-modal="true"
@@ -290,26 +301,56 @@ export let otherFlights = [];
       
       <!-- Content -->
       <div class="flex-1 overflow-y-auto p-6">
-        <div class="space-y-4">
+        <!-- Mobile Layout - visible on screens < 768px -->
+        <div class="block md:hidden space-y-3">
           {#each selectedFlightObjects as flight (flight.id)}
-            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-              <div class="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div>
-                  <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Airline')}</div>
-                  <div class="font-medium text-gray-900 dark:text-gray-100">{flight.airline}</div>
-                  {#if flight.airlineCode}
-                    <div class="text-xs text-gray-500 dark:text-gray-400">{flight.airlineCode}</div>
-                  {/if}
-                </div>
-                <div>
-                  <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Route')}</div>
-                  <div class="text-sm text-gray-900 dark:text-gray-100">
-                    {flight.startingPlace} → {flight.destination}
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700">
+              <!-- Remove Button -->
+              <div class="mb-3 flex justify-end">
+                <button
+                  type="button"
+                  class="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                  on:click={() => onToggleFlight(flight.id)}
+                  aria-label="Remove flight"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              </div>
+              
+              <!-- Top Row: Departure → Arrival | Price -->
+              <div class="flex items-start justify-between mb-3">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                  <!-- Departure -->
+                  <div class="flex flex-col items-start">
+                    <div class="text-base font-semibold text-gray-900 dark:text-gray-100">
+                      {formatTimeDisplay(flight.departureTime) || '—'}
+                    </div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {flight.startingPlaceCode || '—'}
+                    </div>
+                  </div>
+                  
+                  <!-- Arrow -->
+                  <svg class="w-4 h-4 text-gray-400 flex-shrink-0 mt-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                  
+                  <!-- Arrival -->
+                  <div class="flex flex-col items-start">
+                    <div class="text-base font-semibold text-gray-900 dark:text-gray-100">
+                      {formatTimeDisplay(flight.arrivalTime) || '—'}
+                    </div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {flight.destinationCode || '—'}
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Price')}</div>
-                  <div class="font-semibold text-green-600 dark:text-green-400">
+                
+                <!-- Price -->
+                <div class="ml-3 flex-shrink-0">
+                  <div class="text-lg font-semibold text-green-600 dark:text-green-400">
                     {#if flight.displayPrice}
                       {flight.displayPrice}
                     {:else if flight.cost != null}
@@ -319,30 +360,239 @@ export let otherFlights = [];
                     {/if}
                   </div>
                 </div>
-                <div>
-                  <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Departure')}</div>
-                  <div class="text-sm text-gray-900 dark:text-gray-100">
-                    {formatDateTimeInline(flight.departureDateTimeLabel, flight.departureLocalDate, flight.departureTime)}
-                  </div>
+              </div>
+              
+              <!-- Bottom Row: Airline Icon with Duration and Airline Name -->
+              <div class="flex items-start gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <!-- Airline Icon -->
+                <div class="flex-shrink-0">
+                  {#if flight.airlineLogo}
+                    <img src={flight.airlineLogo} alt="Airline logo" class="h-8 w-8 object-contain rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900" loading="lazy" />
+                  {:else}
+                    <div class="h-8 w-8 rounded-full border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                      <span class="text-xs text-gray-500 dark:text-gray-400">{flight.airlineCode || '—'}</span>
+                    </div>
+                  {/if}
                 </div>
-                <div>
-                  <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{$i18n.t('Duration')}</div>
-                  <div class="text-sm text-gray-900 dark:text-gray-100">
-                    {flight.duration || 'N/A'}
+                
+                <!-- Duration, Stops, and Airline Name - aligned left with icon -->
+                <div class="flex flex-col items-start flex-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">
+                      {flight.duration || 'N/A'}
+                    </span>
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {flight.segments > 1 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'}">
+                      {flight.segments > 1 ? `${flight.segments - 1} stop${flight.segments > 2 ? 's' : ''}` : 'Direct'}
+                    </span>
+                  </div>
+                  <div class="text-xs text-gray-500 dark:text-gray-400">
+                    {flight.airline || 'N/A'}
                   </div>
                 </div>
               </div>
-              <button
-                class="ml-4 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                on:click={() => onToggleFlight(flight.id)}
-                aria-label="Remove flight"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
             </div>
           {/each}
+        </div>
+
+        <!-- Desktop Table Layout - visible on screens >= 768px -->
+        <div class="hidden md:block overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {$i18n.t('Airline')}
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {$i18n.t('From')}
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {$i18n.t('To')}
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {$i18n.t('Price')}
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {$i18n.t('Class')}
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {$i18n.t('Duration')}
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  {$i18n.t('Stops')}
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <span class="sr-only">{$i18n.t('Actions')}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {#each selectedFlightObjects as flight (flight.id)}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <td class="px-4 py-4 whitespace-nowrap">
+                    <div class="flex items-center gap-3">
+                      {#if flight.airlineLogo}
+                        <img
+                          src={flight.airlineLogo}
+                          alt={`${flight.airline ?? 'Airline'} logo`}
+                          class="h-6 w-6 object-contain rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900"
+                          loading="lazy"
+                        />
+                      {/if}
+                      <div>
+                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {flight.airline}
+                        </div>
+                        {#if flight.airlineCode}
+                          <div class="text-xs text-gray-500 dark:text-gray-400">
+                            {flight.airlineCode}
+                          </div>
+                        {/if}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-4 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900 dark:text-gray-100">
+                      {flight.startingPlace}
+                    </div>
+                    {#if flight.startingPlaceCode}
+                      <div class="text-xs text-gray-500 dark:text-gray-400">
+                        {flight.startingPlaceCode}
+                      </div>
+                    {/if}
+                  </td>
+                  <td class="px-4 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900 dark:text-gray-100">
+                      {flight.destination}
+                    </div>
+                    {#if flight.destinationCode}
+                      <div class="text-xs text-gray-500 dark:text-gray-400">
+                        {flight.destinationCode}
+                      </div>
+                    {/if}
+                  </td>
+                  <td class="px-4 py-4 whitespace-nowrap">
+                    <div class="text-sm font-semibold text-green-600 dark:text-green-400">
+                      {#if flight.displayPrice}
+                        {flight.displayPrice}
+                      {:else if flight.cost != null}
+                        {flight.currency || '$'}{flight.cost}
+                      {:else}
+                        —
+                      {/if}
+                    </div>
+                  </td>
+                  <td class="px-4 py-4 whitespace-nowrap">
+                    {#if flight.seatClass}
+                      <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {(flight.seatClass || '').toLowerCase() === 'business' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}">
+                        {flight.seatClass}
+                      </span>
+                    {:else}
+                      <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                        {$i18n.t('N/A')}
+                      </span>
+                    {/if}
+                  </td>
+                  <td class="px-4 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900 dark:text-gray-100">
+                      {flight.duration || 'N/A'}
+                    </div>
+                  </td>
+                  <td class="px-4 py-4 whitespace-nowrap">
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {flight.segments > 1 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'}">
+                      {flight.segments > 1 ? `${flight.segments - 1} stop${flight.segments > 2 ? 's' : ''}` : 'Direct'}
+                    </span>
+                  </td>
+                  <td class="px-4 py-4 whitespace-nowrap text-right">
+                    <div class="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        class="inline-flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                        on:click={() => togglePopupRowExpansion(flight.id)}
+                        aria-expanded={expandedPopupRows.has(flight.id)}
+                        aria-label={expandedPopupRows.has(flight.id) ? $i18n.t('Hide details') : $i18n.t('Show details')}
+                      >
+                        <span class={`transform transition-transform ${expandedPopupRows.has(flight.id) ? 'rotate-180' : ''}`}>
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        class="inline-flex items-center justify-center rounded-full border border-red-300 dark:border-red-600 px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                        on:click={() => onToggleFlight(flight.id)}
+                        aria-label="Remove flight"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {#if expandedPopupRows.has(flight.id)}
+                  <tr class="bg-gray-50 dark:bg-gray-900/60">
+                    <td colspan="8" class="px-6 py-4">
+                      <div class="flex items-start justify-between gap-6">
+                        <div class="flex flex-col items-center justify-between text-gray-300 dark:text-gray-600 self-stretch ml-70">
+                          <span class="h-2 w-2 rounded-full bg-current transform translate-y-2"></span>
+                          <div class="w-px flex-1 border-l border-dashed border-current"></div>
+                          <span class="h-2 w-2 rounded-full bg-current transform -translate-y-2"></span>
+                        </div>
+                        <div class="flex flex-col items-start gap-6 flex-1">
+                          <div class="flex flex-col">
+                            <div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                              {formatTimeDisplay(flight.departureTime)}
+                              {#if flight.departureAirportName}
+                                <span class="text-xs text-gray-500 dark:text-gray-400">{flight.departureAirportName}</span>
+                              {/if}
+                            </div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                              {formatDateDisplay(flight.departureLocalDate) ?? '—'}
+                            </div>
+                          </div>
+                          <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            路程時間：{flight.totalDurationLabel}
+                          </div>
+                          <div class="flex flex-col">
+                            <div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                              {formatTimeDisplay(flight.arrivalTime)}
+                              {#if flight.arrivalAirportName}
+                                <span class="text-xs text-gray-500 dark:text-gray-400">{flight.arrivalAirportName}</span>
+                              {/if}
+                            </div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                              {formatDateDisplay(flight.arrivalLocalDate) ?? '—'}
+                            </div>
+                          </div>
+                        </div>
+                        <div class="flex flex-col items-start text-sm text-gray-600 dark:text-gray-300 min-w-[200px]">
+                          <div class="flex flex-col gap-3">
+                            {#if flight.flightNumber}
+                              <div class="flex items-center gap-3">
+                                <div class="flex items-center justify-center w-6 h-6">
+                                  <img src="/flight.png" alt="Flight number" class="w-6 h-6 object-contain" loading="lazy" />
+                                </div>
+                                <span>{flight.flightNumber}</span>
+                              </div>
+                            {/if}
+                            {#if flight.seatClass}
+                              <div class="flex items-center gap-3">
+                                <div class="flex items-center justify-center w-6 h-6">
+                                  <img src="/seat.png" alt="Travel class" class="w-6 h-6 object-contain" loading="lazy" />
+                                </div>
+                                <span>{flight.seatClass}</span>
+                              </div>
+                            {/if}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                {/if}
+              {/each}
+            </tbody>
+          </table>
         </div>
       </div>
       
