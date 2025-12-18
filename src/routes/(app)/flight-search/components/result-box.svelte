@@ -61,6 +61,18 @@ export let otherFlights = [];
     return sanitized;
   };
 
+  // Helper function to collect segments from flight data
+  const collectSegments = (flight) => {
+    if (!flight?.rawData) return [];
+    const raw = flight.rawData;
+    if (Array.isArray(raw.flights)) return raw.flights;
+    if (Array.isArray(raw.legs)) return raw.legs;
+    if (Array.isArray(raw.segments)) return raw.segments;
+    if (Array.isArray(raw.outbound_flights)) return raw.outbound_flights;
+    if (Array.isArray(raw.outbound)) return raw.outbound;
+    return [];
+  };
+
   const formatDateTimeInline = (label, dateValue, timeValue) => {
     const sanitizedLabel = sanitizeString(label);
     if (sanitizedLabel) return sanitizedLabel;
@@ -531,40 +543,102 @@ export let otherFlights = [];
                   </td>
                 </tr>
                 {#if expandedPopupRows.has(flight.id)}
+                  {@const segments = flight.segments > 1 ? collectSegments(flight) : []}
+                  {@const hasMultipleSegments = segments.length > 1}
                   <tr class="bg-gray-50 dark:bg-gray-900/60">
                     <td colspan="8" class="px-6 py-4">
                       <div class="flex items-start justify-between gap-6">
                         <div class="flex flex-col items-center justify-between text-gray-300 dark:text-gray-600 self-stretch ml-70">
-                          <span class="h-2 w-2 rounded-full bg-current transform translate-y-2"></span>
-                          <div class="w-px flex-1 border-l border-dashed border-current"></div>
-                          <span class="h-2 w-2 rounded-full bg-current transform -translate-y-2"></span>
+                          {#if hasMultipleSegments}
+                            <!-- Multiple segments: show dots for each segment -->
+                            {#each segments as segment, index}
+                              <span class="h-2 w-2 rounded-full bg-current {index === 0 ? 'transform translate-y-2' : ''}"></span>
+                              {#if index < segments.length - 1}
+                                <div class="w-px flex-1 border-l border-dashed border-current" style="min-height: 60px;"></div>
+                              {/if}
+                            {/each}
+                          {:else}
+                            <!-- Single segment: original layout -->
+                            <span class="h-2 w-2 rounded-full bg-current transform translate-y-2"></span>
+                            <div class="w-px flex-1 border-l border-dashed border-current"></div>
+                            <span class="h-2 w-2 rounded-full bg-current transform -translate-y-2"></span>
+                          {/if}
                         </div>
                         <div class="flex flex-col items-start gap-6 flex-1">
-                          <div class="flex flex-col">
-                            <div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                              {formatTimeDisplay(flight.departureTime)}
-                              {#if flight.departureAirportName}
-                                <span class="text-xs text-gray-500 dark:text-gray-400">{flight.departureAirportName}</span>
+                          {#if hasMultipleSegments}
+                            <!-- Display each segment -->
+                            {#each segments as segment, index}
+                              {@const depAirport = segment.departure_airport ?? segment.departure ?? segment.from ?? segment.origin ?? {}}
+                              {@const arrAirport = segment.arrival_airport ?? segment.arrival ?? segment.to ?? segment.destination ?? {}}
+                              {@const depTime = depAirport.time ?? segment.departure_time ?? segment.departureDateTime ?? segment.departure_time_utc}
+                              {@const arrTime = arrAirport.time ?? segment.arrival_time ?? segment.arrivalDateTime ?? segment.arrival_time_utc}
+                              {@const depDate = depAirport.date ?? segment.departure_date ?? segment.departureDate}
+                              {@const arrDate = arrAirport.date ?? segment.arrival_date ?? segment.arrivalDate}
+                              {@const depAirportName = depAirport.name ?? depAirport.id ?? depAirport.code ?? segment.departure_airport_name}
+                              {@const arrAirportName = arrAirport.name ?? arrAirport.id ?? arrAirport.code ?? segment.arrival_airport_name}
+                              {@const segmentDuration = segment.duration ?? segment.flight_duration}
+                              
+                              <div class="flex flex-col">
+                                <div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                  {formatTimeDisplay(depTime)}
+                                  {#if depAirportName}
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">{depAirportName}</span>
+                                  {/if}
+                                </div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">
+                                  {formatDateDisplay(depDate) ?? '—'}
+                                </div>
+                              </div>
+                              {#if segmentDuration}
+                                <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                  路程時間：{segmentDuration}
+                                </div>
                               {/if}
-                            </div>
-                            <div class="text-xs text-gray-500 dark:text-gray-400">
-                              {formatDateDisplay(flight.departureLocalDate) ?? '—'}
-                            </div>
-                          </div>
-                          <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            路程時間：{flight.totalDurationLabel}
-                          </div>
-                          <div class="flex flex-col">
-                            <div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                              {formatTimeDisplay(flight.arrivalTime)}
-                              {#if flight.arrivalAirportName}
-                                <span class="text-xs text-gray-500 dark:text-gray-400">{flight.arrivalAirportName}</span>
+                              <div class="flex flex-col">
+                                <div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                  {formatTimeDisplay(arrTime)}
+                                  {#if arrAirportName}
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">{arrAirportName}</span>
+                                  {/if}
+                                </div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">
+                                  {formatDateDisplay(arrDate) ?? '—'}
+                                </div>
+                              </div>
+                              {#if index < segments.length - 1}
+                                <div class="text-xs text-gray-500 dark:text-gray-400 italic my-2">
+                                  轉機
+                                </div>
                               {/if}
+                            {/each}
+                          {:else}
+                            <!-- Single segment: original display -->
+                            <div class="flex flex-col">
+                              <div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                {formatTimeDisplay(flight.departureTime)}
+                                {#if flight.departureAirportName}
+                                  <span class="text-xs text-gray-500 dark:text-gray-400">{flight.departureAirportName}</span>
+                                {/if}
+                              </div>
+                              <div class="text-xs text-gray-500 dark:text-gray-400">
+                                {formatDateDisplay(flight.departureLocalDate) ?? '—'}
+                              </div>
                             </div>
-                            <div class="text-xs text-gray-500 dark:text-gray-400">
-                              {formatDateDisplay(flight.arrivalLocalDate) ?? '—'}
+                            <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              路程時間：{flight.totalDurationLabel}
                             </div>
-                          </div>
+                            <div class="flex flex-col">
+                              <div class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                {formatTimeDisplay(flight.arrivalTime)}
+                                {#if flight.arrivalAirportName}
+                                  <span class="text-xs text-gray-500 dark:text-gray-400">{flight.arrivalAirportName}</span>
+                                {/if}
+                              </div>
+                              <div class="text-xs text-gray-500 dark:text-gray-400">
+                                {formatDateDisplay(flight.arrivalLocalDate) ?? '—'}
+                              </div>
+                            </div>
+                          {/if}
                         </div>
                         <div class="flex flex-col items-start text-sm text-gray-600 dark:text-gray-300 min-w-[200px]">
                           <div class="flex flex-col gap-3">
