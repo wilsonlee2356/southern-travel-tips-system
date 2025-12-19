@@ -38,6 +38,7 @@ let activeTab = 'website-blog';
 	// Image editing state
 	let showEditImageModal = false;
 	let originalScenicImage = null;  // Original image without overlays
+	let customSceneryImage = null;  // User uploaded custom scenery image
 	let editDestination = '';
 	let editPromoteText = '';
 	let editAirline = '';
@@ -270,6 +271,72 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 		}
 	});
 	
+	// Function to handle custom scenery image upload
+	function handleCustomSceneryUpload(event) {
+		const file = event.target.files?.[0];
+		if (!file) return;
+		
+		// Validate file type
+		if (!file.type.startsWith('image/')) {
+			alert('Please upload an image file');
+			return;
+		}
+		
+		// Validate file size (10MB)
+		if (file.size > 10 * 1024 * 1024) {
+			alert('File size must be less than 10MB');
+			return;
+		}
+		
+		// Convert to base64
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			customSceneryImage = e.target.result;
+			console.log('Custom scenery image uploaded:', file.name);
+		};
+		reader.onerror = () => {
+			alert('Error reading file');
+		};
+		reader.readAsDataURL(file);
+	}
+
+	// Function to handle drag and drop for custom scenery image
+	function handleCustomSceneryDrop(event) {
+		event.preventDefault();
+		event.stopPropagation();
+		
+		const file = event.dataTransfer.files?.[0];
+		if (!file) return;
+		
+		// Validate file type
+		if (!file.type.startsWith('image/')) {
+			alert('Please upload an image file');
+			return;
+		}
+		
+		// Validate file size (10MB)
+		if (file.size > 10 * 1024 * 1024) {
+			alert('File size must be less than 10MB');
+			return;
+		}
+		
+		// Convert to base64
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			customSceneryImage = e.target.result;
+			console.log('Custom scenery image uploaded via drag and drop:', file.name);
+		};
+		reader.onerror = () => {
+			alert('Error reading file');
+		};
+		reader.readAsDataURL(file);
+	}
+
+	function handleCustomSceneryDragOver(event) {
+		event.preventDefault();
+		event.stopPropagation();
+	}
+
 	// Function to handle image text editing
 	async function handleEditImage() {
 		if (isUpdatingImage) return; // Prevent multiple clicks
@@ -284,6 +351,20 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 			
 			const token = localStorage.getItem('token') || '';
 			
+			// Prepare payload with optional custom scenery image
+			const payload = {
+				original_image_base64: originalScenicImage,
+				destination: editDestination,
+				promote_text: editPromoteText,
+				airline: editAirline,
+				price: editPrice
+			};
+			
+			// Add custom scenery image if provided
+			if (customSceneryImage) {
+				payload.custom_scenery_image_base64 = customSceneryImage;
+			}
+			
 			// Call the regenerate API directly
 			const response = await fetch(`${WEBUI_API_BASE_URL}/pollinations/regenerate-with-text`, {
 				method: 'POST',
@@ -291,13 +372,7 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 					'Content-Type': 'application/json',
 					...(token && { Authorization: `Bearer ${token}` })
 				},
-				body: JSON.stringify({
-					original_image_base64: originalScenicImage,
-					destination: editDestination,
-					promote_text: editPromoteText,
-					airline: editAirline,
-					price: editPrice
-				})
+				body: JSON.stringify(payload)
 			});
 			
 			if (!response.ok) {
@@ -674,23 +749,23 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 										Click to change image or drag and drop
 									</p>
 								{:else}
-									<svg
-										class="mx-auto h-12 w-12 text-gray-400"
-										stroke="currentColor"
-										fill="none"
-										viewBox="0 0 48 48"
-									>
-										<path
-											d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-										/>
-									</svg>
-									<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-										Click to upload ticket screenshot or drag and drop
-									</p>
-									<p class="text-xs text-gray-500 dark:text-gray-500">PNG, JPG, GIF up to 10MB</p>
+								<svg
+									class="mx-auto h-12 w-12 text-gray-400"
+									stroke="currentColor"
+									fill="none"
+									viewBox="0 0 48 48"
+								>
+									<path
+										d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
+								</svg>
+								<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+									Click to upload ticket screenshot or drag and drop
+								</p>
+								<p class="text-xs text-gray-500 dark:text-gray-500">PNG, JPG, GIF up to 10MB</p>
 								{/if}
 							</div>
 						</div>
@@ -1381,7 +1456,10 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 			<div class="flex justify-between items-center mb-6">
 				<h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Edit Text on Image</h2>
 				<button
-					on:click={() => showEditImageModal = false}
+					on:click={() => {
+						showEditImageModal = false;
+						customSceneryImage = null; // Reset custom scenery image when closing modal
+					}}
 					class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
 				>
 					<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1443,12 +1521,80 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 						placeholder="e.g., 3,500"
 					/>
 				</div>
+				
+				<!-- Custom Scenery Image Upload -->
+				<div>
+					<label for="custom-scenery-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+						Custom Scenery Image (自訂風景圖片)
+					</label>
+					<div
+						role="button"
+						tabindex="0"
+						class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer relative"
+						on:click={() => document.getElementById('custom-scenery-input').click()}
+						on:keydown={(e) => e.key === 'Enter' && document.getElementById('custom-scenery-input').click()}
+						on:drop={handleCustomSceneryDrop}
+						on:dragover={handleCustomSceneryDragOver}
+					>
+						<input
+							id="custom-scenery-input"
+							type="file"
+							accept="image/*"
+							class="hidden"
+							on:change={handleCustomSceneryUpload}
+						/>
+						{#if customSceneryImage}
+							<img
+								src={customSceneryImage}
+								alt="Custom scenery preview"
+								class="max-w-full max-h-48 mx-auto object-contain rounded mb-2"
+							/>
+							<div class="flex items-center justify-center gap-2 mt-2">
+								<p class="text-sm text-gray-600 dark:text-gray-400">
+									Click to change image or drag and drop
+								</p>
+								<button
+									type="button"
+									on:click|stopPropagation={() => customSceneryImage = null}
+									class="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+									title="Remove custom scenery image"
+								>
+									Remove
+								</button>
+							</div>
+						{:else}
+							<svg
+								class="mx-auto h-10 w-10 text-gray-400"
+								stroke="currentColor"
+								fill="none"
+								viewBox="0 0 48 48"
+							>
+								<path
+									d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								/>
+							</svg>
+							<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+								Click to upload custom scenery image or drag and drop
+							</p>
+							<p class="text-xs text-gray-500 dark:text-gray-500">PNG, JPG, GIF up to 10MB</p>
+							<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+								(Optional: Replace scenery background while keeping icons and banners)
+							</p>
+						{/if}
+					</div>
+				</div>
 			</div>
 			
 			<!-- Action Buttons -->
 			<div class="mt-6 flex justify-end space-x-3">
 				<button
-					on:click={() => showEditImageModal = false}
+					on:click={() => {
+						showEditImageModal = false;
+						customSceneryImage = null; // Reset custom scenery image when canceling
+					}}
 					disabled={isUpdatingImage}
 					class="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
 				>

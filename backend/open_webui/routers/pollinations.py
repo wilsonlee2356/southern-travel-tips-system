@@ -480,10 +480,12 @@ async def regenerate_image_with_custom_text(
     """
     Regenerate the scenic image with custom text overlays
     Keeps the original Pollinations.ai image but updates the text overlays
+    Optionally replaces the scenery image with a user-uploaded custom image
     
     Expected payload:
     {
         "original_image_base64": "data:image/jpeg;base64,...",  # Original Pollinations image (without overlays)
+        "custom_scenery_image_base64": "data:image/jpeg;base64,...",  # Optional: User uploaded scenery image
         "destination": "Tokyo",
         "promote_text": "多航班及日子選擇！\n凌晨去晚返都有！",
         "airline": "中華航空",
@@ -493,6 +495,7 @@ async def regenerate_image_with_custom_text(
     try:
         # Extract parameters
         original_image_base64 = payload.get("original_image_base64")
+        custom_scenery_image_base64 = payload.get("custom_scenery_image_base64")
         destination = payload.get("destination", "")
         promote_text = payload.get("promote_text", "")
         airline = payload.get("airline")
@@ -501,10 +504,13 @@ async def regenerate_image_with_custom_text(
         if not original_image_base64:
             raise HTTPException(status_code=400, detail="Original image is required")
         
+        # Use custom scenery image if provided, otherwise use original
+        scenery_image_base64 = custom_scenery_image_base64 if custom_scenery_image_base64 else original_image_base64
+        
         # Decode the base64 image
-        if "," in original_image_base64:
-            original_image_base64 = original_image_base64.split(",")[1]
-        image_bytes = base64.b64decode(original_image_base64)
+        if "," in scenery_image_base64:
+            scenery_image_base64 = scenery_image_base64.split(",")[1]
+        image_bytes = base64.b64decode(scenery_image_base64)
         
         # Regenerate the image with new text overlays
         edited_image_bytes = _add_bottom_banner(
