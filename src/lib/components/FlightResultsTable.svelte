@@ -723,9 +723,9 @@ const toggleRowExpansion = (flightId) => {
 								{/each}
 							{:else}
 								<!-- Single segment: original layout -->
-								<span class="h-2 w-2 rounded-full bg-current transform translate-y-2"></span>
-								<div class="w-px flex-1 border-l border-dashed border-current"></div>
-								<span class="h-2 w-2 rounded-full bg-current transform -translate-y-2"></span>
+							<span class="h-2 w-2 rounded-full bg-current transform translate-y-2"></span>
+							<div class="w-px flex-1 border-l border-dashed border-current"></div>
+							<span class="h-2 w-2 rounded-full bg-current transform -translate-y-2"></span>
 							{/if}
 						</div>
 						<div class="flex flex-col items-start gap-6 flex-1">

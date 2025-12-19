@@ -46,6 +46,36 @@ input[type='range'] {
     background: white;
     border-color: black;
   }
+
+  /* Hide native select arrows - using :global to ensure styles apply */
+  :global(select#trip-type),
+  :global(select#cabin-class),
+  :global(select#stops) {
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    background-image: none !important;
+    background-repeat: no-repeat !important;
+    background-position: right center !important;
+  }
+  
+  /* Remove IE/Edge arrow */
+  :global(select#trip-type::-ms-expand),
+  :global(select#cabin-class::-ms-expand),
+  :global(select#stops::-ms-expand) {
+    display: none !important;
+  }
+  
+  /* Additional WebKit fixes */
+  :global(select#trip-type::-webkit-inner-spin-button),
+  :global(select#trip-type::-webkit-outer-spin-button),
+  :global(select#cabin-class::-webkit-inner-spin-button),
+  :global(select#cabin-class::-webkit-outer-spin-button),
+  :global(select#stops::-webkit-inner-spin-button),
+  :global(select#stops::-webkit-outer-spin-button) {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+  }
 </style>
  <script>
   import { getContext, createEventDispatcher } from 'svelte';
@@ -77,8 +107,14 @@ input[type='range'] {
   let showAirlineDropdown = false;
   let showDurationDropdown = false;
   let showPriceDropdown = false;
+  let showTripTypeDropdown = false;
+  let showCabinClassDropdown = false;
+  let showStopsDropdown = false;
   let airlineSearchQuery = '';
   let airlineDropdownExpanded = false;
+  let hoveredTripType = null;
+  let hoveredCabinClass = null;
+  let hoveredStops = null;
   let currentAdults = 1;
   let currentChildren = 0;
   let passengerSummary = '';
@@ -219,7 +255,38 @@ input[type='range'] {
 
   const handleStopsChange = (value) => {
     emitFiltersChange({ stops: value });
+    showStopsDropdown = false;
   };
+
+  const handleTripTypeChange = (value) => {
+    searchForm.tripType = value;
+    showTripTypeDropdown = false;
+  };
+
+  const handleCabinClassChange = (value) => {
+    searchForm.seatClass = value;
+    showCabinClassDropdown = false;
+  };
+
+  $: tripTypeDisplay = searchForm.tripType === 'round-trip' 
+    ? (i18n?.t?.('Round Trip') ?? 'Round Trip')
+    : (i18n?.t?.('One Way') ?? 'One Way');
+  
+  $: cabinClassDisplay = searchForm.seatClass === 'economy'
+    ? (i18n?.t?.('Economy') ?? 'Economy')
+    : searchForm.seatClass === 'premium economy'
+    ? (i18n?.t?.('Premium Economy') ?? 'Premium Economy')
+    : searchForm.seatClass === 'business'
+    ? (i18n?.t?.('Business') ?? 'Business')
+    : (i18n?.t?.('First Class') ?? 'First Class');
+  
+  $: stopsDisplay = searchForm.stops === 'any'
+    ? (i18n?.t?.('Any') ?? 'Any')
+    : searchForm.stops === 'direct'
+    ? (i18n?.t?.('Direct') ?? 'Direct')
+    : searchForm.stops === 'one-or-less'
+    ? (i18n?.t?.('One stop or fewer') ?? 'One stop or fewer')
+    : (i18n?.t?.('Two stops or fewer') ?? 'Two stops or fewer');
 
 
   const handleAirlineToggle = (code) => {
@@ -246,10 +313,19 @@ input[type='range'] {
     if (!event.target.closest('[data-price-dropdown]')) {
       showPriceDropdown = false;
     }
-    if (!event.target.closest('[data-duration-dropdown]')) {
-      showDurationDropdown = false;
-    }
-  };
+     if (!event.target.closest('[data-duration-dropdown]')) {
+       showDurationDropdown = false;
+     }
+     if (!event.target.closest('[data-trip-type-dropdown]')) {
+       showTripTypeDropdown = false;
+     }
+     if (!event.target.closest('[data-cabin-class-dropdown]')) {
+       showCabinClassDropdown = false;
+     }
+     if (!event.target.closest('[data-stops-dropdown]')) {
+       showStopsDropdown = false;
+     }
+   };
 
   const handleWindowKeydown = (event) => {
     if (event.key === 'Escape') {
@@ -275,22 +351,50 @@ input[type='range'] {
 
 <div class="bg-white dark:bg-gray-800 rounded-t-lg rounded-b-none shadow-lg p-6 border border-gray-200 dark:border-gray-700 border-b border-b-gray-200 dark:border-b-gray-700">
    <div class="md:flex flex-wrap gap-4 mb-6">
-    <div class="flex flex-col min-w-[160px]">
-      <label for="trip-type" class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">
+    <div class="flex flex-col min-w-[160px] relative mb-4 md:mb-0" data-trip-type-dropdown>
+      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3 md:mb-1 uppercase tracking-wide">
          {$i18n.t('Trip Type')}
-       </label>
-       <select
-        id="trip-type"
-         class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 text-sm"
-         bind:value={searchForm.tripType}
+       </span>
+       <button
+         type="button"
+         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-left text-sm text-gray-900 dark:text-gray-100 flex items-center justify-between gap-2"
+         on:click={() => showTripTypeDropdown = !showTripTypeDropdown}
+         data-trip-type-dropdown
        >
-         <option value="round-trip">{$i18n.t('Round Trip')}</option>
-         <option value="one-way">{$i18n.t('One Way')}</option>
-       </select>
+         <span>{tripTypeDisplay}</span>
+         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+         </svg>
+       </button>
+       {#if showTripTypeDropdown}
+         <div
+           class="absolute z-50 top-full left-0 w-full bg-white dark:bg-black border border-gray-300 dark:border-gray-600 rounded-none shadow-lg overflow-hidden"
+           data-trip-type-dropdown
+         >
+           <button
+             type="button"
+             class="w-full px-4 py-3 text-left text-sm text-black dark:text-white transition cursor-pointer {hoveredTripType === 'round-trip' || (hoveredTripType === null && searchForm.tripType === 'round-trip') ? 'bg-black text-white dark:bg-white dark:text-black' : 'hover:bg-black hover:text-white dark:hover:bg-black dark:hover:text-white'}"
+             on:click={() => handleTripTypeChange('round-trip')}
+             on:mouseenter={() => hoveredTripType = 'round-trip'}
+             on:mouseleave={() => hoveredTripType = null}
+           >
+             {$i18n.t('Round Trip')}
+           </button>
+           <button
+             type="button"
+             class="w-full px-4 py-3 text-left text-sm text-black dark:text-white transition cursor-pointer border-t border-black dark:border-white {hoveredTripType === 'one-way' || (hoveredTripType === null && searchForm.tripType === 'one-way') ? 'bg-black text-white dark:bg-white dark:text-black' : 'hover:bg-black hover:text-white dark:hover:bg-black dark:hover:text-white'}"
+             on:click={() => handleTripTypeChange('one-way')}
+             on:mouseenter={() => hoveredTripType = 'one-way'}
+             on:mouseleave={() => hoveredTripType = null}
+           >
+             {$i18n.t('One Way')}
+           </button>
+         </div>
+       {/if}
      </div>
 
-    <div class="flex flex-col min-w-[200px] relative">
-      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">
+    <div class="flex flex-col min-w-[200px] relative mb-4 md:mb-0">
+      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3 md:mb-1 uppercase tracking-wide">
          {$i18n.t('Passengers')}
       </span>
        <button
@@ -307,7 +411,7 @@ input[type='range'] {
 
        {#if showPassengerDropdown}
         <div
-          class="absolute z-50 mt-2 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-4"
+          class="absolute z-50 top-full left-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-4"
           role="dialog"
           tabindex="-1"
           data-passenger-dropdown
@@ -343,43 +447,130 @@ input[type='range'] {
        {/if}
      </div>
 
-    <div class="flex flex-col min-w-[180px]">
-      <label for="cabin-class" class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">
+    <div class="flex flex-col min-w-[180px] relative mb-4 md:mb-0" data-cabin-class-dropdown>
+      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3 md:mb-1 uppercase tracking-wide">
          {$i18n.t('Cabin Class')}
-       </label>
-       <select
-        id="cabin-class"
-         class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 text-sm"
-         bind:value={searchForm.seatClass}
+       </span>
+       <button
+         type="button"
+         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-left text-sm text-gray-900 dark:text-gray-100 flex items-center justify-between gap-2"
+         on:click={() => showCabinClassDropdown = !showCabinClassDropdown}
+         data-cabin-class-dropdown
        >
-         <option value="economy">{$i18n.t('Economy')}</option>
-         <option value="premium economy">{$i18n.t('Premium Economy')}</option>
-         <option value="business">{$i18n.t('Business')}</option>
-         <option value="first class">{$i18n.t('First Class')}</option>
-       </select>
+         <span>{cabinClassDisplay}</span>
+         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+         </svg>
+       </button>
+       {#if showCabinClassDropdown}
+         <div
+           class="absolute z-50 top-full left-0 w-full bg-white dark:bg-black border border-gray-300 dark:border-gray-600 rounded-none shadow-lg overflow-hidden"
+           data-cabin-class-dropdown
+         >
+           <button
+             type="button"
+             class="w-full px-4 py-3 text-left text-sm text-black dark:text-white transition cursor-pointer {hoveredCabinClass === 'economy' || (hoveredCabinClass === null && searchForm.seatClass === 'economy') ? 'bg-black text-white dark:bg-white dark:text-black' : 'hover:bg-black hover:text-white dark:hover:bg-black dark:hover:text-white'}"
+             on:click={() => handleCabinClassChange('economy')}
+             on:mouseenter={() => hoveredCabinClass = 'economy'}
+             on:mouseleave={() => hoveredCabinClass = null}
+           >
+             {$i18n.t('Economy')}
+           </button>
+           <button
+             type="button"
+             class="w-full px-4 py-3 text-left text-sm text-black dark:text-white transition cursor-pointer border-t border-gray-300 dark:border-gray-600 {hoveredCabinClass === 'premium economy' || (hoveredCabinClass === null && searchForm.seatClass === 'premium economy') ? 'bg-black text-white dark:bg-white dark:text-black' : 'hover:bg-black hover:text-white dark:hover:bg-black dark:hover:text-white'}"
+             on:click={() => handleCabinClassChange('premium economy')}
+             on:mouseenter={() => hoveredCabinClass = 'premium economy'}
+             on:mouseleave={() => hoveredCabinClass = null}
+           >
+             {$i18n.t('Premium Economy')}
+           </button>
+           <button
+             type="button"
+             class="w-full px-4 py-3 text-left text-sm text-black dark:text-white transition cursor-pointer border-t border-gray-300 dark:border-gray-600 {hoveredCabinClass === 'business' || (hoveredCabinClass === null && searchForm.seatClass === 'business') ? 'bg-black text-white dark:bg-white dark:text-black' : 'hover:bg-black hover:text-white dark:hover:bg-black dark:hover:text-white'}"
+             on:click={() => handleCabinClassChange('business')}
+             on:mouseenter={() => hoveredCabinClass = 'business'}
+             on:mouseleave={() => hoveredCabinClass = null}
+           >
+             {$i18n.t('Business')}
+           </button>
+           <button
+             type="button"
+             class="w-full px-4 py-3 text-left text-sm text-black dark:text-white transition cursor-pointer border-t border-gray-300 dark:border-gray-600 {hoveredCabinClass === 'first class' || (hoveredCabinClass === null && searchForm.seatClass === 'first class') ? 'bg-black text-white dark:bg-white dark:text-black' : 'hover:bg-black hover:text-white dark:hover:bg-black dark:hover:text-white'}"
+             on:click={() => handleCabinClassChange('first class')}
+             on:mouseenter={() => hoveredCabinClass = 'first class'}
+             on:mouseleave={() => hoveredCabinClass = null}
+           >
+             {$i18n.t('First Class')}
+           </button>
+         </div>
+       {/if}
      </div>
 
     <!-- Stops Dropdown -->
-    <div class="flex flex-col min-w-[180px]">
-      <label for="stops" class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">
+    <div class="flex flex-col min-w-[180px] relative mb-4 md:mb-0" data-stops-dropdown>
+      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3 md:mb-1 uppercase tracking-wide">
          {$i18n.t('Stops')}
-       </label>
-       <select
-        id="stops"
-         class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 text-sm"
-         bind:value={searchForm.stops}
-         on:change={(e) => handleStopsChange(e.target.value)}
+       </span>
+       <button
+         type="button"
+         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-left text-sm text-gray-900 dark:text-gray-100 flex items-center justify-between gap-2"
+         on:click={() => showStopsDropdown = !showStopsDropdown}
+         data-stops-dropdown
        >
-         <option value="any">{$i18n.t('Any')}</option>
-         <option value="direct">{$i18n.t('Direct')}</option>
-         <option value="one-or-less">{$i18n.t('One stop or fewer')}</option>
-         <option value="two-or-less">{$i18n.t('Two stops or fewer')}</option>
-       </select>
+         <span>{stopsDisplay}</span>
+         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+         </svg>
+       </button>
+       {#if showStopsDropdown}
+         <div
+           class="absolute z-50 top-full left-0 w-full bg-white dark:bg-black border border-gray-300 dark:border-gray-600 rounded-none shadow-lg overflow-hidden"
+           data-stops-dropdown
+         >
+           <button
+             type="button"
+             class="w-full px-4 py-3 text-left text-sm text-black dark:text-white transition cursor-pointer {hoveredStops === 'any' || (hoveredStops === null && searchForm.stops === 'any') ? 'bg-black text-white dark:bg-white dark:text-black' : 'hover:bg-black hover:text-white dark:hover:bg-black dark:hover:text-white'}"
+             on:click={() => handleStopsChange('any')}
+             on:mouseenter={() => hoveredStops = 'any'}
+             on:mouseleave={() => hoveredStops = null}
+           >
+             {$i18n.t('Any')}
+           </button>
+           <button
+             type="button"
+             class="w-full px-4 py-3 text-left text-sm text-black dark:text-white transition cursor-pointer border-t border-gray-300 dark:border-gray-600 {hoveredStops === 'direct' || (hoveredStops === null && searchForm.stops === 'direct') ? 'bg-black text-white dark:bg-white dark:text-black' : 'hover:bg-black hover:text-white dark:hover:bg-black dark:hover:text-white'}"
+             on:click={() => handleStopsChange('direct')}
+             on:mouseenter={() => hoveredStops = 'direct'}
+             on:mouseleave={() => hoveredStops = null}
+           >
+             {$i18n.t('Direct')}
+           </button>
+           <button
+             type="button"
+             class="w-full px-4 py-3 text-left text-sm text-black dark:text-white transition cursor-pointer border-t border-gray-300 dark:border-gray-600 {hoveredStops === 'one-or-less' || (hoveredStops === null && searchForm.stops === 'one-or-less') ? 'bg-black text-white dark:bg-white dark:text-black' : 'hover:bg-black hover:text-white dark:hover:bg-black dark:hover:text-white'}"
+             on:click={() => handleStopsChange('one-or-less')}
+             on:mouseenter={() => hoveredStops = 'one-or-less'}
+             on:mouseleave={() => hoveredStops = null}
+           >
+             {$i18n.t('One stop or fewer')}
+           </button>
+           <button
+             type="button"
+             class="w-full px-4 py-3 text-left text-sm text-black dark:text-white transition cursor-pointer border-t border-gray-300 dark:border-gray-600 {hoveredStops === 'two-or-less' || (hoveredStops === null && searchForm.stops === 'two-or-less') ? 'bg-black text-white dark:bg-white dark:text-black' : 'hover:bg-black hover:text-white dark:hover:bg-black dark:hover:text-white'}"
+             on:click={() => handleStopsChange('two-or-less')}
+             on:mouseenter={() => hoveredStops = 'two-or-less'}
+             on:mouseleave={() => hoveredStops = null}
+           >
+             {$i18n.t('Two stops or fewer')}
+           </button>
+         </div>
+       {/if}
      </div>
 
     <!-- Airlines Searchable Checklist -->
-    <div class="flex flex-col min-w-[200px] relative" data-airline-dropdown>
-      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">
+    <div class="flex flex-col min-w-[200px] relative mb-4 md:mb-0" data-airline-dropdown>
+      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3 md:mb-1 uppercase tracking-wide">
          {$i18n.t('Airlines')}
       </span>
       <button
@@ -397,7 +588,7 @@ input[type='range'] {
 
       {#if showAirlineDropdown}
         <div
-          class="w-full z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-3 flex flex-col {airlineDropdownExpanded ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[45vw] h-[45vh]' : 'absolute top-full left-0 mt-2 w-[133.33%] md:w-full max-h-80'}"
+          class="w-full z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-3 flex flex-col {airlineDropdownExpanded ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[45vw] h-[45vh]' : 'absolute top-full left-0 w-[133.33%] md:w-full max-h-80'}"
           data-airline-dropdown
         >
           <div class="flex items-center justify-between">
@@ -456,8 +647,8 @@ input[type='range'] {
     </div>
 
     <!-- Price Dropdown with Draggable -->
-    <div class="flex flex-col min-w-[200px] relative" data-price-dropdown>
-      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">
+    <div class="flex flex-col min-w-[200px] relative mb-4 md:mb-0" data-price-dropdown>
+      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3 md:mb-1 uppercase tracking-wide">
          {$i18n.t('Price')}
       </span>
       <button
@@ -475,7 +666,7 @@ input[type='range'] {
 
       {#if showPriceDropdown}
         <div
-          class="absolute z-50 mt-2 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-3"
+          class="absolute z-50 top-full left-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-3"
           data-price-dropdown
         >
           <div class="flex items-center justify-between">
@@ -524,8 +715,8 @@ input[type='range'] {
     </div>
 
     <!-- Duration Dropdown with Draggable -->
-    <div class="flex flex-col min-w-[200px] relative" data-duration-dropdown>
-      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">
+    <div class="flex flex-col min-w-[200px] relative mb-4 md:mb-0" data-duration-dropdown>
+      <span class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3 md:mb-1 uppercase tracking-wide">
          {$i18n.t('Duration')}
       </span>
       <button
@@ -543,7 +734,7 @@ input[type='range'] {
 
       {#if showDurationDropdown}
         <div
-          class="absolute z-50 mt-2 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-3"
+          class="absolute z-50 top-full left-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 space-y-3"
           data-duration-dropdown
         >
           <div class="flex items-center justify-between">
