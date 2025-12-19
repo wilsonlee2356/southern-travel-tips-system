@@ -6,7 +6,7 @@
 	import { getFlightDataFromStorage, createFlightPostContent } from '$lib/utils/flightPostHandler.js';
 	import { cityList } from '$lib/utils/cityCodes';
 	import { WEBUI_API_BASE_URL } from '$lib/constants';
-	import { createNewPost, getPostList, getPostById } from '$lib/apis/posts';
+	import { createNewPost, getPostList, getPostById, updatePostById } from '$lib/apis/posts';
 
 	const i18n = getContext('i18n');
 
@@ -46,6 +46,7 @@ let activeTab = 'website-blog';
 	
 	// Post saving state
 	let postSaved = false;
+	let currentPostId = null;  // Track the current post ID for updates
 	let currentFlightData = null;
 	
 	// Mobile preview panel state
@@ -102,6 +103,7 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 			const result = await createNewPost(localStorage.token, postData);
 			if (result) {
 				postSaved = true;
+				currentPostId = result.id;  // Store the post ID for future updates
 				console.log('Post saved to database:', result);
 				
 				// Refresh the post list in the sidebar
@@ -127,6 +129,9 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 			const savedPost = await getPostById(localStorage.token, postId);
 			if (savedPost) {
 				console.log('Loading saved post:', savedPost);
+				
+				// Store the post ID for updates
+				currentPostId = postId;
 				
 				// Load flight data first
 				const flightData = savedPost.flight_data;
@@ -307,6 +312,11 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 				scenicImage = result.image_base64;
 				showEditImageModal = false;
 				console.log('Image text updated successfully');
+				
+				// Update database if post is already saved
+				if (postSaved && currentPostId) {
+					await updatePostInDatabase();
+				}
 			} else {
 				alert('Failed to update image text');
 			}
@@ -316,6 +326,110 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 		} finally {
 			isUpdatingImage = false; // Reset loading state
 		}
+	}
+
+	// Function to update post in database
+	async function updatePostInDatabase() {
+		if (!currentPostId || !currentFlightData) return;
+		
+		try {
+			const postData = {
+				title: header || `${currentFlightData.destination} Flight Deal`,
+				post_content: postContent || createFlightPostContent(currentFlightData),
+				flight_data: currentFlightData,
+				ai_analysis: currentFlightData.aiAnalysis || {},
+				scenic_image: scenicImage,
+				original_scenic_image: originalScenicImage,
+				flight_info_image: flightInfoImage
+			};
+			
+			const result = await updatePostById(localStorage.token, currentPostId, postData);
+			if (result) {
+				console.log('Post updated in database:', result);
+				
+				// Refresh the post list in the sidebar
+				const updatedPosts = await getPostList(localStorage.token);
+				posts.set(updatedPosts);
+			}
+		} catch (error) {
+			console.error('Error updating post:', error);
+		}
+	}
+
+	// Function to handle ticket screenshot upload
+	function handleTicketScreenshotUpload(event) {
+		const file = event.target.files?.[0];
+		if (!file) return;
+		
+		// Validate file type
+		if (!file.type.startsWith('image/')) {
+			alert('Please upload an image file');
+			return;
+		}
+		
+		// Validate file size (10MB)
+		if (file.size > 10 * 1024 * 1024) {
+			alert('File size must be less than 10MB');
+			return;
+		}
+		
+		// Convert to base64
+		const reader = new FileReader();
+		reader.onload = async (e) => {
+			flightInfoImage = e.target.result;
+			console.log('Ticket screenshot uploaded:', file.name);
+			
+			// Update database if post is already saved
+			if (postSaved && currentPostId) {
+				await updatePostInDatabase();
+			}
+		};
+		reader.onerror = () => {
+			alert('Error reading file');
+		};
+		reader.readAsDataURL(file);
+	}
+
+	// Function to handle drag and drop for ticket screenshot
+	function handleTicketScreenshotDrop(event) {
+		event.preventDefault();
+		event.stopPropagation();
+		
+		const file = event.dataTransfer.files?.[0];
+		if (!file) return;
+		
+		// Validate file type
+		if (!file.type.startsWith('image/')) {
+			alert('Please upload an image file');
+			return;
+		}
+		
+		// Validate file size (10MB)
+		if (file.size > 10 * 1024 * 1024) {
+			alert('File size must be less than 10MB');
+			return;
+		}
+		
+		// Convert to base64
+		const reader = new FileReader();
+		reader.onload = async (e) => {
+			flightInfoImage = e.target.result;
+			console.log('Ticket screenshot uploaded via drag and drop:', file.name);
+			
+			// Update database if post is already saved
+			if (postSaved && currentPostId) {
+				await updatePostInDatabase();
+			}
+		};
+		reader.onerror = () => {
+			alert('Error reading file');
+		};
+		reader.readAsDataURL(file);
+	}
+
+	function handleTicketScreenshotDragOver(event) {
+		event.preventDefault();
+		event.stopPropagation();
 	}
 </script>
 
@@ -533,30 +647,51 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 
 						<!-- Ticket Screenshot -->
 						<div class="mb-6">
-							<label for="ticket-screenshot" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+							<label for="ticket-screenshot-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 								Ticket Screenshot
 							</label>
 							<div
 								id="ticket-screenshot"
-								class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer"
+								class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer relative"
+								on:click={() => document.getElementById('ticket-screenshot-input').click()}
+								on:drop={handleTicketScreenshotDrop}
+								on:dragover={handleTicketScreenshotDragOver}
 							>
-								<svg
-									class="mx-auto h-12 w-12 text-gray-400"
-									stroke="currentColor"
-									fill="none"
-									viewBox="0 0 48 48"
-								>
-									<path
-										d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
+								<input
+									id="ticket-screenshot-input"
+									type="file"
+									accept="image/*"
+									class="hidden"
+									on:change={handleTicketScreenshotUpload}
+								/>
+								{#if flightInfoImage}
+									<img
+										src={flightInfoImage}
+										alt="Ticket screenshot preview"
+										class="max-w-full max-h-64 mx-auto object-contain rounded"
 									/>
-								</svg>
-								<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-									Click to upload ticket screenshot or drag and drop
-								</p>
-								<p class="text-xs text-gray-500 dark:text-gray-500">PNG, JPG, GIF up to 10MB</p>
+									<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+										Click to change image or drag and drop
+									</p>
+								{:else}
+									<svg
+										class="mx-auto h-12 w-12 text-gray-400"
+										stroke="currentColor"
+										fill="none"
+										viewBox="0 0 48 48"
+									>
+										<path
+											d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										/>
+									</svg>
+									<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+										Click to upload ticket screenshot or drag and drop
+									</p>
+									<p class="text-xs text-gray-500 dark:text-gray-500">PNG, JPG, GIF up to 10MB</p>
+								{/if}
 							</div>
 						</div>
 
