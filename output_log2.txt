@@ -1,8 +1,59 @@
-2025-12-11 18:00:23.604 | INFO     | open_webui.routers.auto_flight:_call_n8n_webhook_for_airlines:289 - Starting to store 1 search items for airline CX
-2025-12-11 18:00:23.605 | INFO     | open_webui.routers.auto_flight:_call_n8n_webhook_for_airlines:301 - Processing search data item 1/1 for airline CX: HKG -> NRT, dates: 2025-12-24 / 2025-12-29
-2025-12-11 18:00:23.605 | INFO     | open_webui.routers.auto_flight:_store_flight_search_data:622 - Storing flight search data: has_search_params=True, has_best_flights=True, has_other_flights=True
-2025-12-11 18:00:23.621 | INFO     | open_webui.routers.auto_flight:_store_flight_search_data:721 - Stored 1 best flights for search_id=1
-2025-12-11 18:00:23.628 | INFO     | open_webui.routers.auto_flight:_store_flight_search_data:749 - Stored 5 other flights for search_id=1
-2025-12-11 18:00:23.631 | INFO     | open_webui.routers.auto_flight:_call_n8n_webhook_for_airlines:314 - Successfully stored search item 1/1 with ID: 1 (dates: 2025-12-24 / 2025-12-29)
-2025-12-11 18:00:23.631 | INFO     | open_webui.routers.auto_flight:_call_n8n_webhook_for_airlines:335 - Finished processing all 1 search items for airline CX. Successfully stored: 1, Errors: 0
-2025-12-11 18:00:23.637 | INFO     | open_webui.routers.auto_flight:_call_n8n_webhook_for_airlines:345 - Committed 1 flight searches to database for HKG -> NRT, airline=CX
+Auto flight searches (initial load): (2) [{…}, {…}]
++page.svelte:720 Selected search changed from null to 4, checking status...
+Folder.svelte:118 <Folder> was created with unknown prop 'isOpen'
+warn @ client.js?v=b2f48632:3083
+(anonymous) @ Folder.svelte:118
+instance @ Folder.svelte:118
+init @ chunk-VYY7PVBU.js?v=b2f48632:2139
+Folder @ Folder.svelte:122
+createProxiedComponent @ svelte-hooks.js?v=b2f48632:341
+ProxyComponent @ proxy.js?v=b2f48632:242
+Proxy<Folder> @ proxy.js?v=b2f48632:349
+create_if_block_2 @ Sidebar.svelte:1354
+update @ Sidebar.svelte:1369
+update @ Sidebar.svelte:806
+update @ chunk-VYY7PVBU.js?v=b2f48632:1323
+flush @ chunk-VYY7PVBU.js?v=b2f48632:1290
+Promise.then
+schedule_update @ chunk-VYY7PVBU.js?v=b2f48632:1264
+make_dirty @ chunk-VYY7PVBU.js?v=b2f48632:2108
+(anonymous) @ chunk-VYY7PVBU.js?v=b2f48632:2143
+(anonymous) @ Sidebar.svelte:73
+set @ chunk-2MB2RDZ2.js?v=b2f48632:30
+initContentList @ Sidebar.svelte:180
+await in initContentList
+(anonymous) @ Sidebar.svelte:396
+await in (anonymous)
+run @ chunk-VYY7PVBU.js?v=b2f48632:29
+(anonymous) @ chunk-VYY7PVBU.js?v=b2f48632:2085
+flush @ chunk-VYY7PVBU.js?v=b2f48632:1305
+Promise.then
+schedule_update @ chunk-VYY7PVBU.js?v=b2f48632:1264
+make_dirty @ chunk-VYY7PVBU.js?v=b2f48632:2108
+(anonymous) @ chunk-VYY7PVBU.js?v=b2f48632:2143
+(anonymous) @ +layout.svelte:680
+await in (anonymous)
+run @ chunk-VYY7PVBU.js?v=b2f48632:29
+(anonymous) @ chunk-VYY7PVBU.js?v=b2f48632:2085
+flush @ chunk-VYY7PVBU.js?v=b2f48632:1305
+init @ chunk-VYY7PVBU.js?v=b2f48632:2163
+Root @ root.svelte:23
+createProxiedComponent @ svelte-hooks.js?v=b2f48632:341
+ProxyComponent @ proxy.js?v=b2f48632:242
+Proxy<Root> @ proxy.js?v=b2f48632:349
+initialize @ client.js?v=b2f48632:534
+navigate @ client.js?v=b2f48632:1638
+await in navigate
+start @ client.js?v=b2f48632:346
+await in start
+(anonymous) @ auto-flight-search:157
+Promise.then
+(anonymous) @ auto-flight-search:156
++page.svelte:274 Updated selectedSearchStatus for selected search 4: {auto_search_id: 4, status: 'pending', has_results: true}
++page.svelte:720 Selected search changed from 4 to 3, checking status...
++page.svelte:720 Selected search changed from 3 to 4, checking status...
++page.svelte:720 Selected search changed from 4 to 3, checking status...
++page.svelte:720 Selected search changed from 3 to 4, checking status...
++page.svelte:720 Selected search changed from 4 to 3, checking status...
++page.svelte:720 Selected search changed from 3 to 4, checking status...
++page.svelte:720 Selected search changed from 4 to 3, checking status...

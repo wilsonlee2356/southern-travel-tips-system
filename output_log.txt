@@ -1,47 +1,25 @@
-2025-12-18 17:11:52.435 | ERROR    | open_webui.routers.openai:get_models:558 - Unexpected error:
+2025-12-22 18:10:43.624 | ERROR    | open_webui.routers.auto_flight:get_auto_flight_search_results:1461 - Failed to get auto flight search results: (sqlite3.OperationalError) no such column: auto_search_config.n8n_status
+[SQL: SELECT auto_search_config.auto_search_id AS auto_search_config_auto_search_id, auto_search_config.departure_id AS auto_search_config_departure_id, auto_search_config.arrival_id AS auto_search_config_arrival_id, auto_search_config.travel_class AS auto_search_config_travel_class, auto_search_config.is_direct AS auto_search_config_is_direct, auto_search_config.return_trip_duration AS auto_search_config_return_trip_duration, auto_search_config.n8n_status AS auto_search_config_n8n_status, auto_search_config.created_at AS auto_search_config_created_at, auto_search_config.updated_at AS auto_search_config_updated_at
+FROM auto_search_config
+WHERE auto_search_config.auto_search_id = ?
+ LIMIT ? OFFSET ?]
+[parameters: (4, 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
 Traceback (most recent call last):
 
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/aiohttp/client.py", line 770, in _request
-    resp = await handler(req)
-                 │       └ <aiohttp.client_reqrep.ClientRequest object at 0x7fd93fd8a150>
-                 └ <function ClientSession._request.<locals>._connect_and_send_request at 0x7fd8d6976de0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/aiohttp/client.py", line 725, in _connect_and_send_request
-    conn = await self._connector.connect(
-                 │    │          └ <function BaseConnector.connect at 0x7fda818780e0>
-                 │    └ <aiohttp.connector.TCPConnector object at 0x7fd8d6b43390>
-                 └ <aiohttp.client.ClientSession object at 0x7fd8d6b3e850>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/aiohttp/connector.py", line 642, in connect
-    proto = await self._create_connection(req, traces, timeout)
-                  │    │                  │    │       └ ClientTimeout(total=10, connect=None, sock_read=None, sock_connect=None, ceil_threshold=5)
-                  │    │                  │    └ []
-                  │    │                  └ <aiohttp.client_reqrep.ClientRequest object at 0x7fd93fd8a150>
-                  │    └ <function TCPConnector._create_connection at 0x7fda81878ea0>
-                  └ <aiohttp.connector.TCPConnector object at 0x7fd8d6b43390>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/aiohttp/connector.py", line 1209, in _create_connection
-    _, proto = await self._create_direct_connection(req, traces, timeout)
-                     │    │                         │    │       └ ClientTimeout(total=10, connect=None, sock_read=None, sock_connect=None, ceil_threshold=5)
-                     │    │                         │    └ []
-                     │    │                         └ <aiohttp.client_reqrep.ClientRequest object at 0x7fd93fd8a150>
-                     │    └ <function TCPConnector._create_direct_connection at 0x7fda81879620>
-                     └ <aiohttp.connector.TCPConnector object at 0x7fd8d6b43390>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/aiohttp/connector.py", line 1550, in _create_direct_connection
-    transp, proto = await self._wrap_create_connection(
-                          │    └ <function TCPConnector._wrap_create_connection at 0x7fda81879080>
-                          └ <aiohttp.connector.TCPConnector object at 0x7fd8d6b43390>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/aiohttp/connector.py", line 1283, in _wrap_create_connection
-    return await self._loop.create_connection(*args, **kwargs, sock=sock)
-                 │    │     │                  │       │            └ <socket.socket fd=34, family=2, type=1, proto=6, laddr=('172.31.201.55', 53186), raddr=('172.66.0.243', 443)>
-                 │    │     │                  │       └ {'ssl': <ssl.SSLContext object at 0x7fda81851010>, 'server_hostname': 'api.openai.com'}
-                 │    │     │                  └ (functools.partial(<class 'aiohttp.client_proto.ResponseHandler'>, loop=<uvloop.Loop running=True closed=False debug=False>),)
-                 │    │     └ <cyfunction Loop.create_connection at 0x7fda83890a00>
-                 │    └ <uvloop.Loop running=True closed=False debug=False>
-                 └ <aiohttp.connector.TCPConnector object at 0x7fd8d6b43390>
-  File "uvloop/loop.pyx", line 2088, in create_connection
-    raise
-  File "uvloop/loop.pyx", line 2083, in uvloop.loop.Loop.create_connection
-    await ssl_waiter
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1964, in _exec_single_context
+    self.dialect.do_execute(
+    │    │       └ <function DefaultDialect.do_execute at 0x7f011c3f9300>
+    │    └ <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7f0077923dd0>
+    └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 942, in do_execute
+    cursor.execute(statement, parameters)
+    │      │       │          └ (4, 1, 0)
+    │      │       └ 'SELECT auto_search_config.auto_search_id AS auto_search_config_auto_search_id, auto_search_config.departure_id AS auto_searc...
+    │      └ <method 'execute' of 'sqlite3.Cursor' objects>
+    └ <sqlite3.Cursor object at 0x7eff705470c0>
 
-asyncio.exceptions.CancelledError
+sqlite3.OperationalError: no such column: auto_search_config.n8n_status
 
 
 The above exception was the direct cause of the following exception:
@@ -59,161 +37,206 @@ Traceback (most recent call last):
     return self.main(*args, **kwargs)
            │    │     │       └ {}
            │    │     └ ()
-           │    └ <function Command.main at 0x7fda83f172e0>
+           │    └ <function Command.main at 0x7f011e37b2e0>
            └ <Command main>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 1363, in main
     rv = self.invoke(ctx)
-         │    │      └ <click.core.Context object at 0x7fda84bf3e50>
-         │    └ <function Command.invoke at 0x7fda83f16fc0>
+         │    │      └ <click.core.Context object at 0x7f011f05fe10>
+         │    └ <function Command.invoke at 0x7f011e37afc0>
          └ <Command main>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 1226, in invoke
     return ctx.invoke(self.callback, **ctx.params)
            │   │      │    │           │   └ {'host': '0.0.0.0', 'port': 8080, 'forwarded_allow_ips': '*', 'workers': 1, 'app': 'open_webui.main:app', 'uds': None, 'fd': ...
-           │   │      │    │           └ <click.core.Context object at 0x7fda84bf3e50>
-           │   │      │    └ <function main at 0x7fda83d0ee80>
+           │   │      │    │           └ <click.core.Context object at 0x7f011f05fe10>
+           │   │      │    └ <function main at 0x7f011e17ae80>
            │   │      └ <Command main>
-           │   └ <function Context.invoke at 0x7fda83f16200>
-           └ <click.core.Context object at 0x7fda84bf3e50>
+           │   └ <function Context.invoke at 0x7f011e37a200>
+           └ <click.core.Context object at 0x7f011f05fe10>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 794, in invoke
     return callback(*args, **kwargs)
            │         │       └ {'host': '0.0.0.0', 'port': 8080, 'forwarded_allow_ips': '*', 'workers': 1, 'app': 'open_webui.main:app', 'uds': None, 'fd': ...
            │         └ ()
-           └ <function main at 0x7fda83d0ee80>
+           └ <function main at 0x7f011e17ae80>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/main.py", line 413, in main
     run(
-    └ <function run at 0x7fda83ec5b20>
+    └ <function run at 0x7f011e329b20>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/main.py", line 580, in run
     server.run()
-    │      └ <function Server.run at 0x7fda83da02c0>
-    └ <uvicorn.server.Server object at 0x7fda83f4d450>
+    │      └ <function Server.run at 0x7f011e2082c0>
+    └ <uvicorn.server.Server object at 0x7f011e27bdd0>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/server.py", line 67, in run
     return asyncio.run(self.serve(sockets=sockets))
            │       │   │    │             └ None
-           │       │   │    └ <function Server.serve at 0x7fda83da0360>
-           │       │   └ <uvicorn.server.Server object at 0x7fda83f4d450>
-           │       └ <function run at 0x7fda842deac0>
+           │       │   │    └ <function Server.serve at 0x7f011e208360>
+           │       │   └ <uvicorn.server.Server object at 0x7f011e27bdd0>
+           │       └ <function run at 0x7f011e74eac0>
            └ <module 'asyncio' from '/home/sunny/anaconda3/envs/open-webui/lib/python3.11/asyncio/__init__.py'>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/asyncio/runners.py", line 190, in run
     return runner.run(main)
-           │      │   └ <coroutine object Server.serve at 0x7fda83ca6f20>
-           │      └ <function Runner.run at 0x7fda841627a0>
-           └ <asyncio.runners.Runner object at 0x7fda83d173d0>
+           │      │   └ <coroutine object Server.serve at 0x7f011e10ef20>
+           │      └ <function Runner.run at 0x7f011e5ca7a0>
+           └ <asyncio.runners.Runner object at 0x7f011e183910>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/asyncio/runners.py", line 118, in run
     return self._loop.run_until_complete(task)
            │    │     │                  └ <Task pending name='Task-1' coro=<Server.serve() running at /home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-package...
-           │    │     └ <cyfunction Loop.run_until_complete at 0x7fda838905f0>
+           │    │     └ <cyfunction Loop.run_until_complete at 0x7f011dcfc5f0>
            │    └ <uvloop.Loop running=True closed=False debug=False>
-           └ <asyncio.runners.Runner object at 0x7fda83d173d0>
+           └ <asyncio.runners.Runner object at 0x7f011e183910>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
     await self.app(scope, receive_or_disconnect, send_no_error)
-          │    │   │      │                      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7fd8d69a0680>
-          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fd8d69a0720>
+          │    │   │      │                      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7eff7057d4e0>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
           │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <starlette_compress.CompressMiddleware object at 0x7fda83021940>
-          └ <open_webui.main.RedirectMiddleware object at 0x7fd8b6160d10>
+          │    └ <starlette_compress.CompressMiddleware object at 0x7eff72998ae0>
+          └ <open_webui.main.RedirectMiddleware object at 0x7eff726e1190>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette_compress/__init__.py", line 92, in __call__
     return await self._zstd(scope, receive, send)
-                 │    │     │      │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7fd8d69a0680>
-                 │    │     │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fd8d69a0720>
+                 │    │     │      │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7eff7057d4e0>
+                 │    │     │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
                  │    │     └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
                  │    └ <member '_zstd' of 'CompressMiddleware' objects>
-                 └ <starlette_compress.CompressMiddleware object at 0x7fda83021940>
+                 └ <starlette_compress.CompressMiddleware object at 0x7eff72998ae0>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette_compress/_zstd_legacy.py", line 100, in __call__
     await self.app(scope, receive, wrapper)
-          │    │   │      │        └ <function ZstdResponder.__call__.<locals>.wrapper at 0x7fd8d69a00e0>
-          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fd8d69a0720>
+          │    │   │      │        └ <function ZstdResponder.__call__.<locals>.wrapper at 0x7eff7057c720>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
           │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
           │    └ <member 'app' of 'ZstdResponder' objects>
-          └ <starlette_compress._zstd_legacy.ZstdResponder object at 0x7fd8dc0dcfc0>
+          └ <starlette_compress._zstd_legacy.ZstdResponder object at 0x7eff726e3e00>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-          │                            │    │    │     │      │        └ <function ZstdResponder.__call__.<locals>.wrapper at 0x7fd8d69a00e0>
-          │                            │    │    │     │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fd8d69a0720>
+          │                            │    │    │     │      │        └ <function ZstdResponder.__call__.<locals>.wrapper at 0x7eff7057c720>
+          │                            │    │    │     │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
           │                            │    │    │     └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │                            │    │    └ <starlette.requests.Request object at 0x7fd8d697f210>
-          │                            │    └ <fastapi.routing.APIRouter object at 0x7fd933165c10>
-          │                            └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x7fd8dc04cf90>
-          └ <function wrap_app_handling_exceptions at 0x7fda810ffba0>
+          │                            │    │    └ <starlette.requests.Request object at 0x7eff703fbbd0>
+          │                            │    └ <fastapi.routing.APIRouter object at 0x7effcd55b890>
+          │                            └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x7eff608c5850>
+          └ <function wrap_app_handling_exceptions at 0x7f011b55fba0>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
     await app(scope, receive, sender)
-          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fd8d69a1080>
-          │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fd8d69a0720>
+          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7eff7057c900>
+          │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
           │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          └ <fastapi.routing.APIRouter object at 0x7fd933165c10>
+          └ <fastapi.routing.APIRouter object at 0x7effcd55b890>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
     await self.middleware_stack(scope, receive, send)
-          │    │                │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fd8d69a1080>
-          │    │                │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fd8d69a0720>
+          │    │                │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7eff7057c900>
+          │    │                │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
           │    │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <bound method Router.app of <fastapi.routing.APIRouter object at 0x7fd933165c10>>
-          └ <fastapi.routing.APIRouter object at 0x7fd933165c10>
+          │    └ <bound method Router.app of <fastapi.routing.APIRouter object at 0x7effcd55b890>>
+          └ <fastapi.routing.APIRouter object at 0x7effcd55b890>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
     await route.handle(scope, receive, send)
-          │     │      │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fd8d69a1080>
-          │     │      │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fd8d69a0720>
+          │     │      │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7eff7057c900>
+          │     │      │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
           │     │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │     └ <function Route.handle at 0x7fda8111d260>
-          └ APIRoute(path='/openai/models/{url_idx}', name='get_models', methods=['GET'])
+          │     └ <function Route.handle at 0x7f011b57d260>
+          └ APIRoute(path='/api/v1/auto-flight-search/auto-search/{auto_search_id}/results', name='get_auto_flight_search_results', metho...
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
     await self.app(scope, receive, send)
-          │    │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fd8d69a1080>
-          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fd8d69a0720>
+          │    │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7eff7057c900>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
           │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <function request_response.<locals>.app at 0x7fd8dc0bc900>
-          └ APIRoute(path='/openai/models/{url_idx}', name='get_models', methods=['GET'])
+          │    └ <function request_response.<locals>.app at 0x7eff72563880>
+          └ APIRoute(path='/api/v1/auto-flight-search/auto-search/{auto_search_id}/results', name='get_auto_flight_search_results', metho...
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-          │                            │    │        │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fd8d69a1080>
-          │                            │    │        │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fd8d69a0720>
+          │                            │    │        │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7eff7057c900>
+          │                            │    │        │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
           │                            │    │        └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │                            │    └ <starlette.requests.Request object at 0x7fd8d697d750>
-          │                            └ <function request_response.<locals>.app.<locals>.app at 0x7fd8d69a0a40>
-          └ <function wrap_app_handling_exceptions at 0x7fda810ffba0>
+          │                            │    └ <starlette.requests.Request object at 0x7eff703f8410>
+          │                            └ <function request_response.<locals>.app.<locals>.app at 0x7eff7057e840>
+          └ <function wrap_app_handling_exceptions at 0x7f011b55fba0>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
     await app(scope, receive, sender)
-          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7fd8d69a0f40>
-          │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7fd8d69a0720>
+          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7eff7057ede0>
+          │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
           │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          └ <function request_response.<locals>.app.<locals>.app at 0x7fd8d69a0a40>
+          └ <function request_response.<locals>.app.<locals>.app at 0x7eff7057e840>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
     response = await f(request)
-                     │ └ <starlette.requests.Request object at 0x7fd8d697d750>
-                     └ <function get_request_handler.<locals>.app at 0x7fd8dc0bc860>
+                     │ └ <starlette.requests.Request object at 0x7eff703f8410>
+                     └ <function get_request_handler.<locals>.app at 0x7eff725637e0>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/routing.py", line 301, in app
     raw_response = await run_endpoint_function(
-                         └ <function run_endpoint_function at 0x7fda8111f060>
+                         └ <function run_endpoint_function at 0x7f011b57f060>
   File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/routing.py", line 212, in run_endpoint_function
     return await dependant.call(**values)
                  │         │      └ {'user': UserModel(id='0afef353-767f-4e1a-a916-7fb166c29be0', name='Sunny', email='sunny@gmail.com', role='admin', profile_im...
-                 │         └ <function get_models at 0x7fd9368a5da0>
-                 └ Dependant(path_params=[ModelField(field_info=Path(PydanticUndefined), name='url_idx', mode='validation')], query_params=[], h...
+                 │         └ <function get_auto_flight_search_results at 0x7effd7567a60>
+                 └ Dependant(path_params=[ModelField(field_info=Path(PydanticUndefined), name='auto_search_id', mode='validation')], query_param...
 
-> File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/routers/openai.py", line 516, in get_models
-    async with session.get(
-               │       └ <function ClientSession.get at 0x7fda818df1a0>
-               └ <aiohttp.client.ClientSession object at 0x7fd8d6b3e850>
+> File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/routers/auto_flight.py", line 1280, in get_auto_flight_search_results
+    ).first()
 
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/aiohttp/client.py", line 1488, in __aenter__
-    self._resp: _RetType = await self._coro
-    │    │                       │    └ <member '_coro' of '_BaseRequestContextManager' objects>
-    │    │                       └ <aiohttp.client._BaseRequestContextManager object at 0x7fd8d6bbb610>
-    │    └ <member '_resp' of '_BaseRequestContextManager' objects>
-    └ <aiohttp.client._BaseRequestContextManager object at 0x7fd8d6bbb610>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/aiohttp/client.py", line 622, in _request
-    with timer:
-         └ <aiohttp.helpers.TimerContext object at 0x7fd8d6973d10>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/aiohttp/helpers.py", line 685, in __exit__
-    raise asyncio.TimeoutError from exc_val
-          │       │                 └ CancelledError()
-          │       └ <class 'TimeoutError'>
-          └ <module 'asyncio' from '/home/sunny/anaconda3/envs/open-webui/lib/python3.11/asyncio/__init__.py'>
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 2754, in first
+    return self.limit(1)._iter().first()  # type: ignore
+           │    └ <function Query.limit at 0x7effdbfa9080>
+           └ <sqlalchemy.orm.query.Query object at 0x7eff70416290>
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 2853, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+            │                  │    │      │      │    │       └ <function Session.execute at 0x7effdbb35a80>
+            │                  │    │      │      │    └ <sqlalchemy.orm.session.Session object at 0x7eff70417250>
+            │                  │    │      │      └ <sqlalchemy.orm.query.Query object at 0x7eff704149d0>
+            │                  │    │      └ ~_T
+            │                  │    └ <class 'sqlalchemy.engine.result.Result'>
+            │                  └ ~_T
+            └ typing.Union
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+           │    └ <function Session._execute_internal at 0x7effdbb35760>
+           └ <sqlalchemy.orm.session.Session object at 0x7eff70417250>
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                   │      │                 └ <classmethod(<function AbstractORMCompileState.orm_execute_statement at 0x7effdc3aad40>)>
+                   │      └ <class 'sqlalchemy.orm.context.ORMSelectCompileState'>
+                   └ typing.Any
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/orm/context.py", line 305, in orm_execute_statement
+    result = conn.execute(
+             │    └ <function Connection.execute at 0x7f011c52d8a0>
+             └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1416, in execute
+    return meth(
+           └ <bound method ClauseElement._execute_on_connection of <sqlalchemy.sql.selectable.Select object at 0x7eff70415c50>>
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 516, in _execute_on_connection
+    return connection._execute_clauseelement(
+           │          └ <function Connection._execute_clauseelement at 0x7f011c52dbc0>
+           └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1638, in _execute_clauseelement
+    ret = self._execute_context(
+          │    └ <function Connection._execute_context at 0x7f011c52dda0>
+          └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1843, in _execute_context
+    return self._exec_single_context(
+           │    └ <function Connection._exec_single_context at 0x7f011c52de40>
+           └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1983, in _exec_single_context
+    self._handle_dbapi_exception(
+    │    └ <function Connection._handle_dbapi_exception at 0x7f011c52e0c0>
+    └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2352, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+          │                    │              │                 └ OperationalError('no such column: auto_search_config.n8n_status')
+          │                    │              └ (<class 'sqlite3.OperationalError'>, OperationalError('no such column: auto_search_config.n8n_status'), <traceback object at ...
+          │                    └ <method 'with_traceback' of 'BaseException' objects>
+          └ OperationalError('(sqlite3.OperationalError) no such column: auto_search_config.n8n_status')
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1964, in _exec_single_context
+    self.dialect.do_execute(
+    │    │       └ <function DefaultDialect.do_execute at 0x7f011c3f9300>
+    │    └ <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7f0077923dd0>
+    └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
+  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 942, in do_execute
+    cursor.execute(statement, parameters)
+    │      │       │          └ (4, 1, 0)
+    │      │       └ 'SELECT auto_search_config.auto_search_id AS auto_search_config_auto_search_id, auto_search_config.departure_id AS auto_searc...
+    │      └ <method 'execute' of 'sqlite3.Cursor' objects>
+    └ <sqlite3.Cursor object at 0x7eff705470c0>
 
-TimeoutError
-2025-12-18 17:11:52.442 | ERROR    | open_webui.utils.models:fetch_googleai_models:143 - Error fetching Google AI models for index 0:
-2025-12-18 17:11:52.442 | ERROR    | open_webui.routers.openai:send_get_request:87 - Connection error:
-2025-12-18 17:11:52.442 | ERROR    | open_webui.routers.ollama:send_get_request:106 - Connection error:
-2025-12-18 17:11:53.434 | ERROR    | open_webui.routers.openai:send_get_request:87 - Connection error:
-2025-12-18 17:11:53.434 | ERROR    | open_webui.routers.ollama:send_get_request:106 - Connection error:
-2025-12-18 17:11:55.434 | ERROR    | open_webui.routers.ollama:send_get_request:106 - Connection error:
-2025-12-18 17:11:59.435 | ERROR    | open_webui.routers.openai:send_get_request:87 - Connection error:
-2025-12-18 17:12:00.434 | ERROR    | open_webui.routers.openai:send_get_request:87 - Connection error:
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: auto_search_config.n8n_status
+[SQL: SELECT auto_search_config.auto_search_id AS auto_search_config_auto_search_id, auto_search_config.departure_id AS auto_search_config_departure_id, auto_search_config.arrival_id AS auto_search_config_arrival_id, auto_search_config.travel_class AS auto_search_config_travel_class, auto_search_config.is_direct AS auto_search_config_is_direct, auto_search_config.return_trip_duration AS auto_search_config_return_trip_duration, auto_search_config.n8n_status AS auto_search_config_n8n_status, auto_search_config.created_at AS auto_search_config_created_at, auto_search_config.updated_at AS auto_search_config_updated_at
+FROM auto_search_config
+WHERE auto_search_config.auto_search_id = ?
+ LIMIT ? OFFSET ?]
+[parameters: (4, 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-12-22 18:10:43.628 | INFO     | uvicorn.protocols.http.httptools_impl:send:476 - 127.0.0.1:50066 - "GET /api/v1/auto-flight-search/auto-search/4/results HTTP/1.1" 500

@@ -2,9 +2,9 @@ import logging
 from datetime import datetime, date, time
 from typing import List, Optional, Dict, Any
 
-import requests
+import httpx
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, BackgroundTasks
 from pydantic import BaseModel, Field, validator
 
 from open_webui.env import SRC_LOG_LEVELS
@@ -119,7 +119,7 @@ def _travel_class_to_n8n_format(travel_class: int) -> str:
     return travel_class_map.get(travel_class, "economy")
 
 
-def _call_n8n_webhook_for_airlines(
+async def _call_n8n_webhook_for_airlines(
     departure_id: str,
     arrival_id: str,
     is_direct: bool,
@@ -150,342 +150,344 @@ def _call_n8n_webhook_for_airlines(
     # Convert travel class to n8n format
     travel_class_str = _travel_class_to_n8n_format(travel_class)
     
-    for airline_code in airline_codes:
-        airline_code_upper = airline_code.upper().strip()
-        if not airline_code_upper:
-                        continue
-            
-        # Build the webhook URL with travel_class at the end
-        webhook_url = f"{base_url}/{departure_id}/{arrival_id}/{is_direct_str}/{airline_code_upper}/{trip_duration}/{travel_class_str}"
-        
-        try:
-            log.info(
-                "Calling n8n webhook for airline %s: %s -> %s, direct=%s, duration=%d days, travel_class=%s",
-                airline_code_upper,
-                departure_id,
-                arrival_id,
-                is_direct_str,
-                trip_duration,
-                travel_class_str,
-            )
-            
-            response = requests.get(webhook_url, timeout=3600)  # 1 hour timeout
-            
-            # Log the response status and body
-            response_text = response.text if response.text else ""
-            response_length = len(response_text)
-            log.info(
-                "n8n webhook response for airline %s: status=%d, response_length=%d",
-                airline_code_upper,
-                response.status_code,
-                response_length,
-            )
-            
-            # Log first and last part of response to verify it's complete
-            if response_length > 0:
-                preview_start = response_text[:200] if len(response_text) > 200 else response_text
-                preview_end = response_text[-200:] if len(response_text) > 200 else ""
-                log.debug(
-                    "n8n response preview (first 200 chars): %s",
-                    preview_start,
-                )
-                if preview_end:
-                    log.debug(
-                        "n8n response preview (last 200 chars): %s",
-                        preview_end,
-                    )
-            
-            # Check for HTTP errors
-            try:
-                response.raise_for_status()
-            except requests.HTTPError as http_err:
-                log.error(
-                    "n8n webhook returned HTTP error for airline %s: status=%d, response=%s",
-                    airline_code_upper,
-                    response.status_code,
-                    response_text[:1000] if response_text else "No response body",
-                )
-                log.exception("HTTP error details: %s", str(http_err))
+    # Use a single async client for all requests
+    async with httpx.AsyncClient(timeout=3600.0) as client:  # 1 hour timeout
+        for airline_code in airline_codes:
+            airline_code_upper = airline_code.upper().strip()
+            if not airline_code_upper:
                 continue
+                
+            # Build the webhook URL with travel_class at the end
+            webhook_url = f"{base_url}/{departure_id}/{arrival_id}/{is_direct_str}/{airline_code_upper}/{trip_duration}/{travel_class_str}"
             
-            # Check if response is empty
-            if not response_text or not response_text.strip():
-                log.error(
-                    "n8n webhook returned empty response for airline %s: %s -> %s",
+            try:
+                log.info(
+                    "Calling n8n webhook for airline %s: %s -> %s, direct=%s, duration=%d days, travel_class=%s",
                     airline_code_upper,
                     departure_id,
                     arrival_id,
+                    is_direct_str,
+                    trip_duration,
+                    travel_class_str,
                 )
-                continue
-            
-            # Parse and store the flight data if present
-            try:
-                # Check response format before parsing
-                if response_length > 0:
-                    first_char = response_text.strip()[0] if response_text.strip() else ""
-                    last_char = response_text.strip()[-1] if response_text.strip() else ""
-                    opening_brackets = response_text.count('[')
-                    closing_brackets = response_text.count(']')
-                    log.info(
-                        "n8n response format check for airline %s: first_char='%s', last_char='%s', brackets: [=%d, ]=%d",
-                        airline_code_upper,
-                        first_char,
-                        last_char,
-                        opening_brackets,
-                        closing_brackets,
-                    )
                 
-                flight_data = response.json()
+                response = await client.get(webhook_url)
+                
+                    # Log the response status and body
+                response_text = response.text if response.text else ""
+                response_length = len(response_text)
                 log.info(
-                    "Parsed JSON from n8n for airline %s: type=%s, is_list=%s",
+                    "n8n webhook response for airline %s: status=%d, response_length=%d",
                     airline_code_upper,
-                    type(flight_data).__name__,
-                    isinstance(flight_data, list),
+                    response.status_code,
+                    response_length,
                 )
                 
-                # Handle both single object and list
-                if isinstance(flight_data, dict):
-                    data_list = [flight_data]
-                    log.warning(
-                        "n8n returned a single dict object for airline %s (expected list). Converting to list with 1 item. Response length was %d chars.",
-                        airline_code_upper,
-                        response_length,
+                # Log first and last part of response to verify it's complete
+                if response_length > 0:
+                    preview_start = response_text[:200] if len(response_text) > 200 else response_text
+                    preview_end = response_text[-200:] if len(response_text) > 200 else ""
+                    log.debug(
+                        "n8n response preview (first 200 chars): %s",
+                        preview_start,
                     )
-                elif isinstance(flight_data, list):
-                    data_list = flight_data
-                    log.info(
-                        "n8n returned a list with %d items for airline %s (response_length=%d chars)",
-                        len(flight_data),
-                        airline_code_upper,
-                        response_length,
-                    )
-                    # Log first few items to verify we got them all
-                    for idx in range(min(3, len(flight_data))):
-                        item = flight_data[idx]
-                        if isinstance(item, dict):
-                            sp = item.get("search_parameters", {})
-                            log.debug(
-                                "  List item %d/%d: %s -> %s, dates: %s / %s",
-                                idx + 1,
-                                len(flight_data),
-                                sp.get("departure_id", "N/A"),
-                                sp.get("arrival_id", "N/A"),
-                                sp.get("outbound_date", "N/A"),
-                                sp.get("return_date", "N/A"),
-                            )
-                else:
+                    if preview_end:
+                        log.debug(
+                            "n8n response preview (last 200 chars): %s",
+                            preview_end,
+                        )
+                
+                # Check for HTTP errors
+                try:
+                    response.raise_for_status()
+                except httpx.HTTPStatusError as http_err:
                     log.error(
-                        "Unexpected data format from n8n for airline %s: expected dict or list, got %s. Response preview: %s",
+                        "n8n webhook returned HTTP error for airline %s: status=%d, response=%s",
                         airline_code_upper,
-                        type(flight_data).__name__,
-                        str(flight_data)[:500],
+                        response.status_code,
+                        response_text[:1000] if response_text else "No response body",
+                    )
+                    log.exception("HTTP error details: %s", str(http_err))
+                    continue
+                
+                # Check if response is empty
+                if not response_text or not response_text.strip():
+                    log.error(
+                        "n8n webhook returned empty response for airline %s: %s -> %s",
+                        airline_code_upper,
+                        departure_id,
+                        arrival_id,
                     )
                     continue
-
-                log.info(
-                    "Parsed n8n response for airline %s: received %d search items to process",
-                    airline_code_upper,
-                    len(data_list),
-                )
-
-                # Validate and log data structure for each item
-                for idx, search_data in enumerate(data_list):
-                    if not isinstance(search_data, dict):
-                        log.error(
-                            "Invalid search_data item %d for airline %s: expected dict, got %s",
-                            idx,
+                
+                # Parse and store the flight data if present
+                try:
+                    # Check response format before parsing
+                    if response_length > 0:
+                        first_char = response_text.strip()[0] if response_text.strip() else ""
+                        last_char = response_text.strip()[-1] if response_text.strip() else ""
+                        opening_brackets = response_text.count('[')
+                        closing_brackets = response_text.count(']')
+                        log.info(
+                            "n8n response format check for airline %s: first_char='%s', last_char='%s', brackets: [=%d, ]=%d",
                             airline_code_upper,
-                            type(search_data).__name__,
+                            first_char,
+                            last_char,
+                            opening_brackets,
+                            closing_brackets,
                         )
-                        continue
                     
-                    # Check for missing or null critical fields
-                    search_params = search_data.get("search_parameters")
-                    best_flights = search_data.get("best_flights")
-                    other_flights = search_data.get("other_flights")
+                    flight_data = response.json()
+                    log.info(
+                        "Parsed JSON from n8n for airline %s: type=%s, is_list=%s",
+                        airline_code_upper,
+                        type(flight_data).__name__,
+                        isinstance(flight_data, list),
+                    )
                     
-                    if not search_params:
-                        log.error(
-                            "Missing search_parameters in n8n response for airline %s (item %d). Available keys: %s",
-                            airline_code_upper,
-                            idx,
-                            list(search_data.keys()),
-                        )
-                        continue
-                    
-                    # Log warnings for missing flight data
-                    if not best_flights and not other_flights:
+                    # Handle both single object and list
+                    if isinstance(flight_data, dict):
+                        data_list = [flight_data]
                         log.warning(
-                            "No flight data returned from n8n for airline %s (item %d): best_flights=%s, other_flights=%s. Search params: %s",
+                            "n8n returned a single dict object for airline %s (expected list). Converting to list with 1 item. Response length was %d chars.",
                             airline_code_upper,
-                            idx,
-                            best_flights,
-                            other_flights,
-                            search_params,
+                            response_length,
                         )
-                    elif best_flights is None and other_flights is None:
-                        log.warning(
-                            "best_flights and other_flights are both None (not empty list) for airline %s (item %d)",
+                    elif isinstance(flight_data, list):
+                        data_list = flight_data
+                        log.info(
+                            "n8n returned a list with %d items for airline %s (response_length=%d chars)",
+                            len(flight_data),
                             airline_code_upper,
-                            idx,
+                            response_length,
                         )
+                        # Log first few items to verify we got them all
+                        for idx in range(min(3, len(flight_data))):
+                            item = flight_data[idx]
+                            if isinstance(item, dict):
+                                sp = item.get("search_parameters", {})
+                                log.debug(
+                                    "  List item %d/%d: %s -> %s, dates: %s / %s",
+                                    idx + 1,
+                                    len(flight_data),
+                                    sp.get("departure_id", "N/A"),
+                                    sp.get("arrival_id", "N/A"),
+                                    sp.get("outbound_date", "N/A"),
+                                    sp.get("return_date", "N/A"),
+                                )
                     else:
-                        best_count = len(best_flights) if isinstance(best_flights, list) else 0
-                        other_count = len(other_flights) if isinstance(other_flights, list) else 0
-                        log.info(
-                            "n8n returned flight data for airline %s (item %d): best_flights=%d, other_flights=%d",
+                        log.error(
+                            "Unexpected data format from n8n for airline %s: expected dict or list, got %s. Response preview: %s",
                             airline_code_upper,
-                            idx,
-                            best_count,
-                            other_count,
+                            type(flight_data).__name__,
+                            str(flight_data)[:500],
                         )
+                        continue
 
-                # Store the data in database
-                with get_db() as db:
-                    try:
-                        # Find the auto_search_airline_id
-                        if auto_search_id is not None:
-                            # Use auto_search_id if provided (more reliable for refresh)
-                            auto_search_airline = db.query(AutoSearchAirline).filter(
-                                AutoSearchAirline.auto_search_id == auto_search_id
-                            ).join(Airline).filter(
-                                Airline.code == airline_code_upper
-                            ).first()
-                        else:
-                            # Fall back to searching by departure/arrival (for backward compatibility)
-                            auto_search_airline = db.query(AutoSearchAirline).join(AutoSearchConfig).filter(
-                                AutoSearchConfig.departure_id == departure_id.upper(),
-                                AutoSearchConfig.arrival_id == arrival_id.upper(),
-                            ).join(Airline).filter(
-                                Airline.code == airline_code_upper
-                            ).first()
-                        
-                        auto_search_airline_id = auto_search_airline.auto_search_airline_id if auto_search_airline else None
-                        
-                        if auto_search_airline_id is None:
-                            log.warning(
-                                "No matching auto_search_airline found for %s -> %s, airline=%s%s. Storing without link.",
-                                departure_id,
-                                arrival_id,
-                                airline_code_upper,
-                                f", auto_search_id={auto_search_id}" if auto_search_id else "",
-                            )
-                        
-                        search_ids = []
-                        errors = []
-                        log.info(
-                            "Starting to store %d search items for airline %s",
-                            len(data_list),
-                            airline_code_upper,
-                        )
-                        
-                        for idx, search_data in enumerate(data_list):
-                            try:
-                                search_params = search_data.get("search_parameters", {})
-                                outbound_date = search_params.get("outbound_date", "N/A")
-                                return_date = search_params.get("return_date", "N/A")
-                                
-                                log.info(
-                                    "Processing search data item %d/%d for airline %s: %s -> %s, dates: %s / %s",
-                                    idx + 1,
-                                    len(data_list),
-                                    airline_code_upper,
-                                    search_params.get("departure_id", "N/A"),
-                                    search_params.get("arrival_id", "N/A"),
-                                    outbound_date,
-                                    return_date,
-                                )
-                                
-                                search_id = _store_flight_search_data(db, search_data, auto_search_airline_id)
-                                search_ids.append(search_id)
-                                log.info(
-                                    "Successfully stored search item %d/%d with ID: %d (dates: %s / %s)",
-                                    idx + 1,
-                                    len(data_list),
-                                    search_id,
-                                    outbound_date,
-                                    return_date,
-                                )
-                            except ValueError as ve:
-                                error_msg = f"Validation error in item {idx + 1}/{len(data_list)}: {str(ve)}"
-                                log.error(error_msg)
-                                errors.append(error_msg)
-                                # Continue processing other items
-                                continue
-                            except Exception as e:
-                                error_msg = f"Failed to store search data item {idx + 1}/{len(data_list)}: {str(e)}"
-                                log.exception(error_msg)
-                                errors.append(error_msg)
-                                # Continue processing other items
-                                continue
+                    log.info(
+                        "Parsed n8n response for airline %s: received %d search items to process",
+                        airline_code_upper,
+                        len(data_list),
+                    )
 
-                        log.info(
-                            "Finished processing all %d search items for airline %s. Successfully stored: %d, Errors: %d",
-                            len(data_list),
-                            airline_code_upper,
-                            len(search_ids),
-                            len(errors),
-                        )
-
-                        if search_ids:
-                            db.commit()
-                            log.info(
-                                "Committed %d flight searches to database for %s -> %s, airline=%s",
-                                len(search_ids),
-                                departure_id,
-                                arrival_id,
-                                airline_code_upper,
-                            )
-                            if errors:
-                                log.warning(
-                                    "Some errors occurred while processing n8n response for airline %s (%d errors): %s",
-                                    airline_code_upper,
-                                    len(errors),
-                                    "; ".join(errors[:5]),  # Show first 5 errors
-                                )
-                        else:
+                    # Validate and log data structure for each item
+                    for idx, search_data in enumerate(data_list):
+                        if not isinstance(search_data, dict):
                             log.error(
-                                "No search records were successfully stored from n8n response for airline %s. All %d items failed. Errors: %s",
+                                "Invalid search_data item %d for airline %s: expected dict, got %s",
+                                idx,
                                 airline_code_upper,
-                                len(data_list),
-                                "; ".join(errors[:10]) if errors else "Unknown error",
+                                type(search_data).__name__,
                             )
-                            db.rollback()
-                    except Exception as e:
-                        db.rollback()
-                        log.exception("Failed to store n8n response data for airline %s: %s", airline_code_upper, str(e))
+                            continue
                         
-            except ValueError as json_err:
+                        # Check for missing or null critical fields
+                        search_params = search_data.get("search_parameters")
+                        best_flights = search_data.get("best_flights")
+                        other_flights = search_data.get("other_flights")
+                        
+                        if not search_params:
+                            log.error(
+                                "Missing search_parameters in n8n response for airline %s (item %d). Available keys: %s",
+                                airline_code_upper,
+                                idx,
+                                list(search_data.keys()),
+                            )
+                            continue
+                        
+                        # Log warnings for missing flight data
+                        if not best_flights and not other_flights:
+                            log.warning(
+                                "No flight data returned from n8n for airline %s (item %d): best_flights=%s, other_flights=%s. Search params: %s",
+                                airline_code_upper,
+                                idx,
+                                best_flights,
+                                other_flights,
+                                search_params,
+                            )
+                        elif best_flights is None and other_flights is None:
+                            log.warning(
+                                "best_flights and other_flights are both None (not empty list) for airline %s (item %d)",
+                                airline_code_upper,
+                                idx,
+                            )
+                        else:
+                            best_count = len(best_flights) if isinstance(best_flights, list) else 0
+                            other_count = len(other_flights) if isinstance(other_flights, list) else 0
+                            log.info(
+                                "n8n returned flight data for airline %s (item %d): best_flights=%d, other_flights=%d",
+                                airline_code_upper,
+                                idx,
+                                best_count,
+                                other_count,
+                            )
+
+                    # Store the data in database
+                    with get_db() as db:
+                        try:
+                            # Find the auto_search_airline_id
+                            if auto_search_id is not None:
+                                # Use auto_search_id if provided (more reliable for refresh)
+                                auto_search_airline = db.query(AutoSearchAirline).filter(
+                                    AutoSearchAirline.auto_search_id == auto_search_id
+                                ).join(Airline).filter(
+                                    Airline.code == airline_code_upper
+                                ).first()
+                            else:
+                                # Fall back to searching by departure/arrival (for backward compatibility)
+                                auto_search_airline = db.query(AutoSearchAirline).join(AutoSearchConfig).filter(
+                                    AutoSearchConfig.departure_id == departure_id.upper(),
+                                    AutoSearchConfig.arrival_id == arrival_id.upper(),
+                                ).join(Airline).filter(
+                                    Airline.code == airline_code_upper
+                                ).first()
+                            
+                            auto_search_airline_id = auto_search_airline.auto_search_airline_id if auto_search_airline else None
+                            
+                            if auto_search_airline_id is None:
+                                log.warning(
+                                    "No matching auto_search_airline found for %s -> %s, airline=%s%s. Storing without link.",
+                                    departure_id,
+                                    arrival_id,
+                                    airline_code_upper,
+                                    f", auto_search_id={auto_search_id}" if auto_search_id else "",
+                                )
+                            
+                            search_ids = []
+                            errors = []
+                            log.info(
+                                "Starting to store %d search items for airline %s",
+                                len(data_list),
+                                airline_code_upper,
+                            )
+                            
+                            for idx, search_data in enumerate(data_list):
+                                try:
+                                    search_params = search_data.get("search_parameters", {})
+                                    outbound_date = search_params.get("outbound_date", "N/A")
+                                    return_date = search_params.get("return_date", "N/A")
+                                    
+                                    log.info(
+                                        "Processing search data item %d/%d for airline %s: %s -> %s, dates: %s / %s",
+                                        idx + 1,
+                                        len(data_list),
+                                        airline_code_upper,
+                                        search_params.get("departure_id", "N/A"),
+                                        search_params.get("arrival_id", "N/A"),
+                                        outbound_date,
+                                        return_date,
+                                    )
+                                    
+                                    search_id = _store_flight_search_data(db, search_data, auto_search_airline_id)
+                                    search_ids.append(search_id)
+                                    log.info(
+                                        "Successfully stored search item %d/%d with ID: %d (dates: %s / %s)",
+                                        idx + 1,
+                                        len(data_list),
+                                        search_id,
+                                        outbound_date,
+                                        return_date,
+                                    )
+                                except ValueError as ve:
+                                    error_msg = f"Validation error in item {idx + 1}/{len(data_list)}: {str(ve)}"
+                                    log.error(error_msg)
+                                    errors.append(error_msg)
+                                    # Continue processing other items
+                                    continue
+                                except Exception as e:
+                                    error_msg = f"Failed to store search data item {idx + 1}/{len(data_list)}: {str(e)}"
+                                    log.exception(error_msg)
+                                    errors.append(error_msg)
+                                    # Continue processing other items
+                                    continue
+
+                            log.info(
+                                "Finished processing all %d search items for airline %s. Successfully stored: %d, Errors: %d",
+                                len(data_list),
+                                airline_code_upper,
+                                len(search_ids),
+                                len(errors),
+                            )
+
+                            if search_ids:
+                                db.commit()
+                                log.info(
+                                    "Committed %d flight searches to database for %s -> %s, airline=%s",
+                                    len(search_ids),
+                                    departure_id,
+                                    arrival_id,
+                                    airline_code_upper,
+                                )
+                                if errors:
+                                    log.warning(
+                                        "Some errors occurred while processing n8n response for airline %s (%d errors): %s",
+                                        airline_code_upper,
+                                        len(errors),
+                                        "; ".join(errors[:5]),  # Show first 5 errors
+                                    )
+                            else:
+                                log.error(
+                                    "No search records were successfully stored from n8n response for airline %s. All %d items failed. Errors: %s",
+                                    airline_code_upper,
+                                    len(data_list),
+                                    "; ".join(errors[:10]) if errors else "Unknown error",
+                                )
+                                db.rollback()
+                        except Exception as e:
+                            db.rollback()
+                            log.exception("Failed to store n8n response data for airline %s: %s", airline_code_upper, str(e))
+                            
+                except ValueError as json_err:
+                    log.error(
+                        "Failed to parse JSON from n8n response for airline %s: %s. Response text (first 1000 chars): %s",
+                        airline_code_upper,
+                        str(json_err),
+                        response.text[:1000] if response.text else "No response body",
+                    )
+                except Exception as e:
+                    log.exception(
+                        "Unexpected error processing n8n response for airline %s: %s",
+                        airline_code_upper,
+                        str(e),
+                    )
+                    
+            except httpx.RequestError as req_err:
                 log.error(
-                    "Failed to parse JSON from n8n response for airline %s: %s. Response text (first 1000 chars): %s",
+                    "n8n webhook call failed for airline %s: %s -> %s. Error: %s",
                     airline_code_upper,
-                    str(json_err),
-                    response.text[:1000] if response.text else "No response body",
+                    departure_id,
+                    arrival_id,
+                    str(req_err),
                 )
+                log.exception("Request exception details:")
             except Exception as e:
                 log.exception(
-                    "Unexpected error processing n8n response for airline %s: %s",
+                    "Unexpected error calling n8n webhook for airline %s: %s -> %s. Error: %s",
                     airline_code_upper,
+                    departure_id,
+                    arrival_id,
                     str(e),
                 )
-            
-        except requests.RequestException as req_err:
-            log.error(
-                "n8n webhook call failed for airline %s: %s -> %s. Error: %s",
-                airline_code_upper,
-                departure_id,
-                arrival_id,
-                str(req_err),
-            )
-            log.exception("Request exception details:")
-        except Exception as e:
-            log.exception(
-                "Unexpected error calling n8n webhook for airline %s: %s -> %s. Error: %s",
-                airline_code_upper,
-                departure_id,
-                arrival_id,
-                str(e),
-            )
 
 
 @router.get(
@@ -506,7 +508,9 @@ async def list_airlines(user=Depends(get_verified_user)):
     status_code=status.HTTP_201_CREATED,
 )
 async def create_auto_flight_search(
-    payload: AutoFlightSearchRequest, user=Depends(get_verified_user)
+    payload: AutoFlightSearchRequest, 
+    background_tasks: BackgroundTasks,
+    user=Depends(get_verified_user)
 ):
     """
     Create a new auto flight search and trigger n8n webhook for each airline.
@@ -598,8 +602,18 @@ async def create_auto_flight_search(
                 detail="Failed to store auto search configuration",
             )
 
-    # Call n8n webhook for each airline
-    _call_n8n_webhook_for_airlines(
+    # Set status to processing before starting n8n
+    with get_db() as db:
+        auto_search_config = db.query(AutoSearchConfig).filter(
+            AutoSearchConfig.auto_search_id == auto_search_id
+        ).first()
+        if auto_search_config:
+            auto_search_config.n8n_status = "processing"
+            db.commit()
+    
+    # Schedule n8n webhook calls to run in background (non-blocking)
+    background_tasks.add_task(
+        _call_n8n_webhook_for_airlines,
         departure_id=payload.from_place.upper(),
         arrival_id=payload.to_place.upper(),
         is_direct=payload.direct_flight,
@@ -1109,6 +1123,16 @@ async def receive_n8n_webhook_data(
             if search_ids:
                 db.commit()
                 log.info("Committed %d search records to database", len(search_ids))
+                
+                # Update n8n_status to completed if we have data
+                if auto_search_airline and auto_search_airline.auto_search_id:
+                    auto_search_config = db.query(AutoSearchConfig).filter(
+                        AutoSearchConfig.auto_search_id == auto_search_airline.auto_search_id
+                    ).first()
+                    if auto_search_config:
+                        auto_search_config.n8n_status = "completed"
+                        db.commit()
+                        log.info("Updated n8n_status to completed for auto_search_id=%d", auto_search_airline.auto_search_id)
             else:
                 log.warning("No search records were successfully stored")
                 db.rollback()
@@ -1174,6 +1198,64 @@ async def list_auto_flight_searches(user=Depends(get_verified_user)):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to list auto flight searches: {str(e)}",
+            )
+
+
+@router.get(
+    "/auto-search/{auto_search_id}/status",
+    summary="Get n8n processing status for an auto search",
+)
+async def get_auto_flight_search_status(
+    auto_search_id: int,
+    user=Depends(get_verified_user),
+):
+    """
+    Get the n8n processing status for an auto search.
+    
+    Returns:
+    - status: "pending", "processing", "completed", or "failed"
+    - has_results: boolean indicating if flight data exists
+    """
+    with get_db() as db:
+        try:
+            # Verify auto search exists
+            auto_search = db.query(AutoSearchConfig).filter(
+                AutoSearchConfig.auto_search_id == auto_search_id
+            ).first()
+            
+            if not auto_search:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Auto flight search not found",
+                )
+            
+            # Check if results exist
+            auto_search_airlines = db.query(AutoSearchAirline).filter(
+                AutoSearchAirline.auto_search_id == auto_search_id
+            ).all()
+            
+            auto_search_airline_ids = [asa.auto_search_airline_id for asa in auto_search_airlines]
+            has_results = False
+            
+            if auto_search_airline_ids:
+                from open_webui.models.flight_search import Search
+                search_count = db.query(Search).filter(
+                    Search.auto_search_airline_id.in_(auto_search_airline_ids)
+                ).count()
+                has_results = search_count > 0
+            
+            return {
+                "auto_search_id": auto_search_id,
+                "status": auto_search.n8n_status,
+                "has_results": has_results
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            log.exception("Failed to get auto flight search status: %s", str(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to get auto flight search status: {str(e)}",
             )
 
 
@@ -1479,6 +1561,7 @@ async def delete_auto_flight_search(
 )
 async def refresh_auto_flight_search(
     auto_search_id: int,
+    background_tasks: BackgroundTasks,
     user=Depends(get_verified_user),
 ):
     """
@@ -1575,8 +1658,13 @@ async def refresh_auto_flight_search(
                 detail="Failed to prepare refresh for auto flight search",
             )
     
-    # Call n8n webhook again with the same parameters
-    _call_n8n_webhook_for_airlines(
+    # Set status to processing before starting n8n
+    auto_search.n8n_status = "processing"
+    db.commit()
+    
+    # Schedule n8n webhook calls to run in background (non-blocking)
+    background_tasks.add_task(
+        _call_n8n_webhook_for_airlines,
         departure_id=auto_search.departure_id,
         arrival_id=auto_search.arrival_id,
         is_direct=auto_search.is_direct,

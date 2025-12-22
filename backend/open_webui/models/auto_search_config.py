@@ -31,6 +31,7 @@ class AutoSearchConfig(Base):
     travel_class = Column(Integer, nullable=False, default=0)  # 0=economy, 1=premium_economy, 2=business, 3=first
     is_direct = Column(Boolean, nullable=False, default=False)
     return_trip_duration = Column(Integer, nullable=False, default=7)  # Days
+    n8n_status = Column(String, nullable=False, default="pending")  # pending, processing, completed, failed
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -65,6 +66,7 @@ class AutoSearchConfigModel(BaseModel):
     travel_class: int = 0
     is_direct: bool = False
     return_trip_duration: int = 7
+    n8n_status: str = "pending"  # pending, processing, completed, failed
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
