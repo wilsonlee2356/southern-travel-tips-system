@@ -414,6 +414,15 @@ const buildSavedSearchFromResponse = (data) => {
 		const poll = async () => {
 			attempts++;
 			
+			// Skip polling for temporary IDs
+			if (isTemporaryId(autoSearchId)) {
+				console.log(`Stopping polling for temporary ID: ${autoSearchId}`);
+				stopPolling(autoSearchId);
+				loadingFlightResults.delete(autoSearchId);
+				loadingFlightResults = loadingFlightResults;
+				return;
+			}
+			
 			try {
 				// Poll the status endpoint
 				const statusResponse = await fetch(
@@ -424,6 +433,13 @@ const buildSavedSearchFromResponse = (data) => {
 				);
 
 				if (!statusResponse.ok) {
+					if (statusResponse.status === 404) {
+						console.log(`Search ${autoSearchId} not found (404), stopping polling`);
+						stopPolling(autoSearchId);
+						loadingFlightResults.delete(autoSearchId);
+						loadingFlightResults = loadingFlightResults;
+						return;
+					}
 					console.warn(`Failed to fetch status for auto_search_id=${autoSearchId}: ${statusResponse.status}`);
 					if (attempts >= maxAttempts) {
 						stopPolling(autoSearchId);
@@ -755,15 +771,37 @@ const buildSavedSearchFromResponse = (data) => {
 	// Track status for selected search
 	let selectedSearchStatus = null;
 	
+	// Helper function to check if an ID is a temporary ID (timestamp-based, 13 digits)
+	const isTemporaryId = (id) => {
+		if (!id) return false;
+		const idStr = String(id);
+		// Temporary IDs are typically timestamps (13 digits) or very large numbers
+		// Real backend IDs are usually smaller integers
+		return idStr.length >= 13 && /^\d+$/.test(idStr);
+	};
+	
 	// Function to check and update status for a search
 	const checkSearchStatus = async (searchId) => {
 		if (!searchId) return;
+		
+		// Skip status checks for temporary IDs (they don't exist in backend yet)
+		if (isTemporaryId(searchId)) {
+			console.log(`Skipping status check for temporary ID: ${searchId}`);
+			return;
+		}
 		
 		try {
 			const statusResponse = await fetch(
 				`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search/${searchId}/status`,
 				{ credentials: 'include' }
 			);
+			
+			// Handle 404 gracefully (search might not exist yet)
+			if (statusResponse.status === 404) {
+				console.log(`Search ${searchId} not found (404), skipping status check`);
+				return;
+			}
+			
 			if (statusResponse.ok) {
 				const statusData = await statusResponse.json();
 				
@@ -782,6 +820,21 @@ const buildSavedSearchFromResponse = (data) => {
 							console.log(`Successfully loaded ${loadedData.total_flight_options} flight options for search ${searchId}`);
 						}
 					}
+					// Stop polling and clear loading state since we have results
+					stopPolling(searchId);
+					loadingFlightResults.delete(searchId);
+					loadingFlightResults = loadingFlightResults; // Trigger reactivity
+				}
+				// If status is completed but no results, stop polling and clear loading
+				else if (statusData.status === "completed" && !statusData.has_results) {
+					console.log(`Search ${searchId} completed but no results found, stopping polling`);
+					stopPolling(searchId);
+					loadingFlightResults.delete(searchId);
+					loadingFlightResults = loadingFlightResults; // Trigger reactivity
+					// Update status for UI
+					if (selectedSearchId === searchId) {
+						selectedSearchStatus = statusData;
+					}
 				}
 				// If status is processing and no results yet, start polling
 				else if (statusData.status === "processing" && !pollingIntervals.has(searchId)) {
@@ -794,7 +847,10 @@ const buildSavedSearchFromResponse = (data) => {
 				}
 			}
 		} catch (error) {
-			console.error(`Failed to check status for search ${searchId}:`, error);
+			// Only log non-404 errors
+			if (!error.message?.includes('404')) {
+				console.error(`Failed to check status for search ${searchId}:`, error);
+			}
 		}
 	};
 	
