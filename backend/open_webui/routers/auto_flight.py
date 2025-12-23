@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import os
 from datetime import datetime, date, time
 from typing import List, Optional, Dict, Any
 
@@ -129,7 +131,9 @@ async def _call_n8n_webhook_for_airlines(
     auto_search_id: Optional[int] = None,
 ) -> None:
     """
-    Call n8n webhook API for each airline when a new auto search is created or refreshed.
+    Call n8n webhook API ONCE PER AIRLINE when a new auto search is created or refreshed.
+    
+    This function calls n8n ONCE for each airline - NO RETRIES.
     
     URL format: https://n8n.ssl-labs.ai/webhook/f56d4963-08b0-4c21-97c7-be28249e32d8/auto_search/{departure_id}/{arrival_id}/{is_direct}/{airline}/{trip_duration}/{travel_class}
     
@@ -137,7 +141,7 @@ async def _call_n8n_webhook_for_airlines(
         departure_id: Departure airport code (e.g., HKG)
         arrival_id: Arrival airport code (e.g., KIX)
         is_direct: Whether to search for direct flights only
-        airline_codes: List of airline codes to call webhook for
+        airline_codes: List of airline codes - n8n will be called ONCE for each airline
         trip_duration: Trip duration in days (required, 1-365)
         travel_class: Travel class integer (0=economy, 1=premium_economy, 2=business, 3=first_class)
         auto_search_id: Optional auto_search_id to use for finding auto_search_airline_id
@@ -150,30 +154,57 @@ async def _call_n8n_webhook_for_airlines(
     # Convert travel class to n8n format
     travel_class_str = _travel_class_to_n8n_format(travel_class)
     
-    # Use a single async client for all requests
-    async with httpx.AsyncClient(timeout=3600.0) as client:  # 1 hour timeout
+    # Configure timeout: 30 seconds connect, read timeout configurable via env variable
+    # Default: 3600 seconds (1 hour), can be increased via N8N_READ_TIMEOUT_SECONDS env variable
+    # This is critical for Docker deployments where n8n can take 45+ minutes
+    read_timeout = float(os.getenv("N8N_READ_TIMEOUT_SECONDS", "3600"))
+    timeout = httpx.Timeout(30.0, connect=30.0, read=read_timeout)
+    
+    log.info(
+        "n8n webhook timeout configuration: connect=30.0s, read=%.1fs (from N8N_READ_TIMEOUT_SECONDS=%s)",
+        read_timeout,
+        os.getenv("N8N_READ_TIMEOUT_SECONDS", "3600"),
+    )
+    
+    # Use a single async client for all requests - CALL N8N ONCE PER AIRLINE, NO RETRIES
+    # Configure keepalive to prevent connection drops during long waits
+    # limits: max_connections=100, max_keepalive_connections=20
+    # http2: disabled (n8n webhook likely doesn't support HTTP/2)
+    async with httpx.AsyncClient(
+        timeout=timeout,
+        limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+        http2=False,
+    ) as client:
         for airline_code in airline_codes:
             airline_code_upper = airline_code.upper().strip()
             if not airline_code_upper:
                 continue
-                
-            # Build the webhook URL with travel_class at the end
+            
+            # Build the webhook URL for this airline
+            # Call n8n and wait for it to return data synchronously
+            # Only pass the basic path parameters: departure_id/arrival_id/is_direct/airline/trip_duration/travel_class
             webhook_url = f"{base_url}/{departure_id}/{arrival_id}/{is_direct_str}/{airline_code_upper}/{trip_duration}/{travel_class_str}"
             
+            log.info(
+                "Calling n8n webhook ONCE for airline %s: %s -> %s (waiting for response)",
+                airline_code_upper,
+                departure_id,
+                arrival_id,
+            )
+            
             try:
-                log.info(
-                    "Calling n8n webhook for airline %s: %s -> %s, direct=%s, duration=%d days, travel_class=%s",
-                    airline_code_upper,
-                    departure_id,
-                    arrival_id,
-                    is_direct_str,
-                    trip_duration,
-                    travel_class_str,
-                )
+                # Prepare headers (add authentication if needed)
+                headers = {}
                 
-                response = await client.get(webhook_url)
+                # Optional: Add n8n webhook authentication header if configured
+                n8n_webhook_auth = os.getenv("N8N_WEBHOOK_AUTH", "")
+                if n8n_webhook_auth:
+                    headers["Authorization"] = f"Bearer {n8n_webhook_auth}"
+                    log.debug("Adding authentication header for n8n webhook")
                 
-                    # Log the response status and body
+                response = await client.get(webhook_url, headers=headers if headers else None)
+                
+                # Log the response status and body
                 response_text = response.text if response.text else ""
                 response_length = len(response_text)
                 log.info(
@@ -188,12 +219,14 @@ async def _call_n8n_webhook_for_airlines(
                     preview_start = response_text[:200] if len(response_text) > 200 else response_text
                     preview_end = response_text[-200:] if len(response_text) > 200 else ""
                     log.debug(
-                        "n8n response preview (first 200 chars): %s",
+                        "n8n response preview for airline %s (first 200 chars): %s",
+                        airline_code_upper,
                         preview_start,
                     )
                     if preview_end:
                         log.debug(
-                            "n8n response preview (last 200 chars): %s",
+                            "n8n response preview for airline %s (last 200 chars): %s",
+                            airline_code_upper,
                             preview_end,
                         )
                 
@@ -207,8 +240,8 @@ async def _call_n8n_webhook_for_airlines(
                         response.status_code,
                         response_text[:1000] if response_text else "No response body",
                     )
-                    log.exception("HTTP error details: %s", str(http_err))
-                    continue
+                    log.debug("HTTP error details: %s", str(http_err), exc_info=True)
+                    continue  # Continue to next airline - NO RETRIES
                 
                 # Check if response is empty
                 if not response_text or not response_text.strip():
@@ -218,7 +251,7 @@ async def _call_n8n_webhook_for_airlines(
                         departure_id,
                         arrival_id,
                     )
-                    continue
+                    continue  # Continue to next airline - NO RETRIES
                 
                 # Parse and store the flight data if present
                 try:
@@ -261,20 +294,6 @@ async def _call_n8n_webhook_for_airlines(
                             airline_code_upper,
                             response_length,
                         )
-                        # Log first few items to verify we got them all
-                        for idx in range(min(3, len(flight_data))):
-                            item = flight_data[idx]
-                            if isinstance(item, dict):
-                                sp = item.get("search_parameters", {})
-                                log.debug(
-                                    "  List item %d/%d: %s -> %s, dates: %s / %s",
-                                    idx + 1,
-                                    len(flight_data),
-                                    sp.get("departure_id", "N/A"),
-                                    sp.get("arrival_id", "N/A"),
-                                    sp.get("outbound_date", "N/A"),
-                                    sp.get("return_date", "N/A"),
-                                )
                     else:
                         log.error(
                             "Unexpected data format from n8n for airline %s: expected dict or list, got %s. Response preview: %s",
@@ -282,7 +301,7 @@ async def _call_n8n_webhook_for_airlines(
                             type(flight_data).__name__,
                             str(flight_data)[:500],
                         )
-                        continue
+                        continue  # Continue to next airline - NO RETRIES
 
                     log.info(
                         "Parsed n8n response for airline %s: received %d search items to process",
@@ -290,79 +309,19 @@ async def _call_n8n_webhook_for_airlines(
                         len(data_list),
                     )
 
-                    # Validate and log data structure for each item
-                    for idx, search_data in enumerate(data_list):
-                        if not isinstance(search_data, dict):
-                            log.error(
-                                "Invalid search_data item %d for airline %s: expected dict, got %s",
-                                idx,
-                                airline_code_upper,
-                                type(search_data).__name__,
-                            )
-                            continue
-                        
-                        # Check for missing or null critical fields
-                        search_params = search_data.get("search_parameters")
-                        best_flights = search_data.get("best_flights")
-                        other_flights = search_data.get("other_flights")
-                        
-                        if not search_params:
-                            log.error(
-                                "Missing search_parameters in n8n response for airline %s (item %d). Available keys: %s",
-                                airline_code_upper,
-                                idx,
-                                list(search_data.keys()),
-                            )
-                            continue
-                        
-                        # Log warnings for missing flight data
-                        if not best_flights and not other_flights:
-                            log.warning(
-                                "No flight data returned from n8n for airline %s (item %d): best_flights=%s, other_flights=%s. Search params: %s",
-                                airline_code_upper,
-                                idx,
-                                best_flights,
-                                other_flights,
-                                search_params,
-                            )
-                        elif best_flights is None and other_flights is None:
-                            log.warning(
-                                "best_flights and other_flights are both None (not empty list) for airline %s (item %d)",
-                                airline_code_upper,
-                                idx,
-                            )
-                        else:
-                            best_count = len(best_flights) if isinstance(best_flights, list) else 0
-                            other_count = len(other_flights) if isinstance(other_flights, list) else 0
-                            log.info(
-                                "n8n returned flight data for airline %s (item %d): best_flights=%d, other_flights=%d",
-                                airline_code_upper,
-                                idx,
-                                best_count,
-                                other_count,
-                            )
-
                     # Store the data in database
                     with get_db() as db:
                         try:
-                            # Find the auto_search_airline_id
+                            # Find the auto_search_airline_id for this airline
+                            auto_search_airline_id = None
+                            auto_search_airline_record = None
                             if auto_search_id is not None:
-                                # Use auto_search_id if provided (more reliable for refresh)
-                                auto_search_airline = db.query(AutoSearchAirline).filter(
+                                auto_search_airline_record = db.query(AutoSearchAirline).filter(
                                     AutoSearchAirline.auto_search_id == auto_search_id
                                 ).join(Airline).filter(
                                     Airline.code == airline_code_upper
                                 ).first()
-                            else:
-                                # Fall back to searching by departure/arrival (for backward compatibility)
-                                auto_search_airline = db.query(AutoSearchAirline).join(AutoSearchConfig).filter(
-                                    AutoSearchConfig.departure_id == departure_id.upper(),
-                                    AutoSearchConfig.arrival_id == arrival_id.upper(),
-                                ).join(Airline).filter(
-                                    Airline.code == airline_code_upper
-                                ).first()
-                            
-                            auto_search_airline_id = auto_search_airline.auto_search_airline_id if auto_search_airline else None
+                                auto_search_airline_id = auto_search_airline_record.auto_search_airline_id if auto_search_airline_record else None
                             
                             if auto_search_airline_id is None:
                                 log.warning(
@@ -375,13 +334,18 @@ async def _call_n8n_webhook_for_airlines(
                             
                             search_ids = []
                             errors = []
-                            log.info(
-                                "Starting to store %d search items for airline %s",
-                                len(data_list),
-                                airline_code_upper,
-                            )
                             
+                            # Process each item
                             for idx, search_data in enumerate(data_list):
+                                if not isinstance(search_data, dict):
+                                    log.error(
+                                        "Invalid search_data item %d for airline %s: expected dict, got %s",
+                                        idx,
+                                        airline_code_upper,
+                                        type(search_data).__name__,
+                                    )
+                                    continue
+                                
                                 try:
                                     search_params = search_data.get("search_parameters", {})
                                     outbound_date = search_params.get("outbound_date", "N/A")
@@ -401,24 +365,23 @@ async def _call_n8n_webhook_for_airlines(
                                     search_id = _store_flight_search_data(db, search_data, auto_search_airline_id)
                                     search_ids.append(search_id)
                                     log.info(
-                                        "Successfully stored search item %d/%d with ID: %d (dates: %s / %s)",
+                                        "Successfully stored search item %d/%d with ID: %d for airline %s (dates: %s / %s)",
                                         idx + 1,
                                         len(data_list),
                                         search_id,
+                                        airline_code_upper,
                                         outbound_date,
                                         return_date,
                                     )
                                 except ValueError as ve:
-                                    error_msg = f"Validation error in item {idx + 1}/{len(data_list)}: {str(ve)}"
+                                    error_msg = f"Validation error in item {idx + 1}/{len(data_list)} for airline {airline_code_upper}: {str(ve)}"
                                     log.error(error_msg)
                                     errors.append(error_msg)
-                                    # Continue processing other items
                                     continue
                                 except Exception as e:
-                                    error_msg = f"Failed to store search data item {idx + 1}/{len(data_list)}: {str(e)}"
+                                    error_msg = f"Failed to store search data item {idx + 1}/{len(data_list)} for airline {airline_code_upper}: {str(e)}"
                                     log.exception(error_msg)
                                     errors.append(error_msg)
-                                    # Continue processing other items
                                     continue
 
                             log.info(
@@ -429,6 +392,7 @@ async def _call_n8n_webhook_for_airlines(
                                 len(errors),
                             )
 
+                            # Handle successful processing (even if no flights found)
                             if search_ids:
                                 db.commit()
                                 log.info(
@@ -445,7 +409,18 @@ async def _call_n8n_webhook_for_airlines(
                                         len(errors),
                                         "; ".join(errors[:5]),  # Show first 5 errors
                                     )
+                            elif len(data_list) == 0:
+                                # n8n returned successfully but with no flights - this is still a completed airline
+                                # Commit to ensure the transaction is saved (even though no Search records were created)
+                                db.commit()
+                                log.info(
+                                    "Airline %s completed successfully but returned no flights for %s -> %s",
+                                    airline_code_upper,
+                                    departure_id,
+                                    arrival_id,
+                                )
                             else:
+                                # Had items but all failed to store
                                 log.error(
                                     "No search records were successfully stored from n8n response for airline %s. All %d items failed. Errors: %s",
                                     airline_code_upper,
@@ -456,7 +431,7 @@ async def _call_n8n_webhook_for_airlines(
                         except Exception as e:
                             db.rollback()
                             log.exception("Failed to store n8n response data for airline %s: %s", airline_code_upper, str(e))
-                            
+                            continue  # Continue to next airline - NO RETRIES
                 except ValueError as json_err:
                     log.error(
                         "Failed to parse JSON from n8n response for airline %s: %s. Response text (first 1000 chars): %s",
@@ -464,28 +439,76 @@ async def _call_n8n_webhook_for_airlines(
                         str(json_err),
                         response.text[:1000] if response.text else "No response body",
                     )
+                    continue  # Continue to next airline - NO RETRIES
                 except Exception as e:
-                    log.exception(
-                        "Unexpected error processing n8n response for airline %s: %s",
-                        airline_code_upper,
-                        str(e),
-                    )
-                    
+                    log.exception("Unexpected error processing n8n response for airline %s: %s", airline_code_upper, str(e))
+                    continue  # Continue to next airline - NO RETRIES
+                        
             except httpx.RequestError as req_err:
-                log.error(
-                    "n8n webhook call failed for airline %s: %s -> %s. Error: %s",
-                    airline_code_upper,
-                    departure_id,
-                    arrival_id,
-                    str(req_err),
-                )
-                log.exception("Request exception details:")
+                error_msg = str(req_err)
+                error_type = type(req_err).__name__
+                
+                # Check if this is a timeout error and log additional context
+                is_timeout = "timeout" in error_msg.lower() or "disconnected" in error_msg.lower()
+                if is_timeout:
+                    log.error(
+                        "n8n webhook call TIMEOUT for airline %s: %s -> %s. Error type: %s, Error: %s. "
+                        "This may be caused by: 1) Cloud provider load balancer timeout (check AWS ALB/GCP LB/Azure LB idle timeout), "
+                        "2) Docker network timeout, 3) Intermediate proxy timeout. "
+                        "HTTP connection failed, but n8n workflow may still be processing. "
+                        "Configured httpx timeout: connect=30.0s, read=%.1fs",
+                        airline_code_upper,
+                        departure_id,
+                        arrival_id,
+                        error_type,
+                        error_msg,
+                        read_timeout,
+                    )
+                else:
+                    log.error(
+                        "n8n webhook call failed for airline %s: %s -> %s. Error type: %s, Error: %s. HTTP connection failed, but n8n workflow may still be processing.",
+                        airline_code_upper,
+                        departure_id,
+                        arrival_id,
+                        error_type,
+                        error_msg,
+                    )
+                # Log exception details at debug level to reduce log noise
+                log.debug("Exception details for airline %s: %s", airline_code_upper, str(req_err), exc_info=True)
+                # Continue to next airline - NO RETRIES
+                continue
             except Exception as e:
-                log.exception(
+                log.error(
                     "Unexpected error calling n8n webhook for airline %s: %s -> %s. Error: %s",
                     airline_code_upper,
                     departure_id,
                     arrival_id,
+                    str(e),
+                )
+                # Log exception details at debug level to reduce log noise
+                log.debug("Unexpected exception details for airline %s: %s", airline_code_upper, str(e), exc_info=True)
+                # Continue to next airline - NO RETRIES
+                continue
+    
+    # After processing all airlines, update the overall status to "completed"
+    # This indicates that all airline calls have finished (even if some returned no flights)
+    if auto_search_id is not None:
+        with get_db() as db:
+            try:
+                auto_search_config = db.query(AutoSearchConfig).filter(
+                    AutoSearchConfig.auto_search_id == auto_search_id
+                ).first()
+                if auto_search_config:
+                    auto_search_config.n8n_status = "completed"
+                    db.commit()
+                    log.info(
+                        "Updated n8n_status to 'completed' for auto_search_id=%d after processing all airlines",
+                        auto_search_id,
+                    )
+            except Exception as e:
+                log.error(
+                    "Failed to update n8n_status to 'completed' for auto_search_id=%d: %s",
+                    auto_search_id,
                     str(e),
                 )
 
@@ -1041,9 +1064,10 @@ def _store_flight_option(db, search_id: int, flight_option_data: Dict[str, Any],
 )
 async def receive_n8n_webhook_data(
     request: Request,
-    departure_id: str = Query(..., description="Departure airport code"),
-    arrival_id: str = Query(..., description="Arrival airport code"),
-    airline: str = Query(..., description="Airline code"),
+    auto_search_id: Optional[int] = Query(None, description="Auto search ID (recommended for accurate matching)"),
+    departure_id: Optional[str] = Query(None, description="Departure airport code (optional if auto_search_id provided)"),
+    arrival_id: Optional[str] = Query(None, description="Arrival airport code (optional if auto_search_id provided)"),
+    airline: Optional[str] = Query(None, description="Airline code (optional if auto_search_id provided)"),
 ):
     """
     Receive flight search data from n8n webhook and store it in the database.
@@ -1055,6 +1079,18 @@ async def receive_n8n_webhook_data(
     POST /n8n-webhook?departure_id=HKG&arrival_id=KIX&airline=CX
     Body: [{"search_parameters": {...}, "best_flights": [...], ...}, ...]
     """
+    # Log the incoming request for debugging
+    client_ip = request.client.host if request.client else "unknown"
+    log.info(
+        "=== n8n webhook callback received === auto_search_id=%s, departure_id=%s, arrival_id=%s, airline=%s, client_ip=%s, url=%s",
+        auto_search_id if auto_search_id else "not provided",
+        departure_id,
+        arrival_id,
+        airline,
+        client_ip,
+        str(request.url),
+    )
+    
     try:
         # Parse request body
         body = await request.json()
@@ -1089,23 +1125,81 @@ async def receive_n8n_webhook_data(
     
     with get_db() as db:
         try:
-            # Find the auto_search_airline_id based on departure, arrival, and airline
-            airline_upper = airline.upper()
-            auto_search_airline = db.query(AutoSearchAirline).join(AutoSearchConfig).filter(
-                AutoSearchConfig.departure_id == departure_id.upper(),
-                AutoSearchConfig.arrival_id == arrival_id.upper(),
-            ).join(Airline).filter(
-                Airline.code == airline_upper
-            ).first()
+            # Find the auto_search_airline_id
+            # Priority: 1) Use auto_search_id if provided (most accurate), 2) Fall back to matching by departure/arrival/airline
+            auto_search_airline = None
+            
+            if auto_search_id:
+                # Use auto_search_id for precise matching (handles multiple searches with same route/airline)
+                if airline:
+                    # If airline is provided, filter by both auto_search_id and airline
+                    airline_upper = airline.upper()
+                    auto_search_airline = db.query(AutoSearchAirline).filter(
+                        AutoSearchAirline.auto_search_id == auto_search_id
+                    ).join(Airline).filter(
+                        Airline.code == airline_upper
+                    ).first()
+                else:
+                    # If airline not provided, get all airlines for this auto_search_id and use the first one
+                    # (n8n should ideally provide airline, but we handle the case where it doesn't)
+                    auto_search_airline = db.query(AutoSearchAirline).filter(
+                        AutoSearchAirline.auto_search_id == auto_search_id
+                    ).first()
+                
+                if auto_search_airline:
+                    log.info(
+                        "Matched auto_search_airline using auto_search_id=%d%s",
+                        auto_search_id,
+                        f", airline={airline}" if airline else "",
+                    )
+                else:
+                    log.warning(
+                        "auto_search_id=%d provided but no matching auto_search_airline found%s. Falling back to route matching.",
+                        auto_search_id,
+                        f" for airline={airline}" if airline else "",
+                    )
+            
+            # Fall back to matching by departure, arrival, and airline if auto_search_id not provided or didn't match
+            if not auto_search_airline:
+                if not departure_id or not arrival_id or not airline:
+                    log.error(
+                        "Cannot match auto_search_airline: auto_search_id=%s, departure_id=%s, arrival_id=%s, airline=%s. At least auto_search_id OR (departure_id, arrival_id, airline) must be provided.",
+                        auto_search_id,
+                        departure_id,
+                        arrival_id,
+                        airline,
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Either auto_search_id or (departure_id, arrival_id, airline) must be provided",
+                    )
+                
+                airline_upper = airline.upper()
+                auto_search_airline = db.query(AutoSearchAirline).join(AutoSearchConfig).filter(
+                    AutoSearchConfig.departure_id == departure_id.upper(),
+                    AutoSearchConfig.arrival_id == arrival_id.upper(),
+                ).join(Airline).filter(
+                    Airline.code == airline_upper
+                ).first()
+                
+                if auto_search_airline:
+                    log.info(
+                        "Matched auto_search_airline using route matching for %s -> %s, airline=%s (auto_search_id=%d)",
+                        departure_id,
+                        arrival_id,
+                        airline,
+                        auto_search_airline.auto_search_id if auto_search_airline else None,
+                    )
             
             auto_search_airline_id = auto_search_airline.auto_search_airline_id if auto_search_airline else None
             
             if auto_search_airline_id is None:
                 log.warning(
-                    "No matching auto_search_airline found for %s -> %s, airline=%s. Storing without link.",
+                    "No matching auto_search_airline found for %s -> %s, airline=%s%s. Storing without link.",
                     departure_id,
                     arrival_id,
                     airline,
+                    f", auto_search_id={auto_search_id}" if auto_search_id else "",
                 )
             
             search_ids = []
@@ -1229,25 +1323,49 @@ async def get_auto_flight_search_status(
                     detail="Auto flight search not found",
                 )
             
-            # Check if results exist
+            # Check if results exist for ALL airlines
             auto_search_airlines = db.query(AutoSearchAirline).filter(
                 AutoSearchAirline.auto_search_id == auto_search_id
             ).all()
             
-            auto_search_airline_ids = [asa.auto_search_airline_id for asa in auto_search_airlines]
+            total_airlines = len(auto_search_airlines)
+            airlines_with_results = 0
+            airlines_processed = 0
             has_results = False
+            all_airlines_completed = False
             
-            if auto_search_airline_ids:
+            if total_airlines > 0:
                 from open_webui.models.flight_search import Search
-                search_count = db.query(Search).filter(
-                    Search.auto_search_airline_id.in_(auto_search_airline_ids)
-                ).count()
-                has_results = search_count > 0
+                
+                # Check each airline to see if it has results or has been processed
+                for asa in auto_search_airlines:
+                    search_count = db.query(Search).filter(
+                        Search.auto_search_airline_id == asa.auto_search_airline_id
+                    ).count()
+                    if search_count > 0:
+                        airlines_with_results += 1
+                        airlines_processed += 1
+                    # If the overall status is "completed", consider all airlines as processed
+                    # (some may have returned no flights, which is still a valid completion)
+                    elif auto_search.n8n_status == "completed":
+                        airlines_processed += 1
+                
+                has_results = airlines_with_results > 0
+                # All airlines have completed when:
+                # 1. All airlines have results, OR
+                # 2. Overall status is "completed" (meaning all airline calls finished, even if some returned no flights)
+                all_airlines_completed = (
+                    airlines_processed == total_airlines and 
+                    auto_search.n8n_status == "completed"
+                )
             
             return {
                 "auto_search_id": auto_search_id,
                 "status": auto_search.n8n_status,
-                "has_results": has_results
+                "has_results": has_results,
+                "all_airlines_completed": all_airlines_completed,
+                "airlines_completed": airlines_with_results,
+                "total_airlines": total_airlines
             }
         except HTTPException:
             raise
@@ -1506,32 +1624,47 @@ async def delete_auto_flight_search(
             auto_search_airline_ids = [asa.auto_search_airline_id for asa in auto_search_airlines]
             search_ids = []
             
+            # Find all searches linked to these auto_search_airline records
+            searches_to_delete = []
             if auto_search_airline_ids:
-                # Find all searches linked to these auto_search_airline records
                 searches_to_delete = db.query(Search).filter(
                     Search.auto_search_airline_id.in_(auto_search_airline_ids)
                 ).all()
+            
+            # ALSO delete any searches that match the route (departure_id, arrival_id) 
+            # even if they have NULL auto_search_airline_id (orphaned searches)
+            # This ensures complete deletion of all data for this route
+            route_searches = db.query(Search).filter(
+                Search.departure_id == auto_search.departure_id,
+                Search.arrival_id == auto_search.arrival_id,
+                Search.auto_search_airline_id.is_(None)
+            ).all()
+            
+            # Combine both lists, avoiding duplicates
+            all_searches_to_delete = {s.search_id: s for s in searches_to_delete + route_searches}
+            searches_to_delete = list(all_searches_to_delete.values())
+            search_ids = [s.search_id for s in searches_to_delete]
+            
+            if search_ids:
+                log.info(
+                    "Deleting %d searches and related data for auto search %d (route: %s -> %s)",
+                    len(search_ids),
+                    auto_search_id,
+                    auto_search.departure_id,
+                    auto_search.arrival_id,
+                )
                 
-                search_ids = [s.search_id for s in searches_to_delete]
-                
-                if search_ids:
-                    log.info(
-                        "Deleting %d searches and related data for auto search %d",
-                        len(search_ids),
-                        auto_search_id,
-                    )
-                    
-                    # Delete searches (cascades will handle related data):
-                    # - flight_options (CASCADE)
-                    # - flight_segments (CASCADE from flight_options)
-                    # - layovers (CASCADE from flight_options)
-                    # - option_extensions (CASCADE from flight_options)
-                    # - flight_extensions (CASCADE from flight_segments)
-                    # - price_insights (CASCADE)
-                    # - price_history (CASCADE from price_insights)
-                    # - search_airports (CASCADE)
-                    for search in searches_to_delete:
-                        db.delete(search)
+                # Delete searches (cascades will handle related data):
+                # - flight_options (CASCADE)
+                # - flight_segments (CASCADE from flight_options)
+                # - layovers (CASCADE from flight_options)
+                # - option_extensions (CASCADE from flight_options)
+                # - flight_extensions (CASCADE from flight_segments)
+                # - price_insights (CASCADE)
+                # - price_history (CASCADE from price_insights)
+                # - search_airports (CASCADE)
+                for search in searches_to_delete:
+                    db.delete(search)
             
             # Delete auto_search_config (this will cascade delete auto_search_airline records)
             db.delete(auto_search)

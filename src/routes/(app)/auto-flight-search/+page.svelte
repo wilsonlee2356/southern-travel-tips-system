@@ -78,7 +78,7 @@ Output ONLY pure valid JSON — no extra text, no placeholders, no comments, all
 	// Store flight search results for each auto search
 	let flightSearchResults = new Map(); // Map<autoSearchId, results>
 	let loadingFlightResults = new Set(); // Set<autoSearchId>
-	let pollingIntervals = new Map(); // Map<autoSearchId, intervalId> - for polling n8n results
+	let pollingIntervals = new Map(); // Map<autoSearchId, intervalId> - for polling AI results
 	let selectedAirlineTab = null; // Currently selected airline tab
 	
 
@@ -256,7 +256,7 @@ const buildSavedSearchFromResponse = (data) => {
 		selectedSearchId = preservedSelection;
 		
 		// Load flight search results for each saved search
-		// Check status and start polling if n8n is still processing
+		// Check status and start polling if AI is still processing
 		// Note: selectedSearchId is set above, so we can check status for all searches
 		
 		// First, check status for the selected search immediately to show loading state ASAP
@@ -277,10 +277,11 @@ const buildSavedSearchFromResponse = (data) => {
 						console.log(`Updated selectedSearchStatus for selected search ${selectedSearchId}:`, statusData);
 						
 						// If has_results is true, load results immediately regardless of status
-						if (statusData.has_results) {
+						// Only load results if all airlines have completed
+						if (statusData.all_airlines_completed && statusData.has_results) {
 							const existingResults = flightSearchResults.get(selectedSearchId);
 							if (!existingResults || !existingResults.total_flight_options || existingResults.total_flight_options === 0) {
-								console.log(`Selected search ${selectedSearchId} has results (status=${statusData.status}), loading...`);
+								console.log(`Selected search ${selectedSearchId} has all airlines completed (status=${statusData.status}), loading...`);
 								const loadedData = await loadFlightSearchResults(selectedSearchId);
 								if (loadedData && loadedData.total_flight_options > 0) {
 									console.log(`Successfully loaded ${loadedData.total_flight_options} flight options for search ${selectedSearchId}`);
@@ -290,8 +291,14 @@ const buildSavedSearchFromResponse = (data) => {
 							}
 						}
 						
-						// If processing and no results yet, set loading state and start polling
-						if (statusData.status === "processing" && !statusData.has_results) {
+						// If status is completed, clear loading state (even if no results)
+						if (statusData.status === "completed") {
+							stopPolling(selectedSearchId);
+							loadingFlightResults.delete(selectedSearchId);
+							loadingFlightResults = loadingFlightResults; // Trigger reactivity
+						}
+						// If processing and not all airlines completed yet, set loading state and start polling
+						else if (statusData.status === "processing" && (!statusData.all_airlines_completed || !statusData.has_results)) {
 							console.log(`Selected search ${selectedSearchId} is processing, starting polling...`);
 							if (!loadingFlightResults.has(selectedSearchId)) {
 								loadingFlightResults.add(selectedSearchId);
@@ -323,11 +330,11 @@ const buildSavedSearchFromResponse = (data) => {
 					if (statusResponse.ok) {
 						const statusData = await statusResponse.json();
 						
-						// If has_results is true, load results immediately regardless of status
-						if (statusData.has_results) {
+						// Only load results if all airlines have completed
+						if (statusData.all_airlines_completed && statusData.has_results) {
 							const existingResults = flightSearchResults.get(search.id);
 							if (!existingResults || !existingResults.total_flight_options || existingResults.total_flight_options === 0) {
-								console.log(`Search ${search.id} has results (status=${statusData.status}), loading...`);
+								console.log(`Search ${search.id} has all airlines completed (status=${statusData.status}), loading...`);
 								const loadedData = await loadFlightSearchResults(search.id);
 								if (loadedData && loadedData.total_flight_options > 0) {
 									console.log(`Successfully loaded ${loadedData.total_flight_options} flight options for search ${search.id}`);
@@ -335,17 +342,23 @@ const buildSavedSearchFromResponse = (data) => {
 							}
 						}
 						
-						// If n8n is still processing and no results yet, set loading state and start polling
-						if (statusData.status === "processing" && !statusData.has_results) {
+						// If status is completed, clear loading state (even if no results)
+						if (statusData.status === "completed") {
+							stopPolling(search.id);
+							loadingFlightResults.delete(search.id);
+							loadingFlightResults = loadingFlightResults; // Trigger reactivity
+						}
+						// If AI is still processing and not all airlines completed yet, set loading state and start polling
+						else if (statusData.status === "processing" && (!statusData.all_airlines_completed || !statusData.has_results)) {
 							console.log(`Search ${search.id} is still processing, starting polling...`);
 							// Set loading state immediately
 							if (!loadingFlightResults.has(search.id)) {
 								loadingFlightResults.add(search.id);
 								loadingFlightResults = loadingFlightResults; // Trigger reactivity
 							}
-							// Start polling if not already polling
+							// Start polling if not already polling (180 attempts = 45 minutes)
 							if (!pollingIntervals.has(search.id)) {
-								startPollingForResults(search.id, 120, 15000);
+								startPollingForResults(search.id, 180, 15000);
 							}
 						}
 					}
@@ -398,8 +411,9 @@ const buildSavedSearchFromResponse = (data) => {
 		}
 	};
 	
-	// Start polling for n8n status until processing is complete or timeout
-	const startPollingForResults = (autoSearchId, maxAttempts = 120, intervalMs = 15000) => {
+	// Start polling for AI status until processing is complete or timeout
+	// maxAttempts = 180 means 180 * 15s = 45 minutes (AI can take up to 45 minutes)
+	const startPollingForResults = (autoSearchId, maxAttempts = 180, intervalMs = 15000) => {
 		// Stop any existing polling for this search
 		stopPolling(autoSearchId);
 		
@@ -450,18 +464,21 @@ const buildSavedSearchFromResponse = (data) => {
 				}
 
 				const statusData = await statusResponse.json();
-				console.log(`Status check ${attempts} for auto_search_id=${autoSearchId}: status=${statusData.status}, has_results=${statusData.has_results}`);
+				const allCompleted = statusData.all_airlines_completed || false;
+				const airlinesCompleted = statusData.airlines_completed || 0;
+				const totalAirlines = statusData.total_airlines || 0;
+				console.log(`Status check ${attempts} for auto_search_id=${autoSearchId}: status=${statusData.status}, has_results=${statusData.has_results}, all_airlines_completed=${allCompleted} (${airlinesCompleted}/${totalAirlines})`);
 				
 				// Update status for UI (always update so UI reflects current state)
 				if (selectedSearchId === autoSearchId) {
 					selectedSearchStatus = statusData;
 				}
 				
-				// If has_results is true, load results and stop polling (regardless of status)
-				if (statusData.has_results) {
+				// Only load and display results when ALL airlines have completed
+				if (allCompleted && statusData.has_results) {
 					const existingResults = flightSearchResults.get(autoSearchId);
 					if (!existingResults || !existingResults.total_flight_options || existingResults.total_flight_options === 0) {
-						console.log(`n8n has results for auto_search_id=${autoSearchId} (status=${statusData.status}), loading results...`);
+						console.log(`All airlines completed for auto_search_id=${autoSearchId} (${airlinesCompleted}/${totalAirlines}), loading results...`);
 						
 						// Load the actual flight results
 						const resultsResponse = await fetch(
@@ -483,21 +500,21 @@ const buildSavedSearchFromResponse = (data) => {
 							
 							// Update status to reflect that we have results (this will hide loading)
 							if (selectedSearchId === autoSearchId) {
-								selectedSearchStatus = { ...statusData, has_results: true };
+								selectedSearchStatus = { ...statusData, has_results: true, all_airlines_completed: true };
 							}
 						}
 					} else {
 						console.log(`Results already loaded for auto_search_id=${autoSearchId}, stopping polling`);
 					}
 					
-					// Stop polling since we have results
+					// Stop polling since all airlines have completed
 					stopPolling(autoSearchId);
 					loadingFlightResults.delete(autoSearchId);
 					loadingFlightResults = loadingFlightResults; // Trigger reactivity
 					return; // Stop polling
 				}
 				
-				// If n8n is still processing and no results yet, continue polling
+				// If AI is still processing and no results yet, continue polling
 				if (statusData.status === "processing") {
 					if (attempts >= maxAttempts) {
 						console.log(`Max attempts (${maxAttempts}) reached for auto_search_id=${autoSearchId}, stopping polling`);
@@ -508,9 +525,9 @@ const buildSavedSearchFromResponse = (data) => {
 					return; // Continue polling
 				}
 				
-				// If n8n is completed and has results, load the results
-				if (statusData.status === "completed" && statusData.has_results) {
-					console.log(`n8n completed for auto_search_id=${autoSearchId}, loading results...`);
+				// If AI is completed and all airlines have results, load the results
+				if (statusData.status === "completed" && allCompleted && statusData.has_results) {
+					console.log(`AI completed for auto_search_id=${autoSearchId} (all ${totalAirlines} airlines), loading results...`);
 					
 					// Update status for UI
 					if (selectedSearchId === autoSearchId) {
@@ -540,9 +557,9 @@ const buildSavedSearchFromResponse = (data) => {
 					stopPolling(autoSearchId);
 					loadingFlightResults.delete(autoSearchId);
 					loadingFlightResults = loadingFlightResults; // Trigger reactivity
-				} else if (statusData.status === "completed" && !statusData.has_results) {
+				} else if (statusData.status === "completed" && (!allCompleted || !statusData.has_results)) {
 					// Completed but no results - stop polling
-					console.log(`n8n completed for auto_search_id=${autoSearchId} but no results found`);
+					console.log(`AI completed for auto_search_id=${autoSearchId} but no results found`);
 					
 					// Update status for UI
 					if (selectedSearchId === autoSearchId) {
@@ -554,7 +571,7 @@ const buildSavedSearchFromResponse = (data) => {
 					loadingFlightResults = loadingFlightResults; // Trigger reactivity
 				} else if (statusData.status === "failed") {
 					// Failed - stop polling
-					console.log(`n8n failed for auto_search_id=${autoSearchId}`);
+					console.log(`AI failed for auto_search_id=${autoSearchId}`);
 					
 					// Update status for UI
 					if (selectedSearchId === autoSearchId) {
@@ -810,24 +827,28 @@ const buildSavedSearchFromResponse = (data) => {
 					selectedSearchStatus = statusData;
 				}
 				
-				// If has_results is true, load results immediately regardless of status
-				if (statusData.has_results) {
+				const allCompleted = statusData.all_airlines_completed || false;
+				const airlinesCompleted = statusData.airlines_completed || 0;
+				const totalAirlines = statusData.total_airlines || 0;
+				
+				// Only load results if ALL airlines have completed
+				if (allCompleted && statusData.has_results) {
 					const existingResults = flightSearchResults.get(searchId);
 					if (!existingResults || !existingResults.total_flight_options || existingResults.total_flight_options === 0) {
-						console.log(`Search ${searchId} has results (status=${statusData.status}), loading...`);
+						console.log(`Search ${searchId} has all airlines completed (${airlinesCompleted}/${totalAirlines}, status=${statusData.status}), loading...`);
 						const loadedData = await loadFlightSearchResults(searchId);
 						if (loadedData && loadedData.total_flight_options > 0) {
 							console.log(`Successfully loaded ${loadedData.total_flight_options} flight options for search ${searchId}`);
 						}
 					}
-					// Stop polling and clear loading state since we have results
+					// Stop polling and clear loading state since all airlines have completed
 					stopPolling(searchId);
 					loadingFlightResults.delete(searchId);
 					loadingFlightResults = loadingFlightResults; // Trigger reactivity
 				}
-				// If status is completed but no results, stop polling and clear loading
-				else if (statusData.status === "completed" && !statusData.has_results) {
-					console.log(`Search ${searchId} completed but no results found, stopping polling`);
+				// If status is completed but not all airlines completed or no results, stop polling and clear loading
+				else if (statusData.status === "completed" && (!allCompleted || !statusData.has_results)) {
+					console.log(`Search ${searchId} completed but not all airlines finished (${airlinesCompleted}/${totalAirlines}) or no results, stopping polling`);
 					stopPolling(searchId);
 					loadingFlightResults.delete(searchId);
 					loadingFlightResults = loadingFlightResults; // Trigger reactivity
@@ -836,14 +857,14 @@ const buildSavedSearchFromResponse = (data) => {
 						selectedSearchStatus = statusData;
 					}
 				}
-				// If status is processing and no results yet, start polling
-				else if (statusData.status === "processing" && !pollingIntervals.has(searchId)) {
+				// If status is processing and not all airlines completed yet, start polling
+				else if (statusData.status === "processing" && (!allCompleted || !statusData.has_results) && !pollingIntervals.has(searchId)) {
 					console.log(`Search ${searchId} is processing, starting polling...`);
 					if (!loadingFlightResults.has(searchId)) {
 						loadingFlightResults.add(searchId);
 						loadingFlightResults = loadingFlightResults; // Trigger reactivity
 					}
-					startPollingForResults(searchId, 120, 15000);
+					startPollingForResults(searchId, 180, 15000);
 				}
 			}
 		} catch (error) {
@@ -874,14 +895,14 @@ const buildSavedSearchFromResponse = (data) => {
 	}
 	
 	// Compute if we should show loading state for selected search
-	// Only show loading if actively polling/loading AND no results exist yet
+	// Only show loading if actively polling/loading AND not all airlines completed yet
+	// Don't show loading if status is "completed" (even if all_airlines_completed is false)
 	$: showLoadingForSelectedSearch = selectedSearchId && (
-		((loadingFlightResults.has(selectedSearchId) || pollingIntervals.has(selectedSearchId)) &&
-		!flightSearchResults.has(selectedSearchId)) ||
-		(selectedSearchStatus && 
-		 selectedSearchStatus.status === "processing" && 
-		 !selectedSearchStatus.has_results &&
-		 !flightSearchResults.has(selectedSearchId))
+		// Only show loading if status is "processing" (not "completed" or "failed")
+		selectedSearchStatus && selectedSearchStatus.status === "processing" &&
+		(!selectedSearchStatus.all_airlines_completed || !selectedSearchStatus.has_results) &&
+		!flightSearchResults.has(selectedSearchId) &&
+		(loadingFlightResults.has(selectedSearchId) || pollingIntervals.has(selectedSearchId))
 	);
 	
 	// Update status check to also trigger when selectedSearchId changes
@@ -1078,7 +1099,7 @@ $: airlineCodeToName = new Map(
 
 			backendId = data?.auto_search_id ?? data?.auto_search?.auto_search_id ?? newSearch.id;
 			
-			// Start polling for n8n status (n8n processes in background)
+			// Start polling for AI status (AI processes in background)
 			if (backendId) {
 				// Clear status if this is the selected search
 				if (selectedSearchId === backendId) {
@@ -1086,8 +1107,8 @@ $: airlineCodeToName = new Map(
 				}
 				// Check status immediately, then start polling
 				checkSearchStatus(backendId);
-				// Start polling immediately - will check every 15 seconds for up to 30 minutes (120 attempts)
-				startPollingForResults(backendId, 120, 15000);
+				// Start polling immediately - will check every 15 seconds for up to 45 minutes (180 attempts)
+				startPollingForResults(backendId, 180, 15000);
 			}
 
 			const builtSearch = buildSavedSearchFromResponse(data);
@@ -1171,7 +1192,7 @@ $: airlineCodeToName = new Map(
 			console.log('Full response:', data);
 			console.debug('Auto search response (refresh):', data);
 			
-			// Start polling for n8n status (n8n processes in background)
+			// Start polling for AI status (AI processes in background)
 			if (autoSearchId) {
 				// Clear existing results and status
 				flightSearchResults.delete(autoSearchId);
@@ -1183,7 +1204,7 @@ $: airlineCodeToName = new Map(
 				// Check status immediately, then start polling
 				checkSearchStatus(autoSearchId);
 				// Start polling status endpoint every 15 seconds
-				startPollingForResults(autoSearchId, 120, 15000);
+				startPollingForResults(autoSearchId, 180, 15000);
 			}
 
 			const builtSearch = buildSavedSearchFromResponse(data);
@@ -1266,6 +1287,17 @@ $: airlineCodeToName = new Map(
 
 			// 204 No Content - no response body
 			console.debug('Auto search deleted successfully:', autoSearchId);
+
+			// Clear all cached data for this search
+			flightSearchResults.delete(searchId);
+			flightSearchResults.delete(autoSearchId);
+			flightSearchResults = flightSearchResults; // Trigger reactivity
+			loadingFlightResults.delete(searchId);
+			loadingFlightResults.delete(autoSearchId);
+			loadingFlightResults = loadingFlightResults; // Trigger reactivity
+			stopPolling(searchId);
+			stopPolling(autoSearchId);
+			selectedSearchStatus = null;
 
 			savedSearches = savedSearches.filter((s) => s.id !== searchId);
 			if (selectedSearchId === searchId) {
@@ -1568,6 +1600,9 @@ $: airlineCodeToName = new Map(
 								{savedSearches}
 								{selectedSearchId}
 								{loadingSearches}
+								{loadingFlightResults}
+								{pollingIntervals}
+								{selectedSearchStatus}
 								on:selectSearch={(e) => selectSearch(e.detail)}
 								on:runSearch={(e) => runSearch(e.detail)}
 								on:deleteSearch={(e) => deleteSearch(e.detail)}
@@ -1597,7 +1632,7 @@ $: airlineCodeToName = new Map(
 													<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 												</svg>
 												<p class="text-gray-500 dark:text-gray-400 mb-2">Waiting for flight search results...</p>
-												<p class="text-sm text-gray-400 dark:text-gray-500">n8n is processing your search. This may take a few minutes.</p>
+												<p class="text-sm text-gray-400 dark:text-gray-500">AI is processing your search. This may take a few minutes.</p>
 											</div>
 										{:else if flightSearchResults.has(selectedSearchId)}
 											{@const results = flightSearchResults.get(selectedSearchId)}
@@ -2169,7 +2204,7 @@ $: airlineCodeToName = new Map(
 												</div>
 											{:else}
 												<!-- No flight data but results were checked - check status -->
-												{#if showLoadingForSelectedSearch || (selectedSearchStatus && selectedSearchStatus.status === "processing")}
+												{#if showLoadingForSelectedSearch || (selectedSearchStatus && selectedSearchStatus.status === "processing" && (!selectedSearchStatus.all_airlines_completed || !selectedSearchStatus.has_results))}
 													<!-- Processing - show loading -->
 													<div class="p-8 text-center">
 														<svg class="animate-spin mx-auto h-8 w-8 text-blue-500 mb-4" fill="none" viewBox="0 0 24 24">
@@ -2177,12 +2212,23 @@ $: airlineCodeToName = new Map(
 															<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 														</svg>
 														<p class="text-gray-500 dark:text-gray-400 mb-2">Waiting for flight search results...</p>
-														<p class="text-sm text-gray-400 dark:text-gray-500">n8n is processing your search. This may take a few minutes.</p>
+														<p class="text-sm text-gray-400 dark:text-gray-500">
+															AI is processing your search. This may take a few minutes.
+															{#if selectedSearchStatus && selectedSearchStatus.total_airlines}
+																<br />
+																<span class="text-xs">({selectedSearchStatus.airlines_completed || 0}/{selectedSearchStatus.total_airlines} airlines completed)</span>
+															{/if}
+														</p>
 													</div>
-												{:else if selectedSearchStatus && selectedSearchStatus.status === "completed" && !selectedSearchStatus.has_results}
+												{:else if selectedSearchStatus && selectedSearchStatus.status === "completed" && (!selectedSearchStatus.all_airlines_completed || !selectedSearchStatus.has_results)}
 													<!-- Completed but no results -->
 													<div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center text-gray-500 dark:text-gray-400">
-														No flight data available. The search completed but no flights were found.
+														No data found.
+													</div>
+												{:else if selectedSearchStatus && selectedSearchStatus.status === "failed"}
+													<!-- Failed -->
+													<div class="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg text-center text-red-600 dark:text-red-400">
+														Search failed. Please try again.
 													</div>
 												{:else}
 													<!-- No data available -->
@@ -2194,7 +2240,7 @@ $: airlineCodeToName = new Map(
 										{:else}
 											<!-- No results checked yet - check status -->
 											{#if selectedSearchStatus}
-												{#if selectedSearchStatus.status === "processing"}
+												{#if selectedSearchStatus.status === "processing" && (!selectedSearchStatus.all_airlines_completed || !selectedSearchStatus.has_results)}
 													<!-- Processing - show loading -->
 													<div class="p-8 text-center">
 														<svg class="animate-spin mx-auto h-8 w-8 text-blue-500 mb-4" fill="none" viewBox="0 0 24 24">
@@ -2202,12 +2248,23 @@ $: airlineCodeToName = new Map(
 															<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 														</svg>
 														<p class="text-gray-500 dark:text-gray-400 mb-2">Waiting for flight search results...</p>
-														<p class="text-sm text-gray-400 dark:text-gray-500">n8n is processing your search. This may take a few minutes.</p>
+														<p class="text-sm text-gray-400 dark:text-gray-500">
+															AI is processing your search. This may take a few minutes.
+															{#if selectedSearchStatus.total_airlines}
+																<br />
+																<span class="text-xs">({selectedSearchStatus.airlines_completed || 0}/{selectedSearchStatus.total_airlines} airlines completed)</span>
+															{/if}
+														</p>
 													</div>
 												{:else if selectedSearchStatus.status === "completed" && !selectedSearchStatus.has_results}
 													<!-- Completed but no results -->
 													<div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-center text-gray-500 dark:text-gray-400">
-														No flight data available. The search completed but no flights were found.
+														No data found.
+													</div>
+												{:else if selectedSearchStatus.status === "failed"}
+													<!-- Failed -->
+													<div class="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg text-center text-red-600 dark:text-red-400">
+														Search failed. Please try again.
 													</div>
 												{:else}
 													<!-- Other status or pending -->

@@ -111,6 +111,11 @@ $: selectedAirlineSummary = selectedAirlineCodes.map((code) => codeToName.get(co
 	};
 
 	const handleAddSearch = async () => {
+		// Prevent double submission
+		if (isAddingSearch) {
+			return;
+		}
+		
 		searchError = '';
 		airlineSelectionError = '';
 		isAddingSearch = true;

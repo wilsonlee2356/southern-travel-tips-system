@@ -1,59 +1,18 @@
-Auto flight searches (initial load): (2) [{…}, {…}]
-+page.svelte:720 Selected search changed from null to 4, checking status...
-Folder.svelte:118 <Folder> was created with unknown prop 'isOpen'
-warn @ client.js?v=b2f48632:3083
-(anonymous) @ Folder.svelte:118
-instance @ Folder.svelte:118
-init @ chunk-VYY7PVBU.js?v=b2f48632:2139
-Folder @ Folder.svelte:122
-createProxiedComponent @ svelte-hooks.js?v=b2f48632:341
-ProxyComponent @ proxy.js?v=b2f48632:242
-Proxy<Folder> @ proxy.js?v=b2f48632:349
-create_if_block_2 @ Sidebar.svelte:1354
-update @ Sidebar.svelte:1369
-update @ Sidebar.svelte:806
-update @ chunk-VYY7PVBU.js?v=b2f48632:1323
-flush @ chunk-VYY7PVBU.js?v=b2f48632:1290
-Promise.then
-schedule_update @ chunk-VYY7PVBU.js?v=b2f48632:1264
-make_dirty @ chunk-VYY7PVBU.js?v=b2f48632:2108
-(anonymous) @ chunk-VYY7PVBU.js?v=b2f48632:2143
-(anonymous) @ Sidebar.svelte:73
-set @ chunk-2MB2RDZ2.js?v=b2f48632:30
-initContentList @ Sidebar.svelte:180
-await in initContentList
-(anonymous) @ Sidebar.svelte:396
-await in (anonymous)
-run @ chunk-VYY7PVBU.js?v=b2f48632:29
-(anonymous) @ chunk-VYY7PVBU.js?v=b2f48632:2085
-flush @ chunk-VYY7PVBU.js?v=b2f48632:1305
-Promise.then
-schedule_update @ chunk-VYY7PVBU.js?v=b2f48632:1264
-make_dirty @ chunk-VYY7PVBU.js?v=b2f48632:2108
-(anonymous) @ chunk-VYY7PVBU.js?v=b2f48632:2143
-(anonymous) @ +layout.svelte:680
-await in (anonymous)
-run @ chunk-VYY7PVBU.js?v=b2f48632:29
-(anonymous) @ chunk-VYY7PVBU.js?v=b2f48632:2085
-flush @ chunk-VYY7PVBU.js?v=b2f48632:1305
-init @ chunk-VYY7PVBU.js?v=b2f48632:2163
-Root @ root.svelte:23
-createProxiedComponent @ svelte-hooks.js?v=b2f48632:341
-ProxyComponent @ proxy.js?v=b2f48632:242
-Proxy<Root> @ proxy.js?v=b2f48632:349
-initialize @ client.js?v=b2f48632:534
-navigate @ client.js?v=b2f48632:1638
-await in navigate
-start @ client.js?v=b2f48632:346
-await in start
-(anonymous) @ auto-flight-search:157
-Promise.then
-(anonymous) @ auto-flight-search:156
-+page.svelte:274 Updated selectedSearchStatus for selected search 4: {auto_search_id: 4, status: 'pending', has_results: true}
-+page.svelte:720 Selected search changed from 4 to 3, checking status...
-+page.svelte:720 Selected search changed from 3 to 4, checking status...
-+page.svelte:720 Selected search changed from 4 to 3, checking status...
-+page.svelte:720 Selected search changed from 3 to 4, checking status...
-+page.svelte:720 Selected search changed from 4 to 3, checking status...
-+page.svelte:720 Selected search changed from 3 to 4, checking status...
-+page.svelte:720 Selected search changed from 4 to 3, checking status...
+2025-12-22 17:52:00.710 | INFO     | open_webui.routers.auto_flight:_call_n8n_webhook_for_airlines:174 - Calling n8n webhook ONCE for airline CX: HKG -> NRT
+2025-12-22 17:52:00.713 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /api/v1/auto-flight-search/auto-search/1/status HTTP/1.1" 200
+2025-12-22 17:52:00.725 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /api/v1/auto-flight-search/auto-search/1/status HTTP/1.1" 200
+2025-12-22 17:52:00.735 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /api/v1/auto-flight-search/auto-search/1/status HTTP/1.1" 200
+2025-12-22 17:52:00.745 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /api/v1/auto-flight-search/auto-search/1/status HTTP/1.1" 200
+2025-12-22 17:52:15.624 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /api/v1/auto-flight-search/auto-search/1/status HTTP/1.1" 200
+2025-12-22 17:52:30.626 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /api/v1/auto-flight-search/auto-search/1/status HTTP/1.1" 200
+2025-12-22 17:52:45.635 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /api/v1/auto-flight-search/auto-search/1/status HTTP/1.1" 200
+2025-12-22 17:52:48.649 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /_app/version.json HTTP/1.1" 200
+2025-12-22 17:53:00.627 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /api/v1/auto-flight-search/auto-search/1/status HTTP/1.1" 200
+2025-12-22 17:53:01.161 | ERROR    | open_webui.routers.auto_flight:_call_n8n_webhook_for_airlines:412 - n8n webhook call failed for airline CX: HKG -> NRT. Error: Server disconnected without sending a response.. HTTP connection failed, but n8n workflow may still be processing.
+2025-12-22 17:53:01.161 | INFO     | open_webui.routers.auto_flight:_call_n8n_webhook_for_airlines:174 - Calling n8n webhook ONCE for airline NH: HKG -> NRT
+2025-12-22 17:53:15.630 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /api/v1/auto-flight-search/auto-search/1/status HTTP/1.1" 200
+2025-12-22 17:53:31.196 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /api/v1/auto-flight-search/auto-search/1/status HTTP/1.1" 200
+2025-12-22 17:53:45.632 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /api/v1/auto-flight-search/auto-search/1/status HTTP/1.1" 200
+2025-12-22 17:53:48.655 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /_app/version.json HTTP/1.1" 200
+2025-12-22 17:54:00.624 | INFO     | uvicorn.protocols.http.httptools_impl:send:483 - 119.246.189.65:0 - "GET /api/v1/auto-flight-search/auto-search/1/status HTTP/1.1" 200
+2025-12-22 17:54:01.578 | ERROR    | open_webui.routers.auto_flight:_call_n8n_webhook_for_airlines:412 - n8n webhook call failed for airline NH: HKG -> NRT. Error: Server disconnected without sending a response.. HTTP connection failed, but n8n workflow may still be processing.

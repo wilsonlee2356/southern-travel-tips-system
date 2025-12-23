@@ -1,242 +1,193 @@
-2025-12-22 18:10:43.624 | ERROR    | open_webui.routers.auto_flight:get_auto_flight_search_results:1461 - Failed to get auto flight search results: (sqlite3.OperationalError) no such column: auto_search_config.n8n_status
-[SQL: SELECT auto_search_config.auto_search_id AS auto_search_config_auto_search_id, auto_search_config.departure_id AS auto_search_config_departure_id, auto_search_config.arrival_id AS auto_search_config_arrival_id, auto_search_config.travel_class AS auto_search_config_travel_class, auto_search_config.is_direct AS auto_search_config_is_direct, auto_search_config.return_trip_duration AS auto_search_config_return_trip_duration, auto_search_config.n8n_status AS auto_search_config_n8n_status, auto_search_config.created_at AS auto_search_config_created_at, auto_search_config.updated_at AS auto_search_config_updated_at
-FROM auto_search_config
-WHERE auto_search_config.auto_search_id = ?
- LIMIT ? OFFSET ?]
-[parameters: (4, 1, 0)]
-(Background on this error at: https://sqlalche.me/e/20/e3q8)
-Traceback (most recent call last):
+72.25 Copying Pyodide files into static directory
+72.47 ▲ [WARNING] Cannot find base config file "./.svelte-kit/tsconfig.json" [tsconfig.json]
+72.47
+72.47     tsconfig.json:2:12:
+72.47       2 │   "extends": "./.svelte-kit/tsconfig.json",
+72.47         ╵              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+72.47
+73.15 1:32:02 PM [vite-plugin-svelte] WARNING: The following packages have a svelte field in their package.json but no exports condition for svelte.
+73.15
+73.15 @sveltejs/svelte-virtual-list@3.0.1
+73.15
+73.15 Please see https://github.com/sveltejs/vite-plugin-svelte/blob/main/docs/faq.md#missing-exports-condition for details.
+73.23 vite v5.4.21 building SSR bundle for production...
+73.27 transforming...
+73.44 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/fine-tuning/+page.svelte:377:7 A11y: A form label must be associated with a control.
+73.44 375:             <!-- Base Model -->
+73.44 376:             <div>
+73.44 377:               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+73.44                    ^
+73.44 378:                 Base Model
+73.44 379:               </label>
+73.44 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/fine-tuning/+page.svelte:392:7 A11y: A form label must be associated with a control.
+73.44 390:             <!-- Model Name -->
+73.44 391:             <div>
+73.44 392:               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+73.44                    ^
+73.44 393:                 Model Name
+73.44 394:               </label>
+73.44 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/fine-tuning/+page.svelte:429:7 A11y: A form label must be associated with a control.
+73.44 427:             <!-- Upload Dataset -->
+73.44 428:             <div>
+73.44 429:               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+73.44                    ^
+73.44 430:                 Upload Dataset
+73.44 431:               </label>
+73.44 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/fine-tuning/+page.svelte:444:8 A11y: A form label must be associated with a control.
+73.44 442:             {#if datasetFiles.length > 0}
+73.44 443:               <div class="space-y-2">
+73.44 444:                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+73.44                      ^
+73.44 445:                   Available Datasets
+73.44 446:                 </label>
+73.49 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/content-generator/+page.svelte:598:6 A11y: visible, non-interactive elements with an on:click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as <button type="button"> or <a> might be more appropriate. See https://svelte.dev/docs/accessibility-warnings#a11y-click-events-have-key-events for more details.
+73.49 596:             </h2>
+73.49 597:
+73.49 598:             <div
+73.49                  ^
+73.49 599:               class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer"
+73.49 600:               on:click={() => document.getElementById('photo-upload').click()}
+73.49 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/content-generator/+page.svelte:598:6 A11y: <div> with click handler must have an ARIA role
+73.49 596:             </h2>
+73.49 597:
+73.49 598:             <div
+73.49                  ^
+73.49 599:               class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer"
+73.49 600:               on:click={() => document.getElementById('photo-upload').click()}
+73.49 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/content-generator/+page.svelte:639:11 A11y: Screenreaders already announce <img> elements as an image.
+73.49 637:                   {#each uploadedImages as image, index}
+73.49 638:                     <div class="relative">
+73.49 639:                       <img
+73.49                            ^
+73.49 640:                         src={URL.createObjectURL(image)}
+73.49 641:                         alt="Uploaded photo"
+73.49 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/content-generator/+page.svelte:763:9 A11y: Screenreaders already announce <img> elements as an image.
+73.49 761:               {#if generatedPost.image}
+73.49 762:                 <div class="aspect-square bg-gray-200 dark:bg-gray-700">
+73.49 763:                   <img
+73.49                        ^
+73.49 764:                     src={URL.createObjectURL(generatedPost.image)}
+73.49 765:                     alt="Generated post image"
+73.49 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/content-generator/+page.svelte:929:9 A11y: Screenreaders already announce <img> elements as an image.
+73.49 927:               {#if generatedPost.image}
+73.49 928:                 <div class="aspect-square bg-gray-200 dark:bg-gray-700">
+73.49 929:                   <img
+73.49                        ^
+73.49 930:                     src={URL.createObjectURL(generatedPost.image)}
+73.49 931:                     alt="Generated post image"
+73.76 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/make-dataset/+page.svelte:244:10 A11y: A form label must be associated with a control.
+73.76 242:                   <!-- Prompt Input -->
+73.76 243:                   <div>
+73.76 244:                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+73.76                          ^
+73.76 245:                       Prompt {index + 1}
+73.76 246:                     </label>
+73.76 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/make-dataset/+page.svelte:258:10 A11y: A form label must be associated with a control.
+73.76 256:                   <!-- Response Input -->
+73.76 257:                   <div>
+73.76 258:                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+73.76                          ^
+73.76 259:                       Response {index + 1}
+73.76 260:                     </label>
+73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:728:7 A11y: visible, non-interactive elements with an on:click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as <button type="button"> or <a> might be more appropriate. See https://svelte.dev/docs/accessibility-warnings#a11y-click-events-have-key-events for more details.
+73.83 726:                 Ticket Screenshot
+73.83 727:               </label>
+73.83 728:               <div
+73.83                    ^
+73.83 729:                 id="ticket-screenshot"
+73.83 730:                 class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer relative"
+73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:728:7 A11y: <div> with click, drop, dragover handlers must have an ARIA role
+73.83 726:                 Ticket Screenshot
+73.83 727:               </label>
+73.83 728:               <div
+73.83                    ^
+73.83 729:                 id="ticket-screenshot"
+73.83 730:                 class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer relative"
+73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:1000:10 A11y: Screenreaders already announce <img> elements as an image.
+73.83  998:                 {#if scenicImage}
+73.83  999:                   <div class="flex items-center justify-center overflow-hidden relative">
+73.83 1000:                     <img
+73.83                           ^
+73.83 1001:                       src={scenicImage}
+73.83 1002:                       alt="Scenic destination image with promotional banner"
+73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:1273:10 A11y: Screenreaders already announce <img> elements as an image.
+73.83 1271:                 {#if scenicImage}
+73.83 1272:                   <div class="flex items-center justify-center overflow-hidden relative">
+73.83 1273:                     <img
+73.83                           ^
+73.83 1274:                       src={scenicImage}
+73.83 1275:                       alt="Scenic destination image with promotional banner"
+73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:1474:5 A11y: A form label must be associated with a control.
+73.83 1472:         <!-- Destination -->
+73.83 1473:         <div>
+73.83 1474:           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+73.83                 ^
+73.83 1475:             Destination (目的地)
+73.83 1476:           </label>
+73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:1487:5 A11y: A form label must be associated with a control.
+73.83 1485:         <!-- Promote Text -->
+73.83 1486:         <div>
+73.83 1487:           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+73.83                 ^
+73.83 1488:             Promotion Text (宣傳文字)
+73.83 1489:           </label>
+73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:1501:5 A11y: A form label must be associated with a control.
+73.83 1499:         <!-- Airline -->
+73.83 1500:         <div>
+73.83 1501:           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+73.83                 ^
+73.83 1502:             Airline (航空公司)
+73.83 1503:           </label>
+73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:1514:5 A11y: A form label must be associated with a control.
+73.83 1512:         <!-- Price -->
+73.83 1513:         <div>
+73.83 1514:           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+73.83                 ^
+73.83 1515:             Price (價錢)
+73.83 1516:           </label>
+74.03 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/auto-flight-search/components/SearchForm.svelte:310:5 A11y: A form label must be associated with a control.
+74.03 308:       <div class="flex items-center justify-between gap-3">
+74.03 309:         <div>
+74.03 310:           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+74.03                ^
+74.03 311:             Airlines (select up to {MAX_AIRLINES}) <span class="text-red-500">*</span>
+74.03 312:           </label>
+74.04 ✓ 69 modules transformed.
+74.04 x Build failed in 790ms
+74.04 error during build:
+74.04 [vite-plugin-svelte] [plugin vite-plugin-svelte] src/routes/(app)/auto-flight-search/components/SavedSearchesList.svelte (65:6): /app/src/routes/(app)/auto-flight-search/components/SavedSearchesList.svelte:65:6 {@const} must be the immediate child of {#if}, {:else if}, {:else}, {#each}, {:then}, {:catch}, <svelte:fragment> or <Component>
+74.04 file: /app/src/routes/(app)/auto-flight-search/components/SavedSearchesList.svelte:65:6
+74.04
+74.04  63 |            <div class="flex gap-1">
+74.04  64 |              <!-- Refresh Mini Button -->
+74.04  65 |              {@const isSearchLoading = loadingSearches.has(search.id) ||
+74.04                    ^
+74.04  66 |                loadingFlightResults.has(search.id) ||
+74.04  67 |                pollingIntervals.has(search.id) ||
+74.04
+74.04 ValidationError: {@const} must be the immediate child of {#if}, {:else if}, {:else}, {#each}, {:then}, {:catch}, <svelte:fragment> or <Component>
+74.04     at error (file:///app/node_modules/svelte/src/compiler/utils/error.js:56:16)
+74.04     at Component.error (file:///app/node_modules/svelte/src/compiler/compile/Component.js:551:4)
+74.04     at new ConstTag (file:///app/node_modules/svelte/src/compiler/compile/nodes/ConstTag.js:52:14)
+74.04     at file:///app/node_modules/svelte/src/compiler/compile/nodes/shared/map_children.js:86:16
+74.04     at Array.map (<anonymous>)
+74.04     at map_children (file:///app/node_modules/svelte/src/compiler/compile/nodes/shared/map_children.js:82:18)
+74.04     at new Element (file:///app/node_modules/svelte/src/compiler/compile/nodes/Element.js:517:19)
+74.04     at file:///app/node_modules/svelte/src/compiler/compile/nodes/shared/map_children.js:86:16
+74.04     at Array.map (<anonymous>)
+74.04     at map_children (file:///app/node_modules/svelte/src/compiler/compile/nodes/shared/map_children.js:82:18)
+------
 
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1964, in _exec_single_context
-    self.dialect.do_execute(
-    │    │       └ <function DefaultDialect.do_execute at 0x7f011c3f9300>
-    │    └ <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7f0077923dd0>
-    └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 942, in do_execute
-    cursor.execute(statement, parameters)
-    │      │       │          └ (4, 1, 0)
-    │      │       └ 'SELECT auto_search_config.auto_search_id AS auto_search_config_auto_search_id, auto_search_config.departure_id AS auto_searc...
-    │      └ <method 'execute' of 'sqlite3.Cursor' objects>
-    └ <sqlite3.Cursor object at 0x7eff705470c0>
-
-sqlite3.OperationalError: no such column: auto_search_config.n8n_status
-
-
-The above exception was the direct cause of the following exception:
-
-
-Traceback (most recent call last):
-
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/__main__.py", line 4, in <module>
-    uvicorn.main()
-    │       └ <Command main>
-    └ <module 'uvicorn' from '/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/__init__.py'>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 1442, in __call__
-    return self.main(*args, **kwargs)
-           │    │     │       └ {}
-           │    │     └ ()
-           │    └ <function Command.main at 0x7f011e37b2e0>
-           └ <Command main>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 1363, in main
-    rv = self.invoke(ctx)
-         │    │      └ <click.core.Context object at 0x7f011f05fe10>
-         │    └ <function Command.invoke at 0x7f011e37afc0>
-         └ <Command main>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 1226, in invoke
-    return ctx.invoke(self.callback, **ctx.params)
-           │   │      │    │           │   └ {'host': '0.0.0.0', 'port': 8080, 'forwarded_allow_ips': '*', 'workers': 1, 'app': 'open_webui.main:app', 'uds': None, 'fd': ...
-           │   │      │    │           └ <click.core.Context object at 0x7f011f05fe10>
-           │   │      │    └ <function main at 0x7f011e17ae80>
-           │   │      └ <Command main>
-           │   └ <function Context.invoke at 0x7f011e37a200>
-           └ <click.core.Context object at 0x7f011f05fe10>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/click/core.py", line 794, in invoke
-    return callback(*args, **kwargs)
-           │         │       └ {'host': '0.0.0.0', 'port': 8080, 'forwarded_allow_ips': '*', 'workers': 1, 'app': 'open_webui.main:app', 'uds': None, 'fd': ...
-           │         └ ()
-           └ <function main at 0x7f011e17ae80>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/main.py", line 413, in main
-    run(
-    └ <function run at 0x7f011e329b20>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/main.py", line 580, in run
-    server.run()
-    │      └ <function Server.run at 0x7f011e2082c0>
-    └ <uvicorn.server.Server object at 0x7f011e27bdd0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/uvicorn/server.py", line 67, in run
-    return asyncio.run(self.serve(sockets=sockets))
-           │       │   │    │             └ None
-           │       │   │    └ <function Server.serve at 0x7f011e208360>
-           │       │   └ <uvicorn.server.Server object at 0x7f011e27bdd0>
-           │       └ <function run at 0x7f011e74eac0>
-           └ <module 'asyncio' from '/home/sunny/anaconda3/envs/open-webui/lib/python3.11/asyncio/__init__.py'>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/asyncio/runners.py", line 190, in run
-    return runner.run(main)
-           │      │   └ <coroutine object Server.serve at 0x7f011e10ef20>
-           │      └ <function Runner.run at 0x7f011e5ca7a0>
-           └ <asyncio.runners.Runner object at 0x7f011e183910>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/asyncio/runners.py", line 118, in run
-    return self._loop.run_until_complete(task)
-           │    │     │                  └ <Task pending name='Task-1' coro=<Server.serve() running at /home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-package...
-           │    │     └ <cyfunction Loop.run_until_complete at 0x7f011dcfc5f0>
-           │    └ <uvloop.Loop running=True closed=False debug=False>
-           └ <asyncio.runners.Runner object at 0x7f011e183910>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/base.py", line 141, in coro
-    await self.app(scope, receive_or_disconnect, send_no_error)
-          │    │   │      │                      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7eff7057d4e0>
-          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
-          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <starlette_compress.CompressMiddleware object at 0x7eff72998ae0>
-          └ <open_webui.main.RedirectMiddleware object at 0x7eff726e1190>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette_compress/__init__.py", line 92, in __call__
-    return await self._zstd(scope, receive, send)
-                 │    │     │      │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7eff7057d4e0>
-                 │    │     │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
-                 │    │     └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-                 │    └ <member '_zstd' of 'CompressMiddleware' objects>
-                 └ <starlette_compress.CompressMiddleware object at 0x7eff72998ae0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette_compress/_zstd_legacy.py", line 100, in __call__
-    await self.app(scope, receive, wrapper)
-          │    │   │      │        └ <function ZstdResponder.__call__.<locals>.wrapper at 0x7eff7057c720>
-          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
-          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <member 'app' of 'ZstdResponder' objects>
-          └ <starlette_compress._zstd_legacy.ZstdResponder object at 0x7eff726e3e00>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-          │                            │    │    │     │      │        └ <function ZstdResponder.__call__.<locals>.wrapper at 0x7eff7057c720>
-          │                            │    │    │     │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
-          │                            │    │    │     └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │                            │    │    └ <starlette.requests.Request object at 0x7eff703fbbd0>
-          │                            │    └ <fastapi.routing.APIRouter object at 0x7effcd55b890>
-          │                            └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x7eff608c5850>
-          └ <function wrap_app_handling_exceptions at 0x7f011b55fba0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7eff7057c900>
-          │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
-          │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          └ <fastapi.routing.APIRouter object at 0x7effcd55b890>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
-    await self.middleware_stack(scope, receive, send)
-          │    │                │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7eff7057c900>
-          │    │                │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
-          │    │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <bound method Router.app of <fastapi.routing.APIRouter object at 0x7effcd55b890>>
-          └ <fastapi.routing.APIRouter object at 0x7effcd55b890>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
-    await route.handle(scope, receive, send)
-          │     │      │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7eff7057c900>
-          │     │      │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
-          │     │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │     └ <function Route.handle at 0x7f011b57d260>
-          └ APIRoute(path='/api/v1/auto-flight-search/auto-search/{auto_search_id}/results', name='get_auto_flight_search_results', metho...
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
-    await self.app(scope, receive, send)
-          │    │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7eff7057c900>
-          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
-          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │    └ <function request_response.<locals>.app at 0x7eff72563880>
-          └ APIRoute(path='/api/v1/auto-flight-search/auto-search/{auto_search_id}/results', name='get_auto_flight_search_results', metho...
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
-    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-          │                            │    │        │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7eff7057c900>
-          │                            │    │        │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
-          │                            │    │        └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          │                            │    └ <starlette.requests.Request object at 0x7eff703f8410>
-          │                            └ <function request_response.<locals>.app.<locals>.app at 0x7eff7057e840>
-          └ <function wrap_app_handling_exceptions at 0x7f011b55fba0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x7eff7057ede0>
-          │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7eff7057e200>
-          │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8080), 'cl...
-          └ <function request_response.<locals>.app.<locals>.app at 0x7eff7057e840>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
-    response = await f(request)
-                     │ └ <starlette.requests.Request object at 0x7eff703f8410>
-                     └ <function get_request_handler.<locals>.app at 0x7eff725637e0>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/routing.py", line 301, in app
-    raw_response = await run_endpoint_function(
-                         └ <function run_endpoint_function at 0x7f011b57f060>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/fastapi/routing.py", line 212, in run_endpoint_function
-    return await dependant.call(**values)
-                 │         │      └ {'user': UserModel(id='0afef353-767f-4e1a-a916-7fb166c29be0', name='Sunny', email='sunny@gmail.com', role='admin', profile_im...
-                 │         └ <function get_auto_flight_search_results at 0x7effd7567a60>
-                 └ Dependant(path_params=[ModelField(field_info=Path(PydanticUndefined), name='auto_search_id', mode='validation')], query_param...
-
-> File "/mnt/c/Git clone/southern-travel-tips-system/backend/open_webui/routers/auto_flight.py", line 1280, in get_auto_flight_search_results
-    ).first()
-
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 2754, in first
-    return self.limit(1)._iter().first()  # type: ignore
-           │    └ <function Query.limit at 0x7effdbfa9080>
-           └ <sqlalchemy.orm.query.Query object at 0x7eff70416290>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 2853, in _iter
-    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
-            │                  │    │      │      │    │       └ <function Session.execute at 0x7effdbb35a80>
-            │                  │    │      │      │    └ <sqlalchemy.orm.session.Session object at 0x7eff70417250>
-            │                  │    │      │      └ <sqlalchemy.orm.query.Query object at 0x7eff704149d0>
-            │                  │    │      └ ~_T
-            │                  │    └ <class 'sqlalchemy.engine.result.Result'>
-            │                  └ ~_T
-            └ typing.Union
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
-    return self._execute_internal(
-           │    └ <function Session._execute_internal at 0x7effdbb35760>
-           └ <sqlalchemy.orm.session.Session object at 0x7eff70417250>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
-    result: Result[Any] = compile_state_cls.orm_execute_statement(
-                   │      │                 └ <classmethod(<function AbstractORMCompileState.orm_execute_statement at 0x7effdc3aad40>)>
-                   │      └ <class 'sqlalchemy.orm.context.ORMSelectCompileState'>
-                   └ typing.Any
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/orm/context.py", line 305, in orm_execute_statement
-    result = conn.execute(
-             │    └ <function Connection.execute at 0x7f011c52d8a0>
-             └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1416, in execute
-    return meth(
-           └ <bound method ClauseElement._execute_on_connection of <sqlalchemy.sql.selectable.Select object at 0x7eff70415c50>>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 516, in _execute_on_connection
-    return connection._execute_clauseelement(
-           │          └ <function Connection._execute_clauseelement at 0x7f011c52dbc0>
-           └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1638, in _execute_clauseelement
-    ret = self._execute_context(
-          │    └ <function Connection._execute_context at 0x7f011c52dda0>
-          └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1843, in _execute_context
-    return self._exec_single_context(
-           │    └ <function Connection._exec_single_context at 0x7f011c52de40>
-           └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1983, in _exec_single_context
-    self._handle_dbapi_exception(
-    │    └ <function Connection._handle_dbapi_exception at 0x7f011c52e0c0>
-    └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2352, in _handle_dbapi_exception
-    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-          │                    │              │                 └ OperationalError('no such column: auto_search_config.n8n_status')
-          │                    │              └ (<class 'sqlite3.OperationalError'>, OperationalError('no such column: auto_search_config.n8n_status'), <traceback object at ...
-          │                    └ <method 'with_traceback' of 'BaseException' objects>
-          └ OperationalError('(sqlite3.OperationalError) no such column: auto_search_config.n8n_status')
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1964, in _exec_single_context
-    self.dialect.do_execute(
-    │    │       └ <function DefaultDialect.do_execute at 0x7f011c3f9300>
-    │    └ <sqlalchemy.dialects.sqlite.pysqlite.SQLiteDialect_pysqlite object at 0x7f0077923dd0>
-    └ <sqlalchemy.engine.base.Connection object at 0x7eff70417850>
-  File "/home/sunny/anaconda3/envs/open-webui/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 942, in do_execute
-    cursor.execute(statement, parameters)
-    │      │       │          └ (4, 1, 0)
-    │      │       └ 'SELECT auto_search_config.auto_search_id AS auto_search_config_auto_search_id, auto_search_config.departure_id AS auto_searc...
-    │      └ <method 'execute' of 'sqlite3.Cursor' objects>
-    └ <sqlite3.Cursor object at 0x7eff705470c0>
-
-sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: auto_search_config.n8n_status
-[SQL: SELECT auto_search_config.auto_search_id AS auto_search_config_auto_search_id, auto_search_config.departure_id AS auto_search_config_departure_id, auto_search_config.arrival_id AS auto_search_config_arrival_id, auto_search_config.travel_class AS auto_search_config_travel_class, auto_search_config.is_direct AS auto_search_config_is_direct, auto_search_config.return_trip_duration AS auto_search_config_return_trip_duration, auto_search_config.n8n_status AS auto_search_config_n8n_status, auto_search_config.created_at AS auto_search_config_created_at, auto_search_config.updated_at AS auto_search_config_updated_at
-FROM auto_search_config
-WHERE auto_search_config.auto_search_id = ?
- LIMIT ? OFFSET ?]
-[parameters: (4, 1, 0)]
-(Background on this error at: https://sqlalche.me/e/20/e3q8)
-2025-12-22 18:10:43.628 | INFO     | uvicorn.protocols.http.httptools_impl:send:476 - 127.0.0.1:50066 - "GET /api/v1/auto-flight-search/auto-search/4/results HTTP/1.1" 500
+ 2 warnings found (use docker --debug to expand):
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "OPENAI_API_KEY") (line 74)
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "WEBUI_SECRET_KEY") (line 74)
+Dockerfile:42
+--------------------
+  41 |         # Fix for rollup platform-specific dependencies and PostCSS native binding issues
+  42 | >>>     RUN rm -rf node_modules package-lock.json && \
+  43 | >>>         npm install --legacy-peer-deps && \
+  44 | >>>         npm rebuild && \
+  45 | >>>         npm run build
+  46 |
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c rm -rf node_modules package-lock.json &&         npm install --legacy-peer-deps &&         npm rebuild &&         npm run build" did not complete successfully: exit code: 1

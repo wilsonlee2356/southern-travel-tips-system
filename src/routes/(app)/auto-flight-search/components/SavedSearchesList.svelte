@@ -6,6 +6,9 @@
 	export let savedSearches = [];
 	export let selectedSearchId = null;
 	export let loadingSearches = new Set();
+	export let loadingFlightResults = new Set(); // Set of autoSearchIds that are loading results
+	export let pollingIntervals = new Map(); // Map of autoSearchIds to interval IDs
+	export let selectedSearchStatus = null; // Status of the selected search
 
 	const selectSearch = (searchId) => {
 		dispatch('selectSearch', searchId);
@@ -34,6 +37,10 @@ const getAirlineCount = (search) => {
 	</h3>
 	<div class="space-y-2">
 		{#each savedSearches as search (search.id)}
+			{@const isSearchLoading = loadingSearches.has(search.id) || 
+				loadingFlightResults.has(search.id) || 
+				pollingIntervals.has(search.id) ||
+				(selectedSearchId === search.id && selectedSearchStatus && selectedSearchStatus.status === "processing")}
 			<div 
 				class="p-3 rounded-lg border cursor-pointer transition-all {
 					selectedSearchId === search.id 
@@ -56,16 +63,16 @@ const getAirlineCount = (search) => {
 				</div>
 				
 				<!-- Actions -->
-				<div class="flex items-center justify-end">
+					<div class="flex items-center justify-end">
 					<div class="flex gap-1">
 						<!-- Refresh Mini Button -->
 						<button
 							on:click|stopPropagation={() => runSearch(search.id)}
-							disabled={loadingSearches.has(search.id)}
-							class="px-2 py-1 bg-black hover:bg-gray-800 text-white rounded text-xs transition disabled:opacity-50"
-							title="Refresh"
+							disabled={isSearchLoading}
+							class="px-2 py-1 bg-black hover:bg-gray-800 text-white rounded text-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
+							title={isSearchLoading ? "Search is loading..." : "Refresh"}
 						>
-							{#if loadingSearches.has(search.id)}
+							{#if isSearchLoading}
 								<svg class="animate-spin h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
