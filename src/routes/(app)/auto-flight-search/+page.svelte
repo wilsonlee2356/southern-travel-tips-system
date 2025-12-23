@@ -470,8 +470,20 @@ const buildSavedSearchFromResponse = (data) => {
 				console.log(`Status check ${attempts} for auto_search_id=${autoSearchId}: status=${statusData.status}, has_results=${statusData.has_results}, all_airlines_completed=${allCompleted} (${airlinesCompleted}/${totalAirlines})`);
 				
 				// Update status for UI (always update so UI reflects current state)
+				// But preserve "processing" status if backend hasn't updated yet after refresh
 				if (selectedSearchId === autoSearchId) {
-					selectedSearchStatus = statusData;
+					// If we have a temporary "processing" status and backend returns "completed" 
+					// but we're still polling (meaning refresh just happened), keep "processing"
+					const currentStatus = selectedSearchStatus;
+					if (currentStatus && currentStatus.status === "processing" && 
+						statusData.status === "completed" && 
+						attempts === 1 && 
+						!statusData.has_results) {
+						// Backend might not have updated yet, keep processing status
+						console.log(`Keeping processing status for auto_search_id=${autoSearchId} (backend may not have updated yet)`);
+					} else {
+						selectedSearchStatus = statusData;
+					}
 				}
 				
 				// Only load and display results when ALL airlines have completed
@@ -598,8 +610,11 @@ const buildSavedSearchFromResponse = (data) => {
 			}
 		};
 		
-		// Start polling immediately, then every intervalMs
-		poll(); // First attempt immediately
+		// Start polling after a small delay to give backend time to update status
+		// Then poll every intervalMs
+		setTimeout(() => {
+			poll(); // First attempt after 500ms delay
+		}, 500);
 		const intervalId = setInterval(poll, intervalMs);
 		pollingIntervals.set(autoSearchId, intervalId);
 		pollingIntervals = pollingIntervals; // Trigger reactivity
@@ -1194,16 +1209,31 @@ $: airlineCodeToName = new Map(
 			
 			// Start polling for AI status (AI processes in background)
 			if (autoSearchId) {
-				// Clear existing results and status
+				// Set loading state BEFORE clearing results to prevent showing "No data found"
+				if (!loadingFlightResults.has(autoSearchId)) {
+					loadingFlightResults.add(autoSearchId);
+					loadingFlightResults = loadingFlightResults; // Trigger reactivity
+				}
+				
+				// Clear existing results AFTER setting loading state
 				flightSearchResults.delete(autoSearchId);
 				flightSearchResults = flightSearchResults; // Trigger reactivity
-				// Clear status if this is the selected search
+				
+				// Set temporary processing status if this is the selected search
+				// This ensures loading is shown immediately, even before backend status is checked
 				if (selectedSearchId === autoSearchId) {
-					selectedSearchStatus = null;
+					selectedSearchStatus = {
+						auto_search_id: autoSearchId,
+						status: "processing",
+						has_results: false,
+						all_airlines_completed: false,
+						airlines_completed: 0,
+						total_airlines: 0
+					};
 				}
-				// Check status immediately, then start polling
-				checkSearchStatus(autoSearchId);
-				// Start polling status endpoint every 15 seconds
+				
+				// Start polling immediately - this will check status and update selectedSearchStatus
+				// Don't call checkSearchStatus immediately to avoid race condition with backend status update
 				startPollingForResults(autoSearchId, 180, 15000);
 			}
 
