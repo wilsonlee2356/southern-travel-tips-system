@@ -40,7 +40,7 @@ services:
     volumes:
       - open-webui-data:/app/backend/data
     environment:
-      - GOOGLE_FLIGHTS_API_KEY=jLH9DMzP7wuhxs9XAsPvxFhG
+      - GOOGLE_FLIGHTS_API_KEY=
       - N8N_READ_TIMEOUT_SECONDS=7200  # Your long timeout for n8n calls
       # Add any other env vars you need here
     restart: unless-stopped
