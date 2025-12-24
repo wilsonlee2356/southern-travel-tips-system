@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   gluetun:
     image: qmcgaw/gluetun:latest
@@ -11,35 +9,27 @@ services:
     environment:
       - TZ=Etc/UTC
       - VPN_SERVICE_PROVIDER=surfshark
-      - VPN_TYPE=wireguard
-      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}          # your actual private key
-      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES:-10.14.0.2/16} # your address, with default
-      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-Taiwan}            # optional: lock to Taiwan
-      - DNS=162.252.172.57,149.154.159.92                        # optional: use Surfshark's DNS
+      - VPN_TYPE=openvpn
+      - OPENVPN_USER=${OPENVPN_USER}          # Your Surfshark OpenVPN username
+      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}  # Your Surfshark OpenVPN password
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-Taiwan}  # Optional: keep Taiwan or change
     ports:
       - "8080:8080"
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]  # Optional, helps detect issues early
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   travel-tip-demo:
     image: southerndocker800/travel-tip-demo:v1.6
     container_name: travel-tip-demo
     depends_on:
       gluetun:
-        condition: service_healthy  # Wait for VPN to be ready (optional but recommended)
-    network_mode: service:gluetun  # All outbound traffic from this container goes through Surfshark VPN
+        condition: service_started
+    network_mode: service:gluetun
     volumes:
       - open-webui-data:/app/backend/data
     environment:
       - GOOGLE_FLIGHTS_API_KEY=${GOOGLE_FLIGHTS_API_KEY}
-      - N8N_READ_TIMEOUT_SECONDS=7200  # Your long timeout for n8n calls
-      # Add any other env vars you need here
+      - N8N_READ_TIMEOUT_SECONDS=7200
     restart: unless-stopped
 
 volumes:
   open-webui-data:
-
