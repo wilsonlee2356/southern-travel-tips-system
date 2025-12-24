@@ -9,20 +9,15 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     environment:
-      - TZ=Etc/UTC  # Change to your timezone if needed
+      - TZ=Etc/UTC
       - VPN_SERVICE_PROVIDER=surfshark
-      - VPN_TYPE=wireguard  # Recommended: faster and more stable than OpenVPN
-      - WIREGUARD_PRIVATE_KEY=your_surfshark_wireguard_private_key_here
-      - WIREGUARD_ADDRESSES=your_ip_address_from_surfshark_here  # e.g., 10.14.0.2/32
-      # Optional: pick a specific country or city
-      - SERVER_COUNTRIES=United States
-      # - SERVER_CITIES=New York
-      # If you prefer OpenVPN instead:
-      # - VPN_TYPE=openvpn
-      # - OPENVPN_USER=your_surfshark_service_username
-      # - OPENVPN_PASSWORD=your_surfshark_service_password
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}          # your actual private key
+      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES:-10.14.0.2/16} # your address, with default
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-Taiwan}            # optional: lock to Taiwan
+      - DNS=162.252.172.57,149.154.159.92                        # optional: use Surfshark's DNS
     ports:
-      - "8080:8080"  # Expose the Open WebUI port through the VPN container
+      - "8080:8080"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080"]  # Optional, helps detect issues early
