@@ -65,12 +65,12 @@ Since n8n doesn't need VPN access and is on your local network (192.168.0.0/24),
 
 The `docker-compose.yaml` now includes:
 ```yaml
-- FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/24
+- FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/24,210.0.222.186/32
 ```
 
 This means:
 - ✅ Traffic to your n8n server (192.168.0.2) bypasses VPN completely
-- ✅ Traffic to your nginx proxy (if on local network) also bypasses VPN
+- ✅ Traffic to your nginx proxy (210.0.222.186 where n8n.ssl-labs.ai resolves) also bypasses VPN
 - ✅ No more 60-second VPN timeout for n8n requests
 - ✅ Other traffic (OpenAI, etc.) still goes through VPN as needed
 
