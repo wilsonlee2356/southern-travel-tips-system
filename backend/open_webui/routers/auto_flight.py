@@ -1749,6 +1749,13 @@ async def refresh_auto_flight_search(
                     detail="No valid airline codes found for this auto search",
                 )
             
+            # Store values before closing DB context
+            departure_id = auto_search.departure_id
+            arrival_id = auto_search.arrival_id
+            is_direct = auto_search.is_direct
+            trip_duration = auto_search.return_trip_duration
+            travel_class = auto_search.travel_class
+            
             # Get all search_ids linked to these auto_search_airline records
             auto_search_airline_ids = [asa.auto_search_airline_id for asa in auto_search_airlines]
             
@@ -1770,6 +1777,8 @@ async def refresh_auto_flight_search(
                         db.delete(search)
                     db.commit()
             
+            # Set status to processing before starting n8n
+            auto_search.n8n_status = "processing"
             # Update the updated_at timestamp
             auto_search.updated_at = datetime.utcnow()
             db.commit()
@@ -1777,8 +1786,8 @@ async def refresh_auto_flight_search(
             log.info(
                 "Refreshing auto flight search %d: %s -> %s, airlines=%s",
                 auto_search_id,
-                auto_search.departure_id,
-                auto_search.arrival_id,
+                departure_id,
+                arrival_id,
                 airline_codes,
             )
         except HTTPException:
@@ -1791,19 +1800,15 @@ async def refresh_auto_flight_search(
                 detail="Failed to prepare refresh for auto flight search",
             )
     
-    # Set status to processing before starting n8n
-    auto_search.n8n_status = "processing"
-    db.commit()
-    
     # Schedule n8n webhook calls to run in background (non-blocking)
     background_tasks.add_task(
         _call_n8n_webhook_for_airlines,
-        departure_id=auto_search.departure_id,
-        arrival_id=auto_search.arrival_id,
-        is_direct=auto_search.is_direct,
+        departure_id=departure_id,
+        arrival_id=arrival_id,
+        is_direct=is_direct,
         airline_codes=airline_codes,
-        trip_duration=auto_search.return_trip_duration,
-        travel_class=auto_search.travel_class,
+        trip_duration=trip_duration,
+        travel_class=travel_class,
         auto_search_id=auto_search_id,
     )
     
