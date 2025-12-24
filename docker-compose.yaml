@@ -22,6 +22,10 @@ services:
       - OPENVPN_VERBOSITY=1
     sysctls:
       # TCP keepalive settings to prevent Surfshark VPN from timing out idle connections during long n8n requests (up to 45+ minutes)
+      # These sysctls control when TCP keepalive probes are sent IF keepalive is enabled on the socket.
+      # Note: Python's httpx/httpcore may not enable keepalive by default. If timeouts persist, 
+      # you may need to set these sysctls at the host system level or enable keepalive in the application.
+      # Verify they're applied: docker exec gluetun cat /proc/sys/net/ipv4/tcp_keepalive_time
       # tcp_keepalive_time: seconds before sending first keepalive probe (default 7200, set to 30)
       - net.ipv4.tcp_keepalive_time=30
       # tcp_keepalive_intvl: seconds between keepalive probes (default 75, set to 10)
