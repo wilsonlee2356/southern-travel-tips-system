@@ -1352,8 +1352,8 @@ async def get_auto_flight_search_status(
                 
                 has_results = airlines_with_results > 0
                 # All airlines have completed when:
-                # 1. All airlines have results, OR
-                # 2. Overall status is "completed" (meaning all airline calls finished, even if some returned no flights)
+                # 1. Status is "completed" (meaning all airline calls finished, even if some returned no flights)
+                # This is the correct logic: when status is "completed", all airline calls have returned
                 all_airlines_completed = (
                     airlines_processed == total_airlines and 
                     auto_search.n8n_status == "completed"

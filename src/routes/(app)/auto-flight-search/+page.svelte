@@ -476,23 +476,30 @@ const buildSavedSearchFromResponse = (data) => {
 					const currentStatus = selectedSearchStatus;
 					
 					// If this is a refresh and we're in early polls, handle stale status carefully
-					if (refreshSearchId && attempts <= 3) {
-						// If backend returns "processing", always update (this is the real status)
+					if (refreshSearchId && attempts <= 5) {
+						// If backend returns "processing", always update (this is the real status after refresh)
 						if (statusData.status === "processing") {
 							selectedSearchStatus = statusData;
-							console.log(`Updated to processing status for auto_search_id=${autoSearchId} (attempt ${attempts})`);
+							console.log(`✓ Updated to processing status for auto_search_id=${autoSearchId} (attempt ${attempts})`);
 						}
-						// If backend returns "completed" but we have temporary "processing" status, preserve it
+						// If backend returns "completed" but we have temporary "processing" status and no results, preserve it
+						// This handles the case where backend hasn't updated status yet after refresh
 						else if (currentStatus && currentStatus.status === "processing" && 
 							statusData.status === "completed" && 
-							!statusData.has_results) {
-							// Backend might not have updated yet (first 3 polls after refresh), keep processing status
-							console.log(`Keeping processing status for auto_search_id=${autoSearchId} (attempt ${attempts}, backend may not have updated yet after refresh)`);
+							!statusData.has_results &&
+							!allCompleted) {
+							// Backend might not have updated yet (first 5 polls after refresh), keep processing status
+							console.log(`Keeping processing status for auto_search_id=${autoSearchId} (attempt ${attempts}, backend may not have updated yet after refresh - status=${statusData.status}, all_airlines_completed=${allCompleted})`);
 						}
-						// If backend returns "completed" with results, update (data has arrived!)
-						else if (statusData.status === "completed" && statusData.has_results) {
+						// If backend returns "completed" with all airlines completed and results, update (data has arrived!)
+						else if (statusData.status === "completed" && allCompleted && statusData.has_results) {
 							selectedSearchStatus = statusData;
-							console.log(`Updated to completed with results for auto_search_id=${autoSearchId} (attempt ${attempts})`);
+							console.log(`✓ Updated to completed with results for auto_search_id=${autoSearchId} (attempt ${attempts}, all airlines completed)`);
+						}
+						// If backend returns "completed" with all airlines completed but no results, update (all finished, no data)
+						else if (statusData.status === "completed" && allCompleted && !statusData.has_results) {
+							selectedSearchStatus = statusData;
+							console.log(`Updated to completed with no results for auto_search_id=${autoSearchId} (attempt ${attempts}, all airlines completed but no data)`);
 						}
 						// Otherwise, update normally
 						else {
@@ -507,11 +514,12 @@ const buildSavedSearchFromResponse = (data) => {
 				}
 				
 				// Only load and display results when ALL airlines have completed
+				// Check both allCompleted flag and status to be sure
 				if (allCompleted && statusData.has_results) {
+					console.log(`✓ All airlines completed with results for auto_search_id=${autoSearchId} (${airlinesCompleted}/${totalAirlines}), loading results...`);
+					
 					const existingResults = flightSearchResults.get(autoSearchId);
 					if (!existingResults || !existingResults.total_flight_options || existingResults.total_flight_options === 0) {
-						console.log(`All airlines completed for auto_search_id=${autoSearchId} (${airlinesCompleted}/${totalAirlines}), loading results...`);
-						
 						// Load the actual flight results
 						const resultsResponse = await fetch(
 							`${WEBUI_API_BASE_URL}/auto-flight-search/auto-search/${autoSearchId}/results`,
@@ -522,7 +530,7 @@ const buildSavedSearchFromResponse = (data) => {
 						
 						if (resultsResponse.ok) {
 							const data = await resultsResponse.json();
-							console.log(`=== Flight Search Results for auto_search_id=${autoSearchId} (found after ${attempts} status checks) ===`);
+							console.log(`=== ✓✓✓ Flight Search Results LOADED for auto_search_id=${autoSearchId} (found after ${attempts} status checks) ===`);
 							console.log(`Total searches: ${data.total_searches}`);
 							console.log(`Total flight options: ${data.total_flight_options}`);
 							
@@ -533,7 +541,10 @@ const buildSavedSearchFromResponse = (data) => {
 							// Update status to reflect that we have results (this will hide loading)
 							if (selectedSearchId === autoSearchId) {
 								selectedSearchStatus = { ...statusData, has_results: true, all_airlines_completed: true };
+								console.log(`✓ Updated selectedSearchStatus with results for auto_search_id=${autoSearchId}, status=${selectedSearchStatus.status}`);
 							}
+						} else {
+							console.error(`✗ Failed to load results for auto_search_id=${autoSearchId}: ${resultsResponse.status}`);
 						}
 					} else {
 						console.log(`Results already loaded for auto_search_id=${autoSearchId}, stopping polling`);
@@ -548,12 +559,25 @@ const buildSavedSearchFromResponse = (data) => {
 						const loadingCopy = new Set(loadingSearches);
 						loadingCopy.delete(refreshSearchId);
 						loadingSearches = loadingCopy;
+						console.log(`✓ Cleared loadingSearches for refresh search ${refreshSearchId} - data loaded, button should be enabled now`);
 					}
 					return; // Stop polling
 				}
 				
-				// If AI is still processing and no results yet, continue polling
+				// Also check if status is "processing" but has_results is true (partial results)
+				// This means some airlines have returned data but not all
+				if (statusData.status === "processing" && statusData.has_results && !allCompleted) {
+					console.log(`Partial results available: ${airlinesCompleted}/${totalAirlines} airlines completed, continuing to wait for all...`);
+					// Continue polling - don't load results yet, wait for all airlines
+				}
+				
+				// If AI is still processing, continue polling
+				// Note: Even if has_results is true, we continue polling until all airlines complete
 				if (statusData.status === "processing") {
+					// Log progress if we have partial results
+					if (statusData.has_results && !allCompleted) {
+						console.log(`Processing: ${airlinesCompleted}/${totalAirlines} airlines completed with results, continuing to wait for all airlines...`);
+					}
 					if (attempts >= maxAttempts) {
 						console.log(`Max attempts (${maxAttempts}) reached for auto_search_id=${autoSearchId}, stopping polling`);
 						stopPolling(autoSearchId);
@@ -610,15 +634,16 @@ const buildSavedSearchFromResponse = (data) => {
 						console.log(`Cleared loadingSearches for refresh search ${refreshSearchId}`);
 					}
 				} else if (statusData.status === "completed" && (!allCompleted || !statusData.has_results)) {
-					// Completed but no results
+					// Completed but not all airlines completed or no results
 					// If this is a refresh and we're in early polls, don't stop yet (backend might not have updated)
-					if (refreshSearchId && attempts <= 3) {
-						console.log(`Status is "completed" but this is early poll (${attempts}) after refresh, continuing to poll...`);
-						return; // Continue polling
+					// Also check if all_airlines_completed is false - this means status is stale (from before refresh)
+					if (refreshSearchId && attempts <= 5 && !allCompleted) {
+						console.log(`Status is "completed" but all_airlines_completed=false (stale status from before refresh, attempt ${attempts}), continuing to poll...`);
+						return; // Continue polling - backend hasn't updated status to "processing" yet
 					}
 					
 					// Completed but no results - stop polling
-					console.log(`AI completed for auto_search_id=${autoSearchId} but no results found`);
+					console.log(`AI completed for auto_search_id=${autoSearchId} but no results found (all_airlines_completed=${allCompleted})`);
 					
 					// Update status for UI
 					if (selectedSearchId === autoSearchId) {
@@ -633,6 +658,7 @@ const buildSavedSearchFromResponse = (data) => {
 						const loadingCopy = new Set(loadingSearches);
 						loadingCopy.delete(refreshSearchId);
 						loadingSearches = loadingCopy;
+						console.log(`Cleared loadingSearches for refresh search ${refreshSearchId} - completed with no results`);
 					}
 				} else if (statusData.status === "failed") {
 					// Failed - stop polling
@@ -979,12 +1005,12 @@ const buildSavedSearchFromResponse = (data) => {
 	// Only show loading if actively polling/loading AND not all airlines completed yet
 	// Don't show loading if status is "completed" (even if all_airlines_completed is false)
 	$: showLoadingForSelectedSearch = selectedSearchId && (
-		// Show loading if:
-		// 1. Status is "processing" (not "completed" or "failed")
-		// 2. No results loaded yet
-		// 3. Either actively loading/polling OR status is processing
+		// Show loading if no results loaded yet AND:
+		// 1. Actively loading/polling, OR
+		// 2. Status is "processing" (not "completed" or "failed")
 		!flightSearchResults.has(selectedSearchId) && (
-			(loadingFlightResults.has(selectedSearchId) || pollingIntervals.has(selectedSearchId)) ||
+			loadingFlightResults.has(selectedSearchId) || 
+			pollingIntervals.has(selectedSearchId) ||
 			(selectedSearchStatus && selectedSearchStatus.status === "processing" && 
 			 (!selectedSearchStatus.all_airlines_completed || !selectedSearchStatus.has_results))
 		)
@@ -2309,7 +2335,10 @@ $: airlineCodeToName = new Map(
 												</div>
 											{:else}
 												<!-- No flight data but results were checked - check status -->
-												{#if showLoadingForSelectedSearch || (selectedSearchStatus && selectedSearchStatus.status === "processing" && (!selectedSearchStatus.all_airlines_completed || !selectedSearchStatus.has_results))}
+												{@const shouldShowLoading = showLoadingForSelectedSearch || 
+													(selectedSearchStatus && selectedSearchStatus.status === "processing" && (!selectedSearchStatus.all_airlines_completed || !selectedSearchStatus.has_results)) ||
+													(loadingFlightResults.has(selectedSearchId) || pollingIntervals.has(selectedSearchId))}
+												{#if shouldShowLoading}
 													<!-- Processing - show loading -->
 													<div class="p-8 text-center">
 														<svg class="animate-spin mx-auto h-8 w-8 text-blue-500 mb-4" fill="none" viewBox="0 0 24 24">
