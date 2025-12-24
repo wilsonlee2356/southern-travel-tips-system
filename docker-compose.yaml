@@ -13,11 +13,11 @@ services:
       - OPENVPN_USER=${OPENVPN_USER}          # Your Surfshark OpenVPN username
       - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}  # Your Surfshark OpenVPN password
       - SERVER_COUNTRIES=${SERVER_COUNTRIES:-Taiwan}  # Optional: keep Taiwan or change
-      # DNS configuration - use Cloudflare DNS for reliable resolution
-      - DNS_ADDRESS=1.1.1.1
-      - DNS_ADDRESS_BLOCK_MALICIOUS=false
-      - DNS_ADDRESS_BLOCK_SURVEILLANCE=false
-      - DNS_ADDRESS_BLOCK_ADS=false
+      # DNS configuration - use Google DNS for reliable resolution
+      - DNS=8.8.8.8,8.8.4.4
+      - DNS_KEEP_NAMESERVER=off
+      # Health check target
+      - HEALTH_TARGET_ADDRESS=cloudflare.com:443
     ports:
       - "8080:8080"
     restart: unless-stopped
