@@ -20,6 +20,10 @@ services:
       - HEALTH_TARGET_ADDRESS=cloudflare.com:443
       # OpenVPN verbosity for debugging (can be removed after confirming it works)
       - OPENVPN_VERBOSITY=1
+      # Bypass VPN for local network (including n8n at 192.168.0.2)
+      # This prevents 60-second timeout since n8n doesn't need VPN access
+      # All traffic to 192.168.0.0/24 (your local network) will bypass VPN
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/24
     sysctls:
       # TCP keepalive settings to prevent Surfshark VPN from timing out idle connections during long n8n requests (up to 45+ minutes)
       # These sysctls control when TCP keepalive probes are sent IF keepalive is enabled on the socket.
@@ -55,6 +59,7 @@ services:
       - GOOGLE_FLIGHTS_API_KEY=${GOOGLE_FLIGHTS_API_KEY}
       - VITE_GOOGLE_FLIGHTS_API_KEY=${GOOGLE_FLIGHTS_API_KEY}
       - N8N_READ_TIMEOUT_SECONDS=7200  # 2 hours timeout for n8n requests (some take 45+ minutes)
+      # No N8N_PROXY_URL needed - app connects directly to n8n.ssl-labs.ai which goes through your nginx proxy
     restart: unless-stopped
 
 volumes:
