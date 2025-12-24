@@ -1,193 +1,205 @@
-72.25 Copying Pyodide files into static directory
-72.47 ▲ [WARNING] Cannot find base config file "./.svelte-kit/tsconfig.json" [tsconfig.json]
-72.47
-72.47     tsconfig.json:2:12:
-72.47       2 │   "extends": "./.svelte-kit/tsconfig.json",
-72.47         ╵              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-72.47
-73.15 1:32:02 PM [vite-plugin-svelte] WARNING: The following packages have a svelte field in their package.json but no exports condition for svelte.
-73.15
-73.15 @sveltejs/svelte-virtual-list@3.0.1
-73.15
-73.15 Please see https://github.com/sveltejs/vite-plugin-svelte/blob/main/docs/faq.md#missing-exports-condition for details.
-73.23 vite v5.4.21 building SSR bundle for production...
-73.27 transforming...
-73.44 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/fine-tuning/+page.svelte:377:7 A11y: A form label must be associated with a control.
-73.44 375:             <!-- Base Model -->
-73.44 376:             <div>
-73.44 377:               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-73.44                    ^
-73.44 378:                 Base Model
-73.44 379:               </label>
-73.44 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/fine-tuning/+page.svelte:392:7 A11y: A form label must be associated with a control.
-73.44 390:             <!-- Model Name -->
-73.44 391:             <div>
-73.44 392:               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-73.44                    ^
-73.44 393:                 Model Name
-73.44 394:               </label>
-73.44 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/fine-tuning/+page.svelte:429:7 A11y: A form label must be associated with a control.
-73.44 427:             <!-- Upload Dataset -->
-73.44 428:             <div>
-73.44 429:               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-73.44                    ^
-73.44 430:                 Upload Dataset
-73.44 431:               </label>
-73.44 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/fine-tuning/+page.svelte:444:8 A11y: A form label must be associated with a control.
-73.44 442:             {#if datasetFiles.length > 0}
-73.44 443:               <div class="space-y-2">
-73.44 444:                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-73.44                      ^
-73.44 445:                   Available Datasets
-73.44 446:                 </label>
-73.49 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/content-generator/+page.svelte:598:6 A11y: visible, non-interactive elements with an on:click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as <button type="button"> or <a> might be more appropriate. See https://svelte.dev/docs/accessibility-warnings#a11y-click-events-have-key-events for more details.
-73.49 596:             </h2>
-73.49 597:
-73.49 598:             <div
-73.49                  ^
-73.49 599:               class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer"
-73.49 600:               on:click={() => document.getElementById('photo-upload').click()}
-73.49 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/content-generator/+page.svelte:598:6 A11y: <div> with click handler must have an ARIA role
-73.49 596:             </h2>
-73.49 597:
-73.49 598:             <div
-73.49                  ^
-73.49 599:               class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer"
-73.49 600:               on:click={() => document.getElementById('photo-upload').click()}
-73.49 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/content-generator/+page.svelte:639:11 A11y: Screenreaders already announce <img> elements as an image.
-73.49 637:                   {#each uploadedImages as image, index}
-73.49 638:                     <div class="relative">
-73.49 639:                       <img
-73.49                            ^
-73.49 640:                         src={URL.createObjectURL(image)}
-73.49 641:                         alt="Uploaded photo"
-73.49 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/content-generator/+page.svelte:763:9 A11y: Screenreaders already announce <img> elements as an image.
-73.49 761:               {#if generatedPost.image}
-73.49 762:                 <div class="aspect-square bg-gray-200 dark:bg-gray-700">
-73.49 763:                   <img
-73.49                        ^
-73.49 764:                     src={URL.createObjectURL(generatedPost.image)}
-73.49 765:                     alt="Generated post image"
-73.49 1:32:02 PM [vite-plugin-svelte] /app/src/routes/(app)/content-generator/+page.svelte:929:9 A11y: Screenreaders already announce <img> elements as an image.
-73.49 927:               {#if generatedPost.image}
-73.49 928:                 <div class="aspect-square bg-gray-200 dark:bg-gray-700">
-73.49 929:                   <img
-73.49                        ^
-73.49 930:                     src={URL.createObjectURL(generatedPost.image)}
-73.49 931:                     alt="Generated post image"
-73.76 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/make-dataset/+page.svelte:244:10 A11y: A form label must be associated with a control.
-73.76 242:                   <!-- Prompt Input -->
-73.76 243:                   <div>
-73.76 244:                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-73.76                          ^
-73.76 245:                       Prompt {index + 1}
-73.76 246:                     </label>
-73.76 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/make-dataset/+page.svelte:258:10 A11y: A form label must be associated with a control.
-73.76 256:                   <!-- Response Input -->
-73.76 257:                   <div>
-73.76 258:                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-73.76                          ^
-73.76 259:                       Response {index + 1}
-73.76 260:                     </label>
-73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:728:7 A11y: visible, non-interactive elements with an on:click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as <button type="button"> or <a> might be more appropriate. See https://svelte.dev/docs/accessibility-warnings#a11y-click-events-have-key-events for more details.
-73.83 726:                 Ticket Screenshot
-73.83 727:               </label>
-73.83 728:               <div
-73.83                    ^
-73.83 729:                 id="ticket-screenshot"
-73.83 730:                 class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer relative"
-73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:728:7 A11y: <div> with click, drop, dragover handlers must have an ARIA role
-73.83 726:                 Ticket Screenshot
-73.83 727:               </label>
-73.83 728:               <div
-73.83                    ^
-73.83 729:                 id="ticket-screenshot"
-73.83 730:                 class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer relative"
-73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:1000:10 A11y: Screenreaders already announce <img> elements as an image.
-73.83  998:                 {#if scenicImage}
-73.83  999:                   <div class="flex items-center justify-center overflow-hidden relative">
-73.83 1000:                     <img
-73.83                           ^
-73.83 1001:                       src={scenicImage}
-73.83 1002:                       alt="Scenic destination image with promotional banner"
-73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:1273:10 A11y: Screenreaders already announce <img> elements as an image.
-73.83 1271:                 {#if scenicImage}
-73.83 1272:                   <div class="flex items-center justify-center overflow-hidden relative">
-73.83 1273:                     <img
-73.83                           ^
-73.83 1274:                       src={scenicImage}
-73.83 1275:                       alt="Scenic destination image with promotional banner"
-73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:1474:5 A11y: A form label must be associated with a control.
-73.83 1472:         <!-- Destination -->
-73.83 1473:         <div>
-73.83 1474:           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-73.83                 ^
-73.83 1475:             Destination (目的地)
-73.83 1476:           </label>
-73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:1487:5 A11y: A form label must be associated with a control.
-73.83 1485:         <!-- Promote Text -->
-73.83 1486:         <div>
-73.83 1487:           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-73.83                 ^
-73.83 1488:             Promotion Text (宣傳文字)
-73.83 1489:           </label>
-73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:1501:5 A11y: A form label must be associated with a control.
-73.83 1499:         <!-- Airline -->
-73.83 1500:         <div>
-73.83 1501:           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-73.83                 ^
-73.83 1502:             Airline (航空公司)
-73.83 1503:           </label>
-73.83 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/post/+page.svelte:1514:5 A11y: A form label must be associated with a control.
-73.83 1512:         <!-- Price -->
-73.83 1513:         <div>
-73.83 1514:           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-73.83                 ^
-73.83 1515:             Price (價錢)
-73.83 1516:           </label>
-74.03 1:32:03 PM [vite-plugin-svelte] /app/src/routes/(app)/auto-flight-search/components/SearchForm.svelte:310:5 A11y: A form label must be associated with a control.
-74.03 308:       <div class="flex items-center justify-between gap-3">
-74.03 309:         <div>
-74.03 310:           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-74.03                ^
-74.03 311:             Airlines (select up to {MAX_AIRLINES}) <span class="text-red-500">*</span>
-74.03 312:           </label>
-74.04 ✓ 69 modules transformed.
-74.04 x Build failed in 790ms
-74.04 error during build:
-74.04 [vite-plugin-svelte] [plugin vite-plugin-svelte] src/routes/(app)/auto-flight-search/components/SavedSearchesList.svelte (65:6): /app/src/routes/(app)/auto-flight-search/components/SavedSearchesList.svelte:65:6 {@const} must be the immediate child of {#if}, {:else if}, {:else}, {#each}, {:then}, {:catch}, <svelte:fragment> or <Component>
-74.04 file: /app/src/routes/(app)/auto-flight-search/components/SavedSearchesList.svelte:65:6
-74.04
-74.04  63 |            <div class="flex gap-1">
-74.04  64 |              <!-- Refresh Mini Button -->
-74.04  65 |              {@const isSearchLoading = loadingSearches.has(search.id) ||
-74.04                    ^
-74.04  66 |                loadingFlightResults.has(search.id) ||
-74.04  67 |                pollingIntervals.has(search.id) ||
-74.04
-74.04 ValidationError: {@const} must be the immediate child of {#if}, {:else if}, {:else}, {#each}, {:then}, {:catch}, <svelte:fragment> or <Component>
-74.04     at error (file:///app/node_modules/svelte/src/compiler/utils/error.js:56:16)
-74.04     at Component.error (file:///app/node_modules/svelte/src/compiler/compile/Component.js:551:4)
-74.04     at new ConstTag (file:///app/node_modules/svelte/src/compiler/compile/nodes/ConstTag.js:52:14)
-74.04     at file:///app/node_modules/svelte/src/compiler/compile/nodes/shared/map_children.js:86:16
-74.04     at Array.map (<anonymous>)
-74.04     at map_children (file:///app/node_modules/svelte/src/compiler/compile/nodes/shared/map_children.js:82:18)
-74.04     at new Element (file:///app/node_modules/svelte/src/compiler/compile/nodes/Element.js:517:19)
-74.04     at file:///app/node_modules/svelte/src/compiler/compile/nodes/shared/map_children.js:86:16
-74.04     at Array.map (<anonymous>)
-74.04     at map_children (file:///app/node_modules/svelte/src/compiler/compile/nodes/shared/map_children.js:82:18)
-------
+root@ssllab1-MS-A2:~/git_clone/southern-travel-tips-system# docker compose up -d
+[+] up 3/3
+ ✔ Network southern-travel-tips-system_default Created                                                             0.1s
+ ✔ Container gluetun                           Created                                                             0.0s
+ ✔ Container travel-tip-demo                   Created                                                             0.0s
+root@ssllab1-MS-A2:~/git_clone/southern-travel-tips-system# docker exec gluetun nslookup www.searchapi.io
+;; connection timed out; no servers could be reached
 
- 2 warnings found (use docker --debug to expand):
- - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "OPENAI_API_KEY") (line 74)
- - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "WEBUI_SECRET_KEY") (line 74)
-Dockerfile:42
---------------------
-  41 |         # Fix for rollup platform-specific dependencies and PostCSS native binding issues
-  42 | >>>     RUN rm -rf node_modules package-lock.json && \
-  43 | >>>         npm install --legacy-peer-deps && \
-  44 | >>>         npm rebuild && \
-  45 | >>>         npm run build
-  46 |
---------------------
-ERROR: failed to build: failed to solve: process "/bin/sh -c rm -rf node_modules package-lock.json &&         npm install --legacy-peer-deps &&         npm rebuild &&         npm run build" did not complete successfully: exit code: 1
+nslookup: write to '1.1.1.1': Operation not permitted
+root@ssllab1-MS-A2:~/git_clone/southern-travel-tips-system# docker exec gluetun curl -s ifconfig.me
+OCI runtime exec failed: exec failed: unable to start container process: exec: "curl": executable file not found in $PATH
+root@ssllab1-MS-A2:~/git_clone/southern-travel-tips-system# docker logs gluetun
+========================================
+========================================
+=============== gluetun ================
+========================================
+=========== Made with ❤️ by ============
+======= https://github.com/qdm12 =======
+========================================
+========================================
+
+Running version latest built on 2025-12-24T04:08:00.056Z (commit 9833302)
+
+🔧 Need help? ☕ Discussion? https://github.com/qdm12/gluetun/discussions/new/choose
+🐛 Bug? ✨ New feature? https://github.com/qdm12/gluetun/issues/new/choose
+💻 Email? quentin.mcgaw@gmail.com
+💰 Help me? https://www.paypal.me/qmcgaw https://github.com/sponsors/qdm12
+2025-12-24T09:25:41Z INFO [routing] default route found: interface eth0, gateway 172.19.0.1, assigned IP 172.19.0.2 and family v4
+2025-12-24T09:25:41Z INFO [routing] local ethernet link found: eth0
+2025-12-24T09:25:41Z INFO [routing] local ipnet found: 172.19.0.0/16
+2025-12-24T09:25:41Z INFO [firewall] enabling...
+2025-12-24T09:25:41Z INFO [firewall] enabled successfully
+2025-12-24T09:25:41Z INFO [storage] creating /gluetun/servers.json with 20886 hardcoded servers
+2025-12-24T09:25:41Z INFO Alpine version: 3.22.2
+2025-12-24T09:25:41Z INFO OpenVPN 2.5 version: 2.5.10
+2025-12-24T09:25:41Z INFO OpenVPN 2.6 version: 2.6.16
+2025-12-24T09:25:41Z INFO IPtables version: v1.8.11
+2025-12-24T09:25:41Z INFO Settings summary:
+├── VPN settings:
+|   ├── VPN provider settings:
+|   |   ├── Name: surfshark
+|   |   └── Server selection settings:
+|   |       ├── VPN type: openvpn
+|   |       ├── Countries: taiwan
+|   |       └── OpenVPN server selection settings:
+|   |           └── Protocol: UDP
+|   └── OpenVPN settings:
+|       ├── OpenVPN version: 2.6
+|       ├── User: [set]
+|       ├── Password: [set]
+|       ├── Network interface: tun0
+|       ├── Run OpenVPN as: root
+|       └── Verbosity level: 1
+├── DNS settings:
+|   ├── Keep existing nameserver(s): no
+|   ├── DNS server address to use: 1.1.1.1
+|   ├── DNS forwarder server enabled: yes
+|   ├── Upstream resolver type: dot
+|   ├── Upstream resolvers:
+|   |   └── cloudflare
+|   ├── Caching: yes
+|   ├── IPv6: no
+|   ├── Update period: every 24h0m0s
+|   └── DNS filtering settings:
+|       ├── Block malicious: yes
+|       ├── Block ads: no
+|       └── Block surveillance: no
+├── Firewall settings:
+|   └── Enabled: yes
+├── Log settings:
+|   └── Log level: info
+├── Health settings:
+|   ├── Server listening address: 127.0.0.1:9999
+|   ├── Target addresses:
+|   |   ├── cloudflare.com:443
+|   |   └── github.com:443
+|   ├── Small health check type: ICMP echo request
+|   |   └── ICMP target IPs:
+|   |       ├── 1.1.1.1
+|   |       └── 8.8.8.8
+|   └── Restart VPN on healthcheck failure: yes
+├── Shadowsocks server settings:
+|   └── Enabled: no
+├── HTTP proxy settings:
+|   └── Enabled: no
+├── Control server settings:
+|   ├── Listening address: :8000
+|   ├── Logging: yes
+|   └── Authentication file path: /gluetun/auth/config.toml
+├── Storage settings:
+|   └── Filepath: /gluetun/servers.json
+├── OS Alpine settings:
+|   ├── Process UID: 1000
+|   ├── Process GID: 1000
+|   └── Timezone: etc/utc
+├── Public IP settings:
+|   ├── IP file path: /tmp/gluetun/ip
+|   ├── Public IP data base API: ipinfo
+|   └── Public IP data backup APIs:
+|       ├── ifconfigco
+|       ├── ip2location
+|       └── cloudflare
+└── Version settings:
+    └── Enabled: yes
+2025-12-24T09:25:41Z WARN DNS address is set to 1.1.1.1 so the local forwarding DNS server will not be used. The default value changed to 127.0.0.1 so it uses the internal DNS server. If this server fails to start, the IPv4 address of the first plaintext DNS server corresponding to the first DNS provider chosen is used.
+2025-12-24T09:25:41Z INFO [routing] default route found: interface eth0, gateway 172.19.0.1, assigned IP 172.19.0.2 and family v4
+2025-12-24T09:25:41Z INFO [routing] adding route for 0.0.0.0/0
+2025-12-24T09:25:41Z INFO [firewall] setting allowed subnets...
+2025-12-24T09:25:41Z INFO [routing] default route found: interface eth0, gateway 172.19.0.1, assigned IP 172.19.0.2 and family v4
+2025-12-24T09:25:41Z INFO [healthcheck] listening on 127.0.0.1:9999
+2025-12-24T09:25:41Z INFO [dns] using plaintext DNS at address 1.1.1.1
+2025-12-24T09:25:41Z INFO [http server] http server listening on [::]:8000
+2025-12-24T09:25:41Z INFO [firewall] allowing VPN connection...
+2025-12-24T09:25:41Z INFO [openvpn] OpenVPN 2.6.16 x86_64-alpine-linux-musl [SSL (OpenSSL)] [LZO] [LZ4] [EPOLL] [MH/PKTINFO] [AEAD]
+2025-12-24T09:25:41Z INFO [openvpn] library versions: OpenSSL 3.5.4 30 Sep 2025, LZO 2.10
+2025-12-24T09:25:41Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
+2025-12-24T09:25:41Z INFO [openvpn] UDPv4 link local: (not bound)
+2025-12-24T09:25:41Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
+2025-12-24T09:25:41Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
+2025-12-24T09:25:42Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
+
+Your credentials might be wrong 🤨
+
+
+2025-12-24T09:25:42Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
+2025-12-24T09:25:52Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
+2025-12-24T09:25:52Z INFO [openvpn] UDPv4 link local: (not bound)
+2025-12-24T09:25:52Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
+2025-12-24T09:25:53Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
+2025-12-24T09:25:54Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
+
+Your credentials might be wrong 🤨
+
+
+2025-12-24T09:25:54Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
+2025-12-24T09:26:04Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:04Z INFO [openvpn] UDPv4 link local: (not bound)
+2025-12-24T09:26:04Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:04Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:05Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
+
+Your credentials might be wrong 🤨
+
+
+2025-12-24T09:26:05Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
+2025-12-24T09:26:15Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:15Z INFO [openvpn] UDPv4 link local: (not bound)
+2025-12-24T09:26:15Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:15Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:16Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
+
+Your credentials might be wrong 🤨
+
+
+2025-12-24T09:26:16Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
+2025-12-24T09:26:26Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:26Z INFO [openvpn] UDPv4 link local: (not bound)
+2025-12-24T09:26:26Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:26Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:27Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
+
+Your credentials might be wrong 🤨
+
+
+2025-12-24T09:26:27Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
+2025-12-24T09:26:37Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:37Z INFO [openvpn] UDPv4 link local: (not bound)
+2025-12-24T09:26:37Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:37Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:38Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
+
+Your credentials might be wrong 🤨
+
+
+2025-12-24T09:26:38Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
+2025-12-24T09:26:48Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:48Z INFO [openvpn] UDPv4 link local: (not bound)
+2025-12-24T09:26:48Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:49Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
+2025-12-24T09:26:50Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
+
+Your credentials might be wrong 🤨
+
+
+2025-12-24T09:26:50Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
+2025-12-24T09:27:00Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
+2025-12-24T09:27:00Z INFO [openvpn] UDPv4 link local: (not bound)
+2025-12-24T09:27:00Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
+2025-12-24T09:27:00Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
+2025-12-24T09:27:01Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
+
+Your credentials might be wrong 🤨
+
+
+2025-12-24T09:27:01Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
+2025-12-24T09:27:11Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
+2025-12-24T09:27:11Z INFO [openvpn] UDPv4 link local: (not bound)
+2025-12-24T09:27:11Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
+2025-12-24T09:27:11Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
+2025-12-24T09:27:12Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
+
+Your credentials might be wrong 🤨
+
+
+2025-12-24T09:27:12Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting

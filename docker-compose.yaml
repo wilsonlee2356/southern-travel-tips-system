@@ -18,6 +18,16 @@ services:
       - DNS_KEEP_NAMESERVER=off
       # Health check target
       - HEALTH_TARGET_ADDRESS=cloudflare.com:443
+      # OpenVPN verbosity for debugging (can be removed after confirming it works)
+      - OPENVPN_VERBOSITY=1
+    sysctls:
+      # TCP keepalive settings to prevent Surfshark VPN from timing out idle connections during long n8n requests (up to 45+ minutes)
+      # tcp_keepalive_time: seconds before sending first keepalive probe (default 7200, set to 30)
+      - net.ipv4.tcp_keepalive_time=30
+      # tcp_keepalive_intvl: seconds between keepalive probes (default 75, set to 10)
+      - net.ipv4.tcp_keepalive_intvl=10
+      # tcp_keepalive_probes: number of probes before considering connection dead (default 9, set to 5)
+      - net.ipv4.tcp_keepalive_probes=5
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -39,7 +49,8 @@ services:
       - open-webui-data:/app/backend/data
     environment:
       - GOOGLE_FLIGHTS_API_KEY=${GOOGLE_FLIGHTS_API_KEY}
-      - N8N_READ_TIMEOUT_SECONDS=7200
+      - VITE_GOOGLE_FLIGHTS_API_KEY=${GOOGLE_FLIGHTS_API_KEY}
+      - N8N_READ_TIMEOUT_SECONDS=7200  # 2 hours timeout for n8n requests (some take 45+ minutes)
     restart: unless-stopped
 
 volumes:
