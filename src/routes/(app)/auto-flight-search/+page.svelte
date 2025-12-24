@@ -413,7 +413,8 @@ const buildSavedSearchFromResponse = (data) => {
 	
 	// Start polling for AI status until processing is complete or timeout
 	// maxAttempts = 180 means 180 * 15s = 45 minutes (AI can take up to 45 minutes)
-	const startPollingForResults = (autoSearchId, maxAttempts = 180, intervalMs = 15000) => {
+	// refreshSearchId: optional searchId to clear from loadingSearches when polling completes
+	const startPollingForResults = (autoSearchId, maxAttempts = 180, intervalMs = 15000, refreshSearchId = null) => {
 		// Stop any existing polling for this search
 		stopPolling(autoSearchId);
 		
@@ -523,6 +524,12 @@ const buildSavedSearchFromResponse = (data) => {
 					stopPolling(autoSearchId);
 					loadingFlightResults.delete(autoSearchId);
 					loadingFlightResults = loadingFlightResults; // Trigger reactivity
+					// Clear loadingSearches if this was a refresh
+					if (refreshSearchId) {
+						const loadingCopy = new Set(loadingSearches);
+						loadingCopy.delete(refreshSearchId);
+						loadingSearches = loadingCopy;
+					}
 					return; // Stop polling
 				}
 				
@@ -533,6 +540,12 @@ const buildSavedSearchFromResponse = (data) => {
 						stopPolling(autoSearchId);
 						loadingFlightResults.delete(autoSearchId);
 						loadingFlightResults = loadingFlightResults;
+						// Clear loadingSearches if this was a refresh
+						if (refreshSearchId) {
+							const loadingCopy = new Set(loadingSearches);
+							loadingCopy.delete(refreshSearchId);
+							loadingSearches = loadingCopy;
+						}
 					}
 					return; // Continue polling
 				}
@@ -569,6 +582,12 @@ const buildSavedSearchFromResponse = (data) => {
 					stopPolling(autoSearchId);
 					loadingFlightResults.delete(autoSearchId);
 					loadingFlightResults = loadingFlightResults; // Trigger reactivity
+					// Clear loadingSearches if this was a refresh
+					if (refreshSearchId) {
+						const loadingCopy = new Set(loadingSearches);
+						loadingCopy.delete(refreshSearchId);
+						loadingSearches = loadingCopy;
+					}
 				} else if (statusData.status === "completed" && (!allCompleted || !statusData.has_results)) {
 					// Completed but no results - stop polling
 					console.log(`AI completed for auto_search_id=${autoSearchId} but no results found`);
@@ -581,6 +600,12 @@ const buildSavedSearchFromResponse = (data) => {
 					stopPolling(autoSearchId);
 					loadingFlightResults.delete(autoSearchId);
 					loadingFlightResults = loadingFlightResults; // Trigger reactivity
+					// Clear loadingSearches if this was a refresh
+					if (refreshSearchId) {
+						const loadingCopy = new Set(loadingSearches);
+						loadingCopy.delete(refreshSearchId);
+						loadingSearches = loadingCopy;
+					}
 				} else if (statusData.status === "failed") {
 					// Failed - stop polling
 					console.log(`AI failed for auto_search_id=${autoSearchId}`);
@@ -593,12 +618,24 @@ const buildSavedSearchFromResponse = (data) => {
 					stopPolling(autoSearchId);
 					loadingFlightResults.delete(autoSearchId);
 					loadingFlightResults = loadingFlightResults; // Trigger reactivity
+					// Clear loadingSearches if this was a refresh
+					if (refreshSearchId) {
+						const loadingCopy = new Set(loadingSearches);
+						loadingCopy.delete(refreshSearchId);
+						loadingSearches = loadingCopy;
+					}
 				} else if (attempts >= maxAttempts) {
 					// Max attempts reached
 					console.log(`Max attempts (${maxAttempts}) reached for auto_search_id=${autoSearchId}, stopping polling`);
 					stopPolling(autoSearchId);
 					loadingFlightResults.delete(autoSearchId);
 					loadingFlightResults = loadingFlightResults; // Trigger reactivity
+					// Clear loadingSearches if this was a refresh
+					if (refreshSearchId) {
+						const loadingCopy = new Set(loadingSearches);
+						loadingCopy.delete(refreshSearchId);
+						loadingSearches = loadingCopy;
+					}
 				}
 			} catch (error) {
 				console.error(`Error polling status for auto_search_id=${autoSearchId}:`, error);
@@ -1208,6 +1245,7 @@ $: airlineCodeToName = new Map(
 			console.debug('Auto search response (refresh):', data);
 			
 			// Start polling for AI status (AI processes in background)
+			// Keep loadingSearches set - it will be cleared when n8n finishes (in polling callback)
 			if (autoSearchId) {
 				// Set loading state BEFORE clearing results to prevent showing "No data found"
 				if (!loadingFlightResults.has(autoSearchId)) {
@@ -1234,7 +1272,8 @@ $: airlineCodeToName = new Map(
 				
 				// Start polling immediately - this will check status and update selectedSearchStatus
 				// Don't call checkSearchStatus immediately to avoid race condition with backend status update
-				startPollingForResults(autoSearchId, 180, 15000);
+				// Pass searchId to the polling function so it can clear loadingSearches when done
+				startPollingForResults(autoSearchId, 180, 15000, searchId);
 			}
 
 			const builtSearch = buildSavedSearchFromResponse(data);
@@ -1270,8 +1309,15 @@ $: airlineCodeToName = new Map(
 			}
 			savedSearches = [...savedSearches];
 			persistSavedSearches();
+			// Note: loadingSearches is NOT cleared here - it will be cleared when polling completes
+			// This keeps the refresh button disabled until n8n finishes
 		} catch (error) {
 			console.error('Error refreshing search:', error);
+			// Clear loadingSearches on error
+			const loadingCopy = new Set(loadingSearches);
+			loadingCopy.delete(searchId);
+			loadingSearches = loadingCopy;
+			
 			savedSearches[searchIndex] = {
 				...search,
 				lastSearched: new Date().toISOString(),
@@ -1279,10 +1325,6 @@ $: airlineCodeToName = new Map(
 			};
 			savedSearches = [...savedSearches];
 			persistSavedSearches();
-		} finally {
-			const updatedLoading = new Set(loadingSearches);
-			updatedLoading.delete(searchId);
-			loadingSearches = updatedLoading;
 		}
 	};
 
