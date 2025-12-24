@@ -475,13 +475,15 @@ const buildSavedSearchFromResponse = (data) => {
 				if (selectedSearchId === autoSearchId) {
 					// If we have a temporary "processing" status and backend returns "completed" 
 					// but we're still polling (meaning refresh just happened), keep "processing"
+					// This handles the case where backend hasn't updated status yet after refresh
 					const currentStatus = selectedSearchStatus;
 					if (currentStatus && currentStatus.status === "processing" && 
 						statusData.status === "completed" && 
-						attempts === 1 && 
-						!statusData.has_results) {
-						// Backend might not have updated yet, keep processing status
-						console.log(`Keeping processing status for auto_search_id=${autoSearchId} (backend may not have updated yet)`);
+						attempts <= 3 && 
+						!statusData.has_results &&
+						refreshSearchId) {
+						// Backend might not have updated yet (first 3 polls after refresh), keep processing status
+						console.log(`Keeping processing status for auto_search_id=${autoSearchId} (attempt ${attempts}, backend may not have updated yet after refresh)`);
 					} else {
 						selectedSearchStatus = statusData;
 					}
@@ -589,6 +591,13 @@ const buildSavedSearchFromResponse = (data) => {
 						loadingSearches = loadingCopy;
 					}
 				} else if (statusData.status === "completed" && (!allCompleted || !statusData.has_results)) {
+					// Completed but no results
+					// If this is a refresh and we're in early polls, don't stop yet (backend might not have updated)
+					if (refreshSearchId && attempts <= 3) {
+						console.log(`Status is "completed" but this is early poll (${attempts}) after refresh, continuing to poll...`);
+						return; // Continue polling
+					}
+					
 					// Completed but no results - stop polling
 					console.log(`AI completed for auto_search_id=${autoSearchId} but no results found`);
 					
@@ -647,11 +656,12 @@ const buildSavedSearchFromResponse = (data) => {
 			}
 		};
 		
-		// Start polling after a small delay to give backend time to update status
-		// Then poll every intervalMs
+		// Start polling after a delay to give backend time to update status after refresh
+		// Use longer delay if this is a refresh (2 seconds) to ensure backend has updated
+		const initialDelay = refreshSearchId ? 2000 : 500;
 		setTimeout(() => {
-			poll(); // First attempt after 500ms delay
-		}, 500);
+			poll(); // First attempt after delay
+		}, initialDelay);
 		const intervalId = setInterval(poll, intervalMs);
 		pollingIntervals.set(autoSearchId, intervalId);
 		pollingIntervals = pollingIntervals; // Trigger reactivity
