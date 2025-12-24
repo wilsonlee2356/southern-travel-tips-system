@@ -1,34 +1,50 @@
-services:
-  ollama:
-    volumes:
-      - ollama:/root/.ollama
-    container_name: ollama
-    pull_policy: always
-    tty: true
-    restart: unless-stopped
-    image: ollama/ollama:${OLLAMA_DOCKER_TAG-latest}
+version: "3.8"
 
-  open-webui:
-    build:
-      context: .
-      args:
-        OLLAMA_BASE_URL: '/ollama'
-      dockerfile: Dockerfile
-    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG-main}
-    container_name: open-webui
-    volumes:
-      - open-webui:/app/backend/data
-    depends_on:
-      - ollama
-    ports:
-      - ${OPEN_WEBUI_PORT-3000}:8080
+services:
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
     environment:
-      - 'OLLAMA_BASE_URL=http://ollama:11434'
-      - 'WEBUI_SECRET_KEY='
-    extra_hosts:
-      - host.docker.internal:host-gateway
+      - TZ=Etc/UTC  # Change to your timezone if needed
+      - VPN_SERVICE_PROVIDER=surfshark
+      - VPN_TYPE=wireguard  # Recommended: faster and more stable than OpenVPN
+      - WIREGUARD_PRIVATE_KEY=your_surfshark_wireguard_private_key_here
+      - WIREGUARD_ADDRESSES=your_ip_address_from_surfshark_here  # e.g., 10.14.0.2/32
+      # Optional: pick a specific country or city
+      - SERVER_COUNTRIES=United States
+      # - SERVER_CITIES=New York
+      # If you prefer OpenVPN instead:
+      # - VPN_TYPE=openvpn
+      # - OPENVPN_USER=your_surfshark_service_username
+      # - OPENVPN_PASSWORD=your_surfshark_service_password
+    ports:
+      - "8080:8080"  # Expose the Open WebUI port through the VPN container
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]  # Optional, helps detect issues early
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  travel-tip-demo:
+    image: southerndocker800/travel-tip-demo:v1.6
+    container_name: travel-tip-demo
+    depends_on:
+      gluetun:
+        condition: service_healthy  # Wait for VPN to be ready (optional but recommended)
+    network_mode: service:gluetun  # All outbound traffic from this container goes through Surfshark VPN
+    volumes:
+      - open-webui-data:/app/backend/data
+    environment:
+      - GOOGLE_FLIGHTS_API_KEY=jLH9DMzP7wuhxs9XAsPvxFhG
+      - N8N_READ_TIMEOUT_SECONDS=7200  # Your long timeout for n8n calls
+      # Add any other env vars you need here
     restart: unless-stopped
 
 volumes:
-  ollama: {}
-  open-webui: {}
+  open-webui-data:
+
