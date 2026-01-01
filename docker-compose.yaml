@@ -81,7 +81,7 @@ services:
       - net.ipv4.tcp_keepalive_intvl=10
       - net.ipv4.tcp_keepalive_probes=5
     ports:
-      - "${HOST_IP}:${PANEL_APP_PORT_HTTP}:5678"  # Expose n8n port through gluetun-n8n
+      - "0.0.0.0:5678:5678"  # Expose n8n port through gluetun-n8n
     networks:
       - 1panel-network  # Connect to 1panel-network so other services can reach n8n
     restart: unless-stopped
@@ -98,7 +98,7 @@ services:
     depends_on:
       gluetun:
         condition: service_started
-    network_mode: service:gluetun
+    network_mode: service:gluetun  # Keep using network_mode for direct VPN routing (works better for this app)
     volumes:
       - open-webui-data:/app/backend/data
     environment:
@@ -127,8 +127,9 @@ services:
     labels:
       createdBy: Apps
     volumes:
-      - ./n8n-data:/home/node/.n8n
+      - n8n-data:/home/node/.n8n  # Use named volume to avoid permission issues
     restart: always
 
 volumes:
   open-webui-data:
+  n8n-data:  # Named volume for n8n data (Docker manages permissions automatically)
