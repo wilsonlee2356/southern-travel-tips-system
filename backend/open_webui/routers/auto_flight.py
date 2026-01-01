@@ -146,8 +146,11 @@ async def _call_n8n_webhook_for_airlines(
         travel_class: Travel class integer (0=economy, 1=premium_economy, 2=business, 3=first_class)
         auto_search_id: Optional auto_search_id to use for finding auto_search_airline_id
     """
-    # base_url = "https://n8n.ssl-labs.ai/webhook/f56d4963-08b0-4c21-97c7-be28249e32d8/auto_search"
-    base_url = "https://fly-again-la.n8n.ssl-labs.ai/webhook/f56d4963-08b0-4c21-97c7-be28249e32d8/auto_search"
+    # Get base URL from environment variable, with fallback to default
+    base_url = os.getenv(
+        "N8N_WEBHOOK_BASE_URL",
+        "https://fly-again-la.n8n.ssl-labs.ai/webhook/f56d4963-08b0-4c21-97c7-be28249e32d8/auto_search"
+    )
     
     # Convert boolean to string for URL
     is_direct_str = "true" if is_direct else "false"
