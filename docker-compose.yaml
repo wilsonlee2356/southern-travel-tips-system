@@ -1,3 +1,7 @@
+networks:
+  1panel-network:
+    external: true
+
 services:
   gluetun:
     image: qmcgaw/gluetun:latest
@@ -22,7 +26,7 @@ services:
       - OPENVPN_VERBOSITY=1
       # Bypass VPN for n8n traffic to prevent 60-second timeout
       # n8n.ssl-labs.ai resolves to 210.0.222.186 (nginx proxy), n8n backend is at 192.168.0.2
-      # Both need to bypass VPN since n8n doesn't need VPN access
+      # Both need to bypass VPN since travel-tip-demo → n8n calls should bypass VPN
       # Comma-separated list of subnets/IPs that should bypass VPN routing
       - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/24,210.0.222.186/32
     sysctls:
@@ -47,6 +51,47 @@ services:
       retries: 5
       start_period: 120s
 
+  # Separate gluetun instance for n8n - n8n needs VPN for OpenAI access
+  gluetun-n8n:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun-n8n
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - TZ=Etc/UTC
+      - VPN_SERVICE_PROVIDER=surfshark
+      - VPN_TYPE=openvpn
+      - OPENVPN_USER=${OPENVPN_USER}          # Your Surfshark OpenVPN username
+      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}  # Your Surfshark OpenVPN password
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-Taiwan}  # Optional: keep Taiwan or change
+      # DNS configuration - use Google DNS for reliable resolution
+      - DNS=8.8.8.8,8.8.4.4
+      - DNS_KEEP_NAMESERVER=off
+      # Health check target
+      - HEALTH_TARGET_ADDRESS=cloudflare.com:443
+      # OpenVPN verbosity for debugging (can be removed after confirming it works)
+      - OPENVPN_VERBOSITY=1
+      # n8n needs VPN for OpenAI - no bypass needed here
+      # n8n's outbound OpenAI calls will go through VPN
+    sysctls:
+      # TCP keepalive settings
+      - net.ipv4.tcp_keepalive_time=30
+      - net.ipv4.tcp_keepalive_intvl=10
+      - net.ipv4.tcp_keepalive_probes=5
+    ports:
+      - "${HOST_IP}:${PANEL_APP_PORT_HTTP}:5678"  # Expose n8n port through gluetun-n8n
+    networks:
+      - 1panel-network  # Connect to 1panel-network so other services can reach n8n
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget --spider --quiet --timeout=5 https://cloudflare.com || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
   travel-tip-demo:
     image: southerndocker800/travel-tip-demo:v1.6
     container_name: travel-tip-demo
@@ -62,6 +107,28 @@ services:
       - N8N_READ_TIMEOUT_SECONDS=7200  # 2 hours timeout for n8n requests (some take 45+ minutes)
       # No N8N_PROXY_URL needed - app connects directly to n8n.ssl-labs.ai which goes through your nginx proxy
     restart: unless-stopped
+
+  n8n:
+    container_name: n8n-flyagain-la
+    image: n8nio/n8n:2.2.1
+    depends_on:
+      gluetun-n8n:
+        condition: service_started
+    network_mode: service:gluetun-n8n  # Use gluetun-n8n network for VPN access to OpenAI
+    environment:
+      - N8N_PROXY_HOPS=1
+      - N8N_SECURE_COOKIE=true
+      - WEBHOOK_URL=https://fly-again-la.n8n.ssl-labs.ai
+    deploy:
+      resources:
+        limits:
+          cpus: 0
+          memory: 0
+    labels:
+      createdBy: Apps
+    volumes:
+      - ./n8n-data:/home/node/.n8n
+    restart: always
 
 volumes:
   open-webui-data:
