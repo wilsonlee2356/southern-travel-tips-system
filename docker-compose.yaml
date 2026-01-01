@@ -38,7 +38,8 @@ services:
       # tcp_keepalive_probes: number of probes before considering connection dead (default 9, set to 5)
       - net.ipv4.tcp_keepalive_probes=5
     ports:
-      - "8080:8080"
+      - "8081:8080"
+      - "5679:5678"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "sh", "-c", "wget --spider --quiet --timeout=5 https://cloudflare.com || exit 1"]
@@ -48,43 +49,43 @@ services:
       start_period: 120s
 
   # Separate gluetun instance for n8n - n8n needs VPN for OpenAI access
-  gluetun-n8n:
-    image: qmcgaw/gluetun:latest
-    container_name: gluetun-n8n
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    environment:
-      - TZ=Etc/UTC
-      - VPN_SERVICE_PROVIDER=surfshark
-      - VPN_TYPE=openvpn
-      - OPENVPN_USER=${OPENVPN_USER}          # Your Surfshark OpenVPN username
-      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}  # Your Surfshark OpenVPN password
-      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-Taiwan}  # Optional: keep Taiwan or change
-      # DNS configuration - use Google DNS for reliable resolution
-      - DNS=8.8.8.8,8.8.4.4
-      - DNS_KEEP_NAMESERVER=off
-      # Health check target
-      - HEALTH_TARGET_ADDRESS=cloudflare.com:443
-      # OpenVPN verbosity for debugging (can be removed after confirming it works)
-      - OPENVPN_VERBOSITY=1
-      # n8n needs VPN for OpenAI - no bypass needed here
-      # n8n's outbound OpenAI calls will go through VPN
-    sysctls:
-      # TCP keepalive settings
-      - net.ipv4.tcp_keepalive_time=30
-      - net.ipv4.tcp_keepalive_intvl=10
-      - net.ipv4.tcp_keepalive_probes=5
-    ports:
-      - "5678:5678"  # Expose n8n port through gluetun-n8n
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "sh", "-c", "wget --spider --quiet --timeout=5 https://cloudflare.com || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 120s
+  # gluetun-n8n:
+  #   image: qmcgaw/gluetun:latest
+  #   container_name: gluetun-n8n
+  #   cap_add:
+  #     - NET_ADMIN
+  #   devices:
+  #     - /dev/net/tun:/dev/net/tun
+  #   environment:
+  #     - TZ=Etc/UTC
+  #     - VPN_SERVICE_PROVIDER=surfshark
+  #     - VPN_TYPE=openvpn
+  #     - OPENVPN_USER=${OPENVPN_USER}          # Your Surfshark OpenVPN username
+  #     - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}  # Your Surfshark OpenVPN password
+  #     - SERVER_COUNTRIES=${SERVER_COUNTRIES:-Taiwan}  # Optional: keep Taiwan or change
+  #     # DNS configuration - use Google DNS for reliable resolution
+  #     - DNS=8.8.8.8,8.8.4.4
+  #     - DNS_KEEP_NAMESERVER=off
+  #     # Health check target
+  #     - HEALTH_TARGET_ADDRESS=cloudflare.com:443
+  #     # OpenVPN verbosity for debugging (can be removed after confirming it works)
+  #     - OPENVPN_VERBOSITY=1
+  #     # n8n needs VPN for OpenAI - no bypass needed here
+  #     # n8n's outbound OpenAI calls will go through VPN
+  #   sysctls:
+  #     # TCP keepalive settings
+  #     - net.ipv4.tcp_keepalive_time=30
+  #     - net.ipv4.tcp_keepalive_intvl=10
+  #     - net.ipv4.tcp_keepalive_probes=5
+  #   ports:
+  #     - "5678:5678"  # Expose n8n port through gluetun-n8n
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "sh", "-c", "wget --spider --quiet --timeout=5 https://cloudflare.com || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 120s
 
   travel-tip-demo:
     image: southerndocker800/travel-tip-demo:v1.6
@@ -99,6 +100,7 @@ services:
       - GOOGLE_FLIGHTS_API_KEY=${GOOGLE_FLIGHTS_API_KEY}
       - VITE_GOOGLE_FLIGHTS_API_KEY=${GOOGLE_FLIGHTS_API_KEY}
       - N8N_READ_TIMEOUT_SECONDS=7200  # 2 hours timeout for n8n requests (some take 45+ minutes)
+      - N8N_WEBHOOK_BASE_URL=https://fly-again-la.n8n.ssl-labs.ai/webhook/f56d4963-08b0-4c21-97c7-be28249e32d8/auto_search
       # No N8N_PROXY_URL needed - app connects directly to n8n.ssl-labs.ai which goes through your nginx proxy
     restart: unless-stopped
 
@@ -106,9 +108,9 @@ services:
     container_name: n8n-flyagain-la
     image: n8nio/n8n:2.2.1
     depends_on:
-      gluetun-n8n:
+      gluetun:
         condition: service_started
-    network_mode: service:gluetun-n8n  # Use gluetun-n8n network for VPN access to OpenAI
+    network_mode: service:gluetun # Use gluetun-n8n network for VPN access to OpenAI
     environment:
       - N8N_PROXY_HOPS=1
       - N8N_SECURE_COOKIE=true
