@@ -13,6 +13,8 @@
 	import UserMenu from '$lib/components/layout/Sidebar/UserMenu.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Sidebar from '$lib/components/icons/Sidebar.svelte';
+	import PhotoEditor from '$lib/components/photo-editor/PhotoEditor.svelte';
+	import PhotoPreviewModal from '$lib/components/photo-editor/PhotoPreviewModal.svelte';
 
 	// Tab state
 let activeTab = 'website-blog';
@@ -54,6 +56,12 @@ let activeTab = 'website-blog';
 	let showMobilePreview = false;
 	let hasFlightDataFromRedirect = false;
 	let previewAutoOpened = false;
+	
+	// Photo editor state
+	let showPhotoEditor = false;
+	let photoEditorImage = null;
+	let showPhotoPreview = false;
+	let previewImage = null;
 	
 	// Auto-open preview on mobile when redirected from flight-search
 	$: if ($mobile && hasFlightDataFromRedirect && !previewAutoOpened && !showMobilePreview) {
@@ -431,7 +439,40 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 		}
 	}
 
-	// Function to handle ticket screenshot upload
+	// Function to handle ticket screenshot button click - open photo editor
+	function handleTicketScreenshotClick() {
+		// If there's an existing image, use it; otherwise, allow user to upload
+		photoEditorImage = flightInfoImage;
+		showPhotoEditor = true;
+	}
+	
+	// Function to handle photo editor save
+	function handlePhotoEditorSave(event) {
+		flightInfoImage = event.detail.image;
+		console.log('Ticket screenshot saved from photo editor');
+		
+		// Update database if post is already saved
+		if (postSaved && currentPostId) {
+			updatePostInDatabase();
+		}
+		
+		showPhotoEditor = false;
+		photoEditorImage = null;
+	}
+	
+	// Function to handle photo editor preview
+	function handlePhotoEditorPreview(event) {
+		previewImage = event.detail.image;
+		showPhotoPreview = true;
+	}
+	
+	// Function to handle photo editor cancel
+	function handlePhotoEditorCancel() {
+		showPhotoEditor = false;
+		photoEditorImage = null;
+	}
+	
+	// Function to handle ticket screenshot upload (for drag and drop)
 	function handleTicketScreenshotUpload(event) {
 		const file = event.target.files?.[0];
 		if (!file) return;
@@ -448,16 +489,11 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 			return;
 		}
 		
-		// Convert to base64
+		// Convert to base64 and open photo editor
 		const reader = new FileReader();
-		reader.onload = async (e) => {
-			flightInfoImage = e.target.result;
-			console.log('Ticket screenshot uploaded:', file.name);
-			
-			// Update database if post is already saved
-			if (postSaved && currentPostId) {
-				await updatePostInDatabase();
-			}
+		reader.onload = (e) => {
+			photoEditorImage = e.target.result;
+			showPhotoEditor = true;
 		};
 		reader.onerror = () => {
 			alert('Error reading file');
@@ -485,16 +521,11 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 			return;
 		}
 		
-		// Convert to base64
+		// Convert to base64 and open photo editor
 		const reader = new FileReader();
-		reader.onload = async (e) => {
-			flightInfoImage = e.target.result;
-			console.log('Ticket screenshot uploaded via drag and drop:', file.name);
-			
-			// Update database if post is already saved
-			if (postSaved && currentPostId) {
-				await updatePostInDatabase();
-			}
+		reader.onload = (e) => {
+			photoEditorImage = e.target.result;
+			showPhotoEditor = true;
 		};
 		reader.onerror = () => {
 			alert('Error reading file');
@@ -728,7 +759,7 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 							<div
 								id="ticket-screenshot"
 								class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-gray-400 dark:hover:border-gray-500 transition cursor-pointer relative"
-								on:click={() => document.getElementById('ticket-screenshot-input').click()}
+								on:click={handleTicketScreenshotClick}
 								on:drop={handleTicketScreenshotDrop}
 								on:dragover={handleTicketScreenshotDragOver}
 							>
@@ -746,7 +777,7 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 										class="max-w-full max-h-64 mx-auto object-contain rounded"
 									/>
 									<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-										Click to change image or drag and drop
+										Click to edit image or drag and drop
 									</p>
 								{:else}
 								<svg
@@ -763,7 +794,7 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 									/>
 								</svg>
 								<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-									Click to upload ticket screenshot or drag and drop
+									Click to upload and edit ticket screenshot or drag and drop
 								</p>
 								<p class="text-xs text-gray-500 dark:text-gray-500">PNG, JPG, GIF up to 10MB</p>
 								{/if}
@@ -1620,3 +1651,18 @@ const formatHeaderWithDestination = (headerText, destination, fallback = 'Flight
 	</div>
 </div>
 {/if}
+
+<!-- Photo Editor -->
+<PhotoEditor
+	open={showPhotoEditor}
+	initialImage={photoEditorImage}
+	on:save={handlePhotoEditorSave}
+	on:preview={handlePhotoEditorPreview}
+	on:cancel={handlePhotoEditorCancel}
+/>
+
+<!-- Photo Preview Modal -->
+<PhotoPreviewModal
+	bind:open={showPhotoPreview}
+	image={previewImage}
+/>

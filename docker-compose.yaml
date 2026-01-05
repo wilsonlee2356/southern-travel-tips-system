@@ -88,7 +88,7 @@ services:
   #     start_period: 120s
 
   travel-tip-demo:
-    image: southerndocker800/travel-tip-demo:v1.6
+    image: southerndocker800/travel-tip-demo:v1.7s
     container_name: travel-tip-demo
     depends_on:
       gluetun:
