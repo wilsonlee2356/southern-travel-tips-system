@@ -2,6 +2,7 @@
 	import { onMount, createEventDispatcher } from 'svelte';
 	import PhotoEditorHeader from './components/PhotoEditorHeader.svelte';
 	import PhotoEditorToolbar from './components/PhotoEditorToolbar.svelte';
+	import PhotoEditorSubToolbar from './components/PhotoEditorSubToolbar.svelte';
 	import PhotoEditorFooter from './components/PhotoEditorFooter.svelte';
 	import PhotoEditorTextInput from './components/PhotoEditorTextInput.svelte';
 	import { canvasToImageCoordinates, getComponentAt, getResizeHandleAt, getResizeCursor, calculateContentBounds } from './utils/canvasUtils.js';
@@ -28,6 +29,8 @@
 	let dragOffset = { x: 0, y: 0 };
 	let resizeStart = { x: 0, y: 0, width: 0, height: 0 };
 	let panStart = { x: 0, y: 0, offsetX: 0, offsetY: 0 };
+	let mouseDownPosition = { x: 0, y: 0 }; // Track initial mouse position to detect actual movement
+	let justFinishedDrag = false; // Track if we just finished a drag operation
 	let nextId = 1;
 	let animationFrameId = null;
 	
@@ -50,6 +53,9 @@
 	// Image upload state
 	let imageInput;
 	
+	// Sub toolbar state
+	let showColorPicker = false;
+	
 	$: if (open && initialImage) {
 		backgroundImage = initialImage;
 		backgroundImageLoaded = false;
@@ -70,7 +76,9 @@
 		// Reset zoom and pan when opening without initial image
 		zoomLevel = 1;
 		panOffset = { x: 0, y: 0 };
+		// Ensure canvas is initialized to 4000x4000
 		setTimeout(() => {
+			initializeCanvas();
 			updateCanvasTransform();
 		}, 0);
 	}
@@ -79,6 +87,23 @@
 		// Cleanup when editor closes
 		stopDragging();
 		isPanning = false;
+	}
+	
+	// Initialize canvas when it's bound and editor is open
+	// This ensures canvas is always 4000x4000 when there's no background image
+	$: if (open && canvas && !backgroundImage) {
+		// Use requestAnimationFrame to ensure DOM is ready
+		requestAnimationFrame(() => {
+			if (canvas && !backgroundImage && (canvas.width === 0 || canvas.height === 0 || canvas.width < 4000 || canvas.height < 4000)) {
+				canvas.width = 4000;
+				canvas.height = 4000;
+				if (!ctx) {
+					ctx = canvas.getContext('2d');
+				}
+				ctx.fillStyle = '#ffffff';
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+			}
+		});
 	}
 	
 	// Content bounds calculation is now handled by imported utility
@@ -136,6 +161,15 @@
 		if (minWidth === 0 && minHeight === 0) {
 			newWidth = Math.max(4000, newWidth);
 			newHeight = Math.max(4000, newHeight);
+		}
+		
+		// IMPORTANT: If canvas is already 4000x4000 and we're trying to make it smaller,
+		// don't resize it (prevents coordinate system issues)
+		if (minWidth === 0 && minHeight === 0 && canvas.width === 4000 && canvas.height === 4000) {
+			// Only resize if we need to make it larger, not smaller
+			if (newWidth <= 4000 && newHeight <= 4000) {
+				return; // Don't resize, keep it at 4000x4000
+			}
 		}
 		
 		// Only resize if needed
@@ -208,10 +242,22 @@
 	}
 	
 	function redrawCanvas() {
-		if (!canvas || !ctx) return;
+		if (!canvas) return;
+		
+		// Ensure context exists
+		if (!ctx) {
+			ctx = canvas.getContext('2d');
+		}
+		if (!ctx) return;
 		
 		// Resize canvas to fit content first
 		resizeCanvasToContent();
+		
+		// Ensure context is still valid after resize
+		if (!ctx) {
+			ctx = canvas.getContext('2d');
+		}
+		if (!ctx) return;
 		
 		// Clear canvas
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -368,10 +414,10 @@
 					y: component.y * baseScaleY
 				};
 				
-				// Set text input size based on measured text (accounting for scale and zoom)
+				// Set text input size based on measured text (container will apply zoom transform)
 				textInputSize = {
-					width: Math.max(200 * zoomLevel, maxWidth * baseScaleX * zoomLevel),
-					height: Math.max(30 * zoomLevel, height * baseScaleY * zoomLevel)
+					width: Math.max(200 * baseScaleX, maxWidth * baseScaleX),
+					height: Math.max(30 * baseScaleY, height * baseScaleY)
 				};
 			} else {
 				// Fallback if context not available
@@ -385,8 +431,8 @@
 				};
 				
 				textInputSize = {
-					width: Math.max(200 * zoomLevel, component.width * baseScaleX * zoomLevel),
-					height: Math.max(30 * zoomLevel, component.height * baseScaleY * zoomLevel)
+					width: Math.max(200 * baseScaleX, component.width * baseScaleX),
+					height: Math.max(30 * baseScaleY, component.height * baseScaleY)
 				};
 			}
 			
@@ -406,7 +452,28 @@
 	}
 	
 	function handleCanvasClick(event) {
+		// Don't handle click if we're currently dragging/resizing
 		if (!canvas || isDragging || isResizing) return;
+		
+		// If we just finished a drag operation, don't process click to prevent deselection
+		if (justFinishedDrag) {
+			justFinishedDrag = false;
+			return;
+		}
+		
+		// If we just finished a drag operation (mouse moved), don't process click
+		// This prevents deselection when clicking on an already-selected component
+		// Check if mouse actually moved during mousedown (indicating a drag, not just a click)
+		if (mouseDownPosition.x !== 0 || mouseDownPosition.y !== 0) {
+			const moved = Math.abs(event.clientX - mouseDownPosition.x) > 5 || Math.abs(event.clientY - mouseDownPosition.y) > 5;
+			if (moved) {
+				// Reset tracking
+				mouseDownPosition = { x: 0, y: 0 };
+				return;
+			}
+			// Reset tracking for next time
+			mouseDownPosition = { x: 0, y: 0 };
+		}
 		
 		// If text input is visible and has content, submit it first
 		if (textInputVisible) {
@@ -450,17 +517,49 @@
 		}
 		
 		if (activeTool === 'text') {
+			// Ensure canvas is properly initialized to 4000x4000 before creating text
+			// This prevents coordinate calculation issues when canvas is at wrong size
+			// Force initialization if canvas is not at correct size
+			if (!backgroundImage) {
+				if (canvas.width < 4000 || canvas.height < 4000 || canvas.width === 0 || canvas.height === 0) {
+					canvas.width = 4000;
+					canvas.height = 4000;
+					if (!ctx) {
+						ctx = canvas.getContext('2d');
+					}
+					ctx.fillStyle = '#ffffff';
+					ctx.fillRect(0, 0, canvas.width, canvas.height);
+				}
+			}
+			
+			// Set default text input style FIRST (before calculating size)
+			textInputStyle = {
+				fontSize: 24,
+				fontFamily: 'Arial',
+				color: '#000000'
+			};
+			
 			// Add text at click position
 			// IMPORTANT: Don't call redrawCanvas() here as it might resize the canvas
 			// and change scaleX/scaleY, causing coordinate mismatch
 			// Convert canvas coordinates to container-local coordinates for text input positioning
 			// The text input is positioned relative to the canvas container, which has transform applied
 			const rect = canvas.getBoundingClientRect();
-			// rect.width already includes zoom, so we need to extract the base scale
-			// rect.width = canvas.width * baseScale * zoomLevel
-			// So baseScale = rect.width / (canvas.width * zoomLevel)
-			const baseScaleX = rect.width / (canvas.width * zoomLevel);
-			const baseScaleY = rect.height / (canvas.height * zoomLevel);
+			// rect.width is the displayed width (after transform)
+			// The displayed scale is: rect.width / canvas.width (this includes zoom)
+			// But we need the base scale (without zoom) for container-local coordinates
+			// baseScale = rect.width / (canvas.width * zoomLevel)
+			// IMPORTANT: Use expected canvas size (4000x4000) when there's no background image,
+			// not the actual canvas.width which might be wrong
+			const expectedCanvasWidth = backgroundImage && backgroundImageLoaded && cachedBackgroundImage 
+				? cachedBackgroundImage.width 
+				: 4000;
+			const expectedCanvasHeight = backgroundImage && backgroundImageLoaded && cachedBackgroundImage 
+				? cachedBackgroundImage.height 
+				: 4000;
+			
+			const baseScaleX = rect.width / (expectedCanvasWidth * zoomLevel);
+			const baseScaleY = rect.height / (expectedCanvasHeight * zoomLevel);
 			
 			// The canvas container has transform: translate(panOffset) scale(zoomLevel)
 			// So we need to convert canvas coordinates to container-local coordinates
@@ -472,18 +571,73 @@
 			};
 			
 			// Set default text input size (will adjust as user types)
-			// Size needs to account for zoom since container transform affects it
-			textInputSize = {
-				width: 200 * zoomLevel,
-				height: 30 * zoomLevel
-			};
+			// The text input is inside the container which has scale(zoomLevel)
+			// So we need to set the size in container-local coordinates
+			// Ensure canvas context exists for measuring
+			if (!ctx && canvas) {
+				ctx = canvas.getContext('2d');
+			}
 			
-			// Set default text input style
-			textInputStyle = {
-				fontSize: 24,
-				fontFamily: 'Arial',
-				color: '#000000'
-			};
+			// Measure an empty string to get the minimum size
+			// Use a much larger minimum size for better UX, but ensure it matches rendered text when content is added
+			if (ctx) {
+				const fontSize = textInputStyle.fontSize || 24;
+				const fontFamily = textInputStyle.fontFamily || 'Arial';
+				ctx.font = `${fontSize}px ${fontFamily}`;
+				// Use a much larger minimum size for empty text to make it very usable
+				// When text is typed, the on:input handler will adjust to match the actual text size
+				const emptyWidth = fontSize * 20; // Much larger minimum width for empty text (comfortable size)
+				const emptyHeight = fontSize * 4; // Much larger minimum height for empty text
+				
+				// Set initial size with a minimum that's very comfortable to use
+				// The size will adjust dynamically as user types to match the actual text
+				textInputSize = {
+					width: emptyWidth * baseScaleX,
+					height: emptyHeight * baseScaleY
+				};
+			} else {
+				// Fallback if context not available - use larger defaults
+				const fontSize = textInputStyle.fontSize || 24;
+				const defaultCanvasWidth = fontSize * 20;
+				const defaultCanvasHeight = fontSize * 4;
+				textInputSize = {
+					width: defaultCanvasWidth * baseScaleX,
+					height: defaultCanvasHeight * baseScaleY
+				};
+			}
+			
+			// Use requestAnimationFrame to ensure canvas is rendered before showing text input
+			// This helps ensure accurate size calculations, especially on first text creation
+			requestAnimationFrame(() => {
+				if (canvas && textInputVisible && !editingTextComponent) {
+					// Recalculate size after canvas is rendered (only for new text, not editing)
+					// Use the same calculation as the initial size to maintain consistency
+					const rect = canvas.getBoundingClientRect();
+					const expectedCanvasWidth = backgroundImage && backgroundImageLoaded && cachedBackgroundImage 
+						? cachedBackgroundImage.width 
+						: 4000;
+					const expectedCanvasHeight = backgroundImage && backgroundImageLoaded && cachedBackgroundImage 
+						? cachedBackgroundImage.height 
+						: 4000;
+					const baseScaleX = rect.width / (expectedCanvasWidth * zoomLevel);
+					const baseScaleY = rect.height / (expectedCanvasHeight * zoomLevel);
+					
+					if (ctx) {
+						const fontSize = textInputStyle.fontSize || 24;
+						const fontFamily = textInputStyle.fontFamily || 'Arial';
+						ctx.font = `${fontSize}px ${fontFamily}`;
+						// Use the same calculation as initial size for consistency
+						const emptyWidth = fontSize * 20;
+						const emptyHeight = fontSize * 4;
+						
+						// Match the initial size calculation
+						textInputSize = {
+							width: emptyWidth * baseScaleX,
+							height: emptyHeight * baseScaleY
+						};
+					}
+				}
+			});
 			
 			textInputVisible = true;
 			textInput = '';
@@ -497,13 +651,20 @@
 		} else {
 			// Select component
 			const component = getComponentAt(components, x, y);
-			selectedComponent = component;
-			redrawCanvas();
+			// Only update selection if it's different from current selection
+			// This prevents flickering when clicking on an already-selected component
+			if (component !== selectedComponent) {
+				selectedComponent = component;
+				redrawCanvas();
+			}
 		}
 	}
 	
 	function stopDragging() {
 		if (isDragging || isResizing || isPanning) {
+			// Mark that we just finished a drag operation (if it was actually a drag, not just a click)
+			const wasDragging = isDragging || isResizing;
+			
 			// Remove global listeners
 			window.removeEventListener('mousemove', handleWindowMouseMove);
 			window.removeEventListener('mouseup', handleWindowMouseUp);
@@ -519,6 +680,16 @@
 			if (canvas) {
 				canvas.style.cursor = 'default';
 			}
+			
+			// Set flag to prevent click handler from deselecting after drag
+			if (wasDragging) {
+				justFinishedDrag = true;
+				// Clear flag after a short delay to allow click event to be ignored
+				setTimeout(() => {
+					justFinishedDrag = false;
+				}, 50);
+			}
+			
 			// Final redraw to ensure everything is in place
 			redrawCanvas();
 		}
@@ -526,6 +697,9 @@
 	
 	function handleCanvasMouseDown(event) {
 		if (!canvas || textInputVisible) return;
+		
+		// Track initial mouse position to detect if this is a click or drag
+		mouseDownPosition = { x: event.clientX, y: event.clientY };
 		
 		// Clean up any previous drag state first
 		stopDragging();
@@ -705,7 +879,41 @@
 	function handleWindowMouseUp(event) {
 		event.preventDefault();
 		event.stopPropagation();
-		stopDragging();
+		
+		// Check if mouse actually moved (indicating a drag, not just a click)
+		const moved = mouseDownPosition.x !== 0 && mouseDownPosition.y !== 0 && 
+			(Math.abs(event.clientX - mouseDownPosition.x) > 5 || Math.abs(event.clientY - mouseDownPosition.y) > 5);
+		
+		// Only stop dragging if we actually moved the mouse (not just a click)
+		// This prevents deselection when clicking on an already-selected component
+		if (isDragging || isResizing) {
+			if (moved || isResizing) {
+				stopDragging();
+			} else {
+				// Just a click, clean up the drag state but keep selection
+				isDragging = false;
+				isResizing = false;
+				resizeHandle = null;
+				window.removeEventListener('mousemove', handleWindowMouseMove);
+				window.removeEventListener('mouseup', handleWindowMouseUp);
+				if (animationFrameId) {
+					cancelAnimationFrame(animationFrameId);
+					animationFrameId = null;
+				}
+				if (canvas) {
+					canvas.style.cursor = 'default';
+				}
+				// Don't reset mouseDownPosition yet - let handleCanvasClick check it
+			}
+		} else {
+			stopDragging();
+		}
+		
+		// Reset mouse position tracking after a short delay to allow handleCanvasClick to check it
+		// If it was a drag, we don't want handleCanvasClick to process the click
+		setTimeout(() => {
+			mouseDownPosition = { x: 0, y: 0 };
+		}, 50);
 	}
 	
 	function handleCanvasMouseMove(event) {
@@ -867,16 +1075,22 @@
 			editingTextComponent = null;
 		} else {
 			// Create new text component
-			// IMPORTANT: Calculate coordinates using the CURRENT canvas size BEFORE any potential resize
+			// IMPORTANT: Calculate coordinates using the EXPECTED canvas size (4000x4000 when no background)
+			// not the actual canvas.width which might be wrong
 			// Convert container-local coordinates back to canvas coordinates
 			const rect = canvas.getBoundingClientRect();
-			const currentCanvasWidth = canvas.width;
-			const currentCanvasHeight = canvas.height;
+			// Use expected canvas size, not actual canvas.width which might be wrong
+			const expectedCanvasWidth = backgroundImage && backgroundImageLoaded && cachedBackgroundImage 
+				? cachedBackgroundImage.width 
+				: 4000;
+			const expectedCanvasHeight = backgroundImage && backgroundImageLoaded && cachedBackgroundImage 
+				? cachedBackgroundImage.height 
+				: 4000;
 			// rect.width already includes zoom, so we need to extract the base scale
 			// rect.width = canvas.width * baseScale * zoomLevel
 			// So baseScale = rect.width / (canvas.width * zoomLevel)
-			const baseScaleX = rect.width / (currentCanvasWidth * zoomLevel);
-			const baseScaleY = rect.height / (currentCanvasHeight * zoomLevel);
+			const baseScaleX = rect.width / (expectedCanvasWidth * zoomLevel);
+			const baseScaleY = rect.height / (expectedCanvasHeight * zoomLevel);
 			
 			// textInputPosition is in container-local coordinates (x * baseScaleX, y * baseScaleY)
 			// Convert back to canvas coordinates: container-local / baseScale
@@ -982,6 +1196,53 @@
 				onImageClick={handleImageButtonClick}
 				onTextClick={handleTextButtonClick}
 				onDeleteClick={handleDelete}
+			/>
+			
+			<!-- Sub Toolbar (shows when component is selected) -->
+			<PhotoEditorSubToolbar
+				selectedComponent={selectedComponent}
+				bind:showColorPicker
+				on:updateSize={(e) => {
+					if (selectedComponent) {
+						selectedComponent.width = e.detail.width;
+						selectedComponent.height = e.detail.height;
+						redrawCanvas();
+					}
+				}}
+				on:updateColor={(e) => {
+					if (selectedComponent && selectedComponent.type === 'text') {
+						// Update the color property - ensure it's a valid color string
+						const newColor = e.detail.color || '#000000';
+						// Find the component in the array and update it
+						const index = components.indexOf(selectedComponent);
+						if (index !== -1) {
+							// Update the component's color directly (both references point to same object)
+							components[index].color = newColor;
+							selectedComponent.color = newColor;
+							// Force immediate redraw canvas to show the color change
+							redrawCanvas();
+						}
+					}
+				}}
+				on:updateFontSize={(e) => {
+					if (selectedComponent && selectedComponent.type === 'text') {
+						selectedComponent.fontSize = e.detail.fontSize;
+						// Recalculate text dimensions based on new font size
+						if (ctx && selectedComponent.text) {
+							ctx.font = `${e.detail.fontSize}px ${selectedComponent.fontFamily || 'Arial'}`;
+							const lines = selectedComponent.text.split('\n');
+							const widths = lines.map(line => ctx.measureText(line).width);
+							const maxWidth = widths.length > 0 ? Math.max(...widths) : e.detail.fontSize * 2;
+							const height = lines.length > 0 ? lines.length * e.detail.fontSize * 1.2 : e.detail.fontSize * 1.2;
+							selectedComponent.width = maxWidth;
+							selectedComponent.height = height;
+						}
+						redrawCanvas();
+					}
+				}}
+				on:toggleColorPicker={(e) => {
+					showColorPicker = e.detail.show;
+				}}
 			/>
 			
 			<!-- Canvas Container -->

@@ -46,7 +46,9 @@ export function drawSelectionBox(ctx, component) {
 export function drawTextComponent(ctx, component) {
 	if (!ctx) return;
 	
-	ctx.fillStyle = component.color || '#000000';
+	// Ensure color is set correctly - use the component's color or default to black
+	const color = component.color || '#000000';
+	ctx.fillStyle = color;
 	ctx.font = `${component.fontSize || 24}px ${component.fontFamily || 'Arial'}`;
 	ctx.textAlign = 'left';
 	ctx.textBaseline = 'top';

@@ -1,205 +1,461 @@
-root@ssllab1-MS-A2:~/git_clone/southern-travel-tips-system# docker compose up -d
-[+] up 3/3
- ✔ Network southern-travel-tips-system_default Created                                                             0.1s
- ✔ Container gluetun                           Created                                                             0.0s
- ✔ Container travel-tip-demo                   Created                                                             0.0s
-root@ssllab1-MS-A2:~/git_clone/southern-travel-tips-system# docker exec gluetun nslookup www.searchapi.io
-;; connection timed out; no servers could be reached
-
-nslookup: write to '1.1.1.1': Operation not permitted
-root@ssllab1-MS-A2:~/git_clone/southern-travel-tips-system# docker exec gluetun curl -s ifconfig.me
-OCI runtime exec failed: exec failed: unable to start container process: exec: "curl": executable file not found in $PATH
-root@ssllab1-MS-A2:~/git_clone/southern-travel-tips-system# docker logs gluetun
-========================================
-========================================
-=============== gluetun ================
-========================================
-=========== Made with ❤️ by ============
-======= https://github.com/qdm12 =======
-========================================
-========================================
-
-Running version latest built on 2025-12-24T04:08:00.056Z (commit 9833302)
-
-🔧 Need help? ☕ Discussion? https://github.com/qdm12/gluetun/discussions/new/choose
-🐛 Bug? ✨ New feature? https://github.com/qdm12/gluetun/issues/new/choose
-💻 Email? quentin.mcgaw@gmail.com
-💰 Help me? https://www.paypal.me/qmcgaw https://github.com/sponsors/qdm12
-2025-12-24T09:25:41Z INFO [routing] default route found: interface eth0, gateway 172.19.0.1, assigned IP 172.19.0.2 and family v4
-2025-12-24T09:25:41Z INFO [routing] local ethernet link found: eth0
-2025-12-24T09:25:41Z INFO [routing] local ipnet found: 172.19.0.0/16
-2025-12-24T09:25:41Z INFO [firewall] enabling...
-2025-12-24T09:25:41Z INFO [firewall] enabled successfully
-2025-12-24T09:25:41Z INFO [storage] creating /gluetun/servers.json with 20886 hardcoded servers
-2025-12-24T09:25:41Z INFO Alpine version: 3.22.2
-2025-12-24T09:25:41Z INFO OpenVPN 2.5 version: 2.5.10
-2025-12-24T09:25:41Z INFO OpenVPN 2.6 version: 2.6.16
-2025-12-24T09:25:41Z INFO IPtables version: v1.8.11
-2025-12-24T09:25:41Z INFO Settings summary:
-├── VPN settings:
-|   ├── VPN provider settings:
-|   |   ├── Name: surfshark
-|   |   └── Server selection settings:
-|   |       ├── VPN type: openvpn
-|   |       ├── Countries: taiwan
-|   |       └── OpenVPN server selection settings:
-|   |           └── Protocol: UDP
-|   └── OpenVPN settings:
-|       ├── OpenVPN version: 2.6
-|       ├── User: [set]
-|       ├── Password: [set]
-|       ├── Network interface: tun0
-|       ├── Run OpenVPN as: root
-|       └── Verbosity level: 1
-├── DNS settings:
-|   ├── Keep existing nameserver(s): no
-|   ├── DNS server address to use: 1.1.1.1
-|   ├── DNS forwarder server enabled: yes
-|   ├── Upstream resolver type: dot
-|   ├── Upstream resolvers:
-|   |   └── cloudflare
-|   ├── Caching: yes
-|   ├── IPv6: no
-|   ├── Update period: every 24h0m0s
-|   └── DNS filtering settings:
-|       ├── Block malicious: yes
-|       ├── Block ads: no
-|       └── Block surveillance: no
-├── Firewall settings:
-|   └── Enabled: yes
-├── Log settings:
-|   └── Log level: info
-├── Health settings:
-|   ├── Server listening address: 127.0.0.1:9999
-|   ├── Target addresses:
-|   |   ├── cloudflare.com:443
-|   |   └── github.com:443
-|   ├── Small health check type: ICMP echo request
-|   |   └── ICMP target IPs:
-|   |       ├── 1.1.1.1
-|   |       └── 8.8.8.8
-|   └── Restart VPN on healthcheck failure: yes
-├── Shadowsocks server settings:
-|   └── Enabled: no
-├── HTTP proxy settings:
-|   └── Enabled: no
-├── Control server settings:
-|   ├── Listening address: :8000
-|   ├── Logging: yes
-|   └── Authentication file path: /gluetun/auth/config.toml
-├── Storage settings:
-|   └── Filepath: /gluetun/servers.json
-├── OS Alpine settings:
-|   ├── Process UID: 1000
-|   ├── Process GID: 1000
-|   └── Timezone: etc/utc
-├── Public IP settings:
-|   ├── IP file path: /tmp/gluetun/ip
-|   ├── Public IP data base API: ipinfo
-|   └── Public IP data backup APIs:
-|       ├── ifconfigco
-|       ├── ip2location
-|       └── cloudflare
-└── Version settings:
-    └── Enabled: yes
-2025-12-24T09:25:41Z WARN DNS address is set to 1.1.1.1 so the local forwarding DNS server will not be used. The default value changed to 127.0.0.1 so it uses the internal DNS server. If this server fails to start, the IPv4 address of the first plaintext DNS server corresponding to the first DNS provider chosen is used.
-2025-12-24T09:25:41Z INFO [routing] default route found: interface eth0, gateway 172.19.0.1, assigned IP 172.19.0.2 and family v4
-2025-12-24T09:25:41Z INFO [routing] adding route for 0.0.0.0/0
-2025-12-24T09:25:41Z INFO [firewall] setting allowed subnets...
-2025-12-24T09:25:41Z INFO [routing] default route found: interface eth0, gateway 172.19.0.1, assigned IP 172.19.0.2 and family v4
-2025-12-24T09:25:41Z INFO [healthcheck] listening on 127.0.0.1:9999
-2025-12-24T09:25:41Z INFO [dns] using plaintext DNS at address 1.1.1.1
-2025-12-24T09:25:41Z INFO [http server] http server listening on [::]:8000
-2025-12-24T09:25:41Z INFO [firewall] allowing VPN connection...
-2025-12-24T09:25:41Z INFO [openvpn] OpenVPN 2.6.16 x86_64-alpine-linux-musl [SSL (OpenSSL)] [LZO] [LZ4] [EPOLL] [MH/PKTINFO] [AEAD]
-2025-12-24T09:25:41Z INFO [openvpn] library versions: OpenSSL 3.5.4 30 Sep 2025, LZO 2.10
-2025-12-24T09:25:41Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
-2025-12-24T09:25:41Z INFO [openvpn] UDPv4 link local: (not bound)
-2025-12-24T09:25:41Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
-2025-12-24T09:25:41Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
-2025-12-24T09:25:42Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
-
-Your credentials might be wrong 🤨
-
-
-2025-12-24T09:25:42Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
-2025-12-24T09:25:52Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
-2025-12-24T09:25:52Z INFO [openvpn] UDPv4 link local: (not bound)
-2025-12-24T09:25:52Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
-2025-12-24T09:25:53Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
-2025-12-24T09:25:54Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
-
-Your credentials might be wrong 🤨
-
-
-2025-12-24T09:25:54Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
-2025-12-24T09:26:04Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:04Z INFO [openvpn] UDPv4 link local: (not bound)
-2025-12-24T09:26:04Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:04Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:05Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
-
-Your credentials might be wrong 🤨
-
-
-2025-12-24T09:26:05Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
-2025-12-24T09:26:15Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:15Z INFO [openvpn] UDPv4 link local: (not bound)
-2025-12-24T09:26:15Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:15Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:16Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
-
-Your credentials might be wrong 🤨
-
-
-2025-12-24T09:26:16Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
-2025-12-24T09:26:26Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:26Z INFO [openvpn] UDPv4 link local: (not bound)
-2025-12-24T09:26:26Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:26Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:27Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
-
-Your credentials might be wrong 🤨
-
-
-2025-12-24T09:26:27Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
-2025-12-24T09:26:37Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:37Z INFO [openvpn] UDPv4 link local: (not bound)
-2025-12-24T09:26:37Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:37Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:38Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
-
-Your credentials might be wrong 🤨
-
-
-2025-12-24T09:26:38Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
-2025-12-24T09:26:48Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:48Z INFO [openvpn] UDPv4 link local: (not bound)
-2025-12-24T09:26:48Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:49Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
-2025-12-24T09:26:50Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
-
-Your credentials might be wrong 🤨
-
-
-2025-12-24T09:26:50Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
-2025-12-24T09:27:00Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
-2025-12-24T09:27:00Z INFO [openvpn] UDPv4 link local: (not bound)
-2025-12-24T09:27:00Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
-2025-12-24T09:27:00Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
-2025-12-24T09:27:01Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
-
-Your credentials might be wrong 🤨
-
-
-2025-12-24T09:27:01Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
-2025-12-24T09:27:11Z INFO [openvpn] TCP/UDP: Preserving recently used remote address: [AF_INET]45.144.227.37:1194
-2025-12-24T09:27:11Z INFO [openvpn] UDPv4 link local: (not bound)
-2025-12-24T09:27:11Z INFO [openvpn] UDPv4 link remote: [AF_INET]45.144.227.37:1194
-2025-12-24T09:27:11Z INFO [openvpn] [tw-tai-v065.prod.surfshark.com] Peer Connection Initiated with [AF_INET]45.144.227.37:1194
-2025-12-24T09:27:12Z ERROR [openvpn] AUTH: Received control message: AUTH_FAILED
-
-Your credentials might be wrong 🤨
-
-
-2025-12-24T09:27:12Z INFO [openvpn] SIGUSR1[soft,auth-failure] received, process restarting
+[PhotoEditor] handleCanvasClick - Creating new text: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 300, zoomLevel: 1, calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 556.7999877929688, canvasWidth: 300, canvasHeight: 150, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 3.711999918619792, calculatedBaseScaleY: 3.711999918619792, previousActualBaseScaleX: 3.711999918619792, previousActualBaseScaleY: 3.711999918619792}
+PhotoEditor.svelte:473 [PhotoEditor] handleCanvasClick - Creating new text: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:26 [PhotoEditorTextInput] Initial calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1, …}
+PhotoEditorTextInput.svelte:38 [PhotoEditorTextInput] Calculated scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, isValidX: true, isValidY: true}
+PhotoEditorTextInput.svelte:109 [PhotoEditorTextInput] Render values: {rectWidth: 1113.5999755859375, canvasWidth: 4000, zoomLevel: 1, calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, …}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
+PhotoEditorTextInput.svelte:59 [PhotoEditorTextInput] After render calculation: {rectWidth: 1113.5999755859375, rectHeight: 1113.5999755859375, canvasWidth: 4000, canvasHeight: 4000, zoomLevel: 1}
+PhotoEditorTextInput.svelte:70 [PhotoEditorTextInput] After render scales: {calculatedBaseScaleX: 0.2783999938964844, calculatedBaseScaleY: 0.2783999938964844, previousActualBaseScaleX: 0.2783999938964844, previousActualBaseScaleY: 0.2783999938964844}
