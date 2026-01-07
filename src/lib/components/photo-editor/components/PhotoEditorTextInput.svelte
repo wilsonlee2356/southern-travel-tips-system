@@ -16,7 +16,7 @@
 	
 	const dispatch = createEventDispatcher();
 	
-	let textInputElement;
+	export let textInputElement;
 	let actualBaseScaleX = 0.2; // Default to a reasonable scale (e.g., 4000px canvas displayed at 800px = 0.2)
 	let actualBaseScaleY = 0.2;
 	

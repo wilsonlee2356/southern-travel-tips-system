@@ -1198,52 +1198,61 @@
 				onDeleteClick={handleDelete}
 			/>
 			
-			<!-- Sub Toolbar (shows when component is selected) -->
-			<PhotoEditorSubToolbar
-				selectedComponent={selectedComponent}
-				bind:showColorPicker
-				on:updateSize={(e) => {
-					if (selectedComponent) {
-						selectedComponent.width = e.detail.width;
-						selectedComponent.height = e.detail.height;
-						redrawCanvas();
-					}
-				}}
-				on:updateColor={(e) => {
-					if (selectedComponent && selectedComponent.type === 'text') {
-						// Update the color property - ensure it's a valid color string
-						const newColor = e.detail.color || '#000000';
-						// Find the component in the array and update it
-						const index = components.indexOf(selectedComponent);
-						if (index !== -1) {
-							// Update the component's color directly (both references point to same object)
-							components[index].color = newColor;
-							selectedComponent.color = newColor;
-							// Force immediate redraw canvas to show the color change
+			<!-- Sub Toolbar (shows when component is selected OR when creating new text) -->
+			{#if selectedComponent || (textInputVisible && !editingTextComponent)}
+				<PhotoEditorSubToolbar
+					selectedComponent={textInputVisible && !editingTextComponent ? { type: 'text', color: textInputStyle.color, fontSize: textInputStyle.fontSize } : selectedComponent}
+					bind:showColorPicker
+					isCreatingText={textInputVisible && !editingTextComponent}
+					on:updateSize={(e) => {
+						if (selectedComponent) {
+							selectedComponent.width = e.detail.width;
+							selectedComponent.height = e.detail.height;
 							redrawCanvas();
 						}
-					}
-				}}
-				on:updateFontSize={(e) => {
-					if (selectedComponent && selectedComponent.type === 'text') {
-						selectedComponent.fontSize = e.detail.fontSize;
-						// Recalculate text dimensions based on new font size
-						if (ctx && selectedComponent.text) {
-							ctx.font = `${e.detail.fontSize}px ${selectedComponent.fontFamily || 'Arial'}`;
-							const lines = selectedComponent.text.split('\n');
-							const widths = lines.map(line => ctx.measureText(line).width);
-							const maxWidth = widths.length > 0 ? Math.max(...widths) : e.detail.fontSize * 2;
-							const height = lines.length > 0 ? lines.length * e.detail.fontSize * 1.2 : e.detail.fontSize * 1.2;
-							selectedComponent.width = maxWidth;
-							selectedComponent.height = height;
+					}}
+					on:updateColor={(e) => {
+						if (textInputVisible && !editingTextComponent) {
+							// Updating color for text being created - update textInputStyle
+							textInputStyle = { ...textInputStyle, color: e.detail.color || '#000000' };
+						} else if (selectedComponent && selectedComponent.type === 'text') {
+							// Update the color property - ensure it's a valid color string
+							const newColor = e.detail.color || '#000000';
+							// Find the component in the array and update it
+							const index = components.indexOf(selectedComponent);
+							if (index !== -1) {
+								// Update the component's color directly (both references point to same object)
+								components[index].color = newColor;
+								selectedComponent.color = newColor;
+								// Force immediate redraw canvas to show the color change
+								redrawCanvas();
+							}
 						}
-						redrawCanvas();
-					}
-				}}
-				on:toggleColorPicker={(e) => {
-					showColorPicker = e.detail.show;
-				}}
-			/>
+					}}
+					on:updateFontSize={(e) => {
+						if (textInputVisible && !editingTextComponent) {
+							// Updating font size for text being created - update textInputStyle
+							textInputStyle = { ...textInputStyle, fontSize: e.detail.fontSize };
+						} else if (selectedComponent && selectedComponent.type === 'text') {
+							selectedComponent.fontSize = e.detail.fontSize;
+							// Recalculate text dimensions based on new font size
+							if (ctx && selectedComponent.text) {
+								ctx.font = `${e.detail.fontSize}px ${selectedComponent.fontFamily || 'Arial'}`;
+								const lines = selectedComponent.text.split('\n');
+								const widths = lines.map(line => ctx.measureText(line).width);
+								const maxWidth = widths.length > 0 ? Math.max(...widths) : e.detail.fontSize * 2;
+								const height = lines.length > 0 ? lines.length * e.detail.fontSize * 1.2 : e.detail.fontSize * 1.2;
+								selectedComponent.width = maxWidth;
+								selectedComponent.height = height;
+							}
+							redrawCanvas();
+						}
+					}}
+					on:toggleColorPicker={(e) => {
+						showColorPicker = e.detail.show;
+					}}
+				/>
+			{/if}
 			
 			<!-- Canvas Container -->
 			<div class="flex-1 overflow-auto p-4 bg-gray-100 dark:bg-gray-900 relative" on:wheel={handleCanvasWheel}>
@@ -1275,6 +1284,7 @@
 						canvas={canvas}
 						ctx={ctx}
 						editingTextComponent={editingTextComponent}
+						bind:textInputElement={textInputElement}
 						onInput={(newSize) => {
 							textInputSize = newSize;
 						}}
@@ -1291,22 +1301,70 @@
 								activeTool = null;
 							}
 						}}
-						onBlur={() => {
-							// Auto-submit when textarea loses focus if text has content
-							if (textInput.trim()) {
-								handleTextSubmit();
-							} else {
-								// If editing and text becomes empty, remove the component
-								if (editingTextComponent) {
-									components = components.filter(c => c !== editingTextComponent);
-									selectedComponent = null;
+						onBlur={(e) => {
+							// Check if the blur is caused by clicking on the sub toolbar
+							// Use setTimeout to check where focus moved after blur
+							setTimeout(() => {
+								const activeElement = document.activeElement;
+								
+								// Check if a select dropdown is currently open
+								// When a select is open, the activeElement might be the body or the select itself
+								const selectElements = document.querySelectorAll('select');
+								let selectIsOpen = false;
+								for (const select of selectElements) {
+									// Check if select has focus or if it's the active element
+									if (document.activeElement === select || select === activeElement) {
+										selectIsOpen = true;
+										break;
+									}
 								}
-								textInputVisible = false;
-								textInput = '';
-								activeTool = null;
-								editingTextComponent = null;
-								redrawCanvas();
-							}
+								
+								// If select is open, don't do anything - let it work normally
+								if (selectIsOpen && textInputVisible && !editingTextComponent) {
+									return;
+								}
+								
+								// Check if focus moved to sub toolbar or any of its interactive elements
+								const isSubToolbarElement = activeElement && (
+									activeElement.closest?.('.sub-toolbar-container') ||
+									activeElement.closest?.('.color-picker-container') ||
+									(activeElement.tagName === 'INPUT' && activeElement.type === 'color') ||
+									activeElement.tagName === 'SELECT' ||
+									activeElement.tagName === 'OPTION' ||
+									activeElement.tagName === 'LABEL'
+								);
+								
+								if (isSubToolbarElement && textInputVisible && !editingTextComponent) {
+									// Focus moved to sub toolbar while creating text
+									// If it's a SELECT or OPTION, don't refocus - let the dropdown stay open
+									if (activeElement.tagName === 'SELECT' || activeElement.tagName === 'OPTION') {
+										// Don't refocus when select is open - wait for it to close
+										// The select's blur handler in PhotoEditorSubToolbar will handle refocusing
+										return;
+									}
+									// For other elements, refocus text input
+									if (textInputElement) {
+										textInputElement.focus();
+									}
+									return;
+								}
+								
+								// Auto-submit when textarea loses focus if text has content
+								if (textInput.trim()) {
+									handleTextSubmit();
+								} else {
+									// If editing and text becomes empty, remove the component
+									if (editingTextComponent) {
+										components = components.filter(c => c !== editingTextComponent);
+										selectedComponent = null;
+									}
+									textInputVisible = false;
+									textInput = '';
+									activeTool = null;
+									editingTextComponent = null;
+									redrawCanvas();
+								}
+							}, 300);
 						}}
 					/>
 				</div>
